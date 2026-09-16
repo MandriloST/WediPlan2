@@ -140,6 +140,10 @@ produkciji). Klijent NE vidi token; svi pozivi idu s `credentials: "include"`. O
   redirect na frontend (samo relativni returnTo; open-redirect blokiran).
 - `GET  /api/me` → `MeDto` ili 401.
 
+**Slijedi (kraj Faze 3):** `POST /api/favorites/merge` (spoji localStorage favorite/plan u
+account nakon prijave), `GET/PUT /api/favorites`, `GET/PUT /api/budget-plans`. Frontend
+`lib/sync.ts` već zove `/api/favorites/merge` (za sada tiho podnosi 404).
+
 `MeDto`: `{ id, email, displayName?, emailConfirmed, roles[] }` (role: couple|provider|admin).
 Kontakti/tokeni/hashevi se NIKAD ne vraćaju.
 

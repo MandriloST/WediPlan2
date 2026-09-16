@@ -5,7 +5,7 @@
 > Uvijek provjeriti i stvarni `git log` — repo je izvor istine, ovo je sažetak.
 
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
-## Trenutna faza: **Faza 3 auth — BACKEND ✅ (2026-09-16)**; sljedeće: frontend auth UI (forme, magic/verify/reset stranice, useAuth store) + localStorage→account sync. Google/Resend rade čim se upišu ključevi.
+## Trenutna faza: **Faza 3 auth — BACKEND ✅ + FRONTEND UI ✅ (2026-09-16)**; preostaje SAMO localStorage→account sync (treba backend `/api/favorites`+`/api/budget-plans`). Google/Resend rade čim se upišu ključevi.
 ## (raniji redak faze:  **Faza 2 ✅ + D ✅ + C ✅ + geokod fix ✅ (2026-09-16)** → sljedeće: **Faza 3 (auth)**; treba odluka #5 (email — Resend). Preduvjet za Vercel nad pravim API-jem: hosting (#1). Odluke #14–#17 odobrene.
 
 ## Odluka #18 — GDPR: ✅ RIJEŠENO (2026-09-16, novi repo WediPlan2)
@@ -132,6 +132,40 @@ sitemap 3181 URL. Backend: kompilacija izmijenjenih datoteka uz stub EF površin
 s paketima i EF prijevod novih upita u SQL nad Postgresom — na vlasniku.
 
 **Otvoreno:** #18 HITNO; #1 hosting; #14–#16 potvrda; #17 u Fazi 5.
+
+---
+
+## Sesija 2026-09-16 (5) — Faza 3: auth FRONTEND UI ✅
+
+**Potvrda:** `using Microsoft.AspNetCore.Identity;` u AppDbContext (vlasnikov commit 82c0a57)
+je bio jedini nedostatak — očekivano, jer sandbox NuGet blokira pa `dotnet build` nije mogao
+uhvatiti import. Migracija Faza3Auth generirana i commitana (1d5cf17). Backend potvrđen radnim.
+
+**Dodano (frontend):**
+- `stores/auth.ts` (`useAuth`: user/providers/loading/bootstrap/logout/refresh; `authMessage`
+  HR poruke). Izvor istine = /api/me; store čuva samo kopiju (sesija je cookie).
+- `components/AuthBootstrap.tsx` (jedan /api/me pri boot-u) u layout uz Analytics.
+- `Header.tsx`: `UserMenu` — Prijava dugme (gost) ili avatar+ime+dropdown (favoriti/plan,
+  provider/admin linkovi po roli, odjava); ne trepće dok traje boot.
+- Stranice pod `/prijava`: glavna (LoginForm: lozinka + magic tab + Google gumb uvjetno),
+  `/registracija`, `/link` (magic consume), `/potvrda` (verify email), `/zaboravljena` (forgot),
+  `/reset`. Sve noindex, dinamičke, Suspense oko useSearchParams.
+- Komponente: LoginForm, RegisterForm, ForgotForm, ResetForm, TokenAction(+Client), AuthShell.
+- `lib/sync.ts`: migracija localStorage favorita/plana → account nakon prijave. Trenutno SIGURAN
+  no-op (POST /api/favorites/merge; 404 se tiho ignorira) jer backend favorite/plan endpointi
+  dolaze u zasebnom koraku — prijava NIKAD ne pada zbog synca.
+- CSS auth (kartica, tabovi, Google gumb, greške, spinner, user menu) — u skladu s vizualnim smjerom.
+
+**Verificirano:** tsc čist; `npm run build` prolazi (sve /prijava rute); **E2E u Chromiumu
+13/14** (jedini FAIL je tajming provjere URL-a — ručno potvrđeno da verify redirecta na /profil):
+gost vidi Prijava, registracija→verify→prijavljen+avatar, odjava, login lozinkom, kriva lozinka
+daje HR grešku, magic link (novi korisnik), forgot→reset→login novom lozinkom, reset bez tokena
+greška, next-redirect na traženu stranicu; 0 JS grešaka. Testirano protiv lažnog auth backenda
+(cookie sesija, magic/verify/reset tokeni).
+
+**Preostaje za Fazu 3 (kraj):** backend `/api/favorites` + `/api/budget-plans` (couple podaci u
+bazi) i popuna `lib/sync.ts` da merge localStorage→account stvarno radi. Tek time je DoD §5
+("favoriti/plan sinkronizirani") ispunjen.
 
 ---
 

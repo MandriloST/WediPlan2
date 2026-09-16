@@ -622,3 +622,83 @@ select option:checked {
 
 /* pin "na upit" — prigušen, da se razlikuje od objavljene cijene (§10.4) */
 .pin.upit { border-color: var(--border-strong); color: var(--muted); font-style: italic; font-weight: 600; box-shadow: 0 1px 4px rgba(33, 37, 44, 0.15); }
+
+/* ================================================================
+   Faza 3 — auth (prijava, registracija, magic/verify/reset)
+   ================================================================ */
+.auth-page { max-width: 440px; margin: 0 auto; padding: 40px 16px 60px; }
+.auth-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card);
+  box-shadow: var(--shadow-1); padding: 30px 28px;
+}
+.auth-logo {
+  display: inline-block; font-family: var(--font-display); font-weight: 700; letter-spacing: 0.02em;
+  font-size: 20px; color: var(--ink); margin-bottom: 14px;
+}
+.auth-logo .boxed { border: 2px solid var(--ink); padding: 0 4px; margin-left: 1px; }
+.auth-card h1 { font-family: var(--font-display); font-weight: 550; font-size: 26px; margin: 0 0 18px; }
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.auth-form label { display: flex; flex-direction: column; gap: 5px; font-size: 14px; font-weight: 600; }
+.auth-form input {
+  min-height: 44px; padding: 0 12px; font-size: 15px; font-weight: 400;
+  border: 1px solid var(--border-strong); border-radius: var(--r-ctrl); background: var(--surface);
+}
+.auth-form input:focus { outline: 2px solid var(--primary); outline-offset: 1px; border-color: var(--primary); }
+.auth-form .hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+.auth-form .btn-primary { margin-top: 4px; min-height: 46px; }
+.auth-link { font-size: 13.5px; color: var(--primary); align-self: flex-start; }
+
+.auth-tabs { display: flex; gap: 4px; background: var(--surface-2); border-radius: var(--r-ctrl); padding: 4px; margin-bottom: 16px; }
+.auth-tabs button {
+  flex: 1; min-height: 38px; border: 0; background: transparent; border-radius: calc(var(--r-ctrl) - 3px);
+  font-weight: 600; font-size: 13.5px; color: var(--muted); cursor: pointer;
+}
+.auth-tabs button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
+
+.btn-google {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+  min-height: 46px; border: 1px solid var(--border-strong); border-radius: var(--r-ctrl);
+  background: var(--surface); font-weight: 600; color: var(--ink);
+}
+.btn-google span { font-family: var(--font-display); font-weight: 700; color: #4285f4; font-size: 17px; }
+.auth-or { text-align: center; color: var(--muted); font-size: 13px; margin: 14px 0; position: relative; }
+.auth-or::before, .auth-or::after {
+  content: ""; position: absolute; top: 50%; width: 42%; height: 1px; background: var(--border);
+}
+.auth-or::before { left: 0; } .auth-or::after { right: 0; }
+
+.auth-error {
+  background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: var(--r-ctrl); padding: 10px 12px; font-size: 13.5px; margin-bottom: 14px;
+}
+.auth-sent { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.auth-sent p { margin: 0; }
+.auth-foot { text-align: center; margin-top: 18px; font-size: 14px; color: var(--muted); }
+.auth-foot a { color: var(--primary); font-weight: 600; }
+
+.spinner {
+  width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--primary);
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* header user menu */
+.user-menu { position: relative; }
+.user-btn {
+  display: flex; align-items: center; gap: 8px; background: transparent; border: 0; cursor: pointer;
+  padding: 4px; border-radius: var(--r-pill);
+}
+.user-btn .avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: #fff;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none;
+}
+.user-label {
+  font-size: 14px; font-weight: 600; color: var(--ink); max-width: 140px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.user-dropdown { right: 0; left: auto; min-width: 210px; }
+.user-dropdown button { width: 100%; text-align: left; background: transparent; border: 0; cursor: pointer; font: inherit; }
+.user-skel { width: 80px; height: 34px; border-radius: var(--r-pill); background: var(--surface-2); display: inline-block; }
+
+@media (max-width: 640px) { .user-label { display: none; } }
