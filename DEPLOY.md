@@ -51,6 +51,28 @@ Vercel projekt → Settings → Domains → Add → slijedi DNS upute (A/CNAME z
   sitemap bez API-ja sadrži samo kategorije/regije.
 - Dok backend nije hostan, **ne postavljaj** `API_URL` na Vercelu — preview ostaje na mocku.
 
+## Geokodiranje pri importu (koordinate gradova)
+
+Import geokodira grad → koordinate preko Nominatima (OpenStreetMap). Zahtijeva izlaz na
+`https://nominatim.openstreetmap.org` (rate limit 1 req/s; User-Agent je već postavljen —
+zamijeni kontakt e-mail u `Import/Geocoder.cs`).
+
+**Popravak 2026-09-16:** raniji upit je koristio naše interne "regije" ("Dalmacija",
+"Zagreb i okolica", "Kvarner"), koje OSM ne poznaje, pa je za Split/Zagreb/Rijeku i sve gradove
+tih regija vraćao prazno i trajno keširao kao `null`. Sada se regija preslikava u SLUŽBENU
+županiju (Split → Splitsko-dalmatinska županija), uz fallback na "grad, Hrvatska" i strukturirani
+`city=` upit. Složeni nazivi ("Split / Zagreb", "Zagreb (Sesvete)") se čiste na prvi grad.
+
+**Ako ti pinovi za Split/Zagreb ne rade nakon update-a:** stari `geocode-cache.json` je te
+gradove imao spremljene kao `null`. Null-ovi su u ovom commitu uklonjeni iz cachea, pa ih sljedeći
+import pokušava ponovno. Ako radiš sa svojim starijim cacheom, pokreni jednom:
+```
+dotnet run -- --import data/vendors-live.xlsx --geocode-retry
+```
+`--geocode-retry` ponovno pokušava SAMO ključeve koji su prije bili `null` (pozitivni pogodci se
+ne diraju, mreža se štedi). Prvi import ~3200 gradova traje (1 req/s + fallback upiti); rezultati
+se keširaju pa su idući importi brzi.
+
 ## Analitika (Zadatak C)
 
 - Bez `API_URL` eventi idu u mock rutu i odbacuju se (204). Za pregled što se šalje:

@@ -30,7 +30,7 @@ builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
 
 var app = builder.Build();
 
-// --- CLI način: `dotnet run -- --import <xlsx> [--dry-run] [--no-geocode]` ---
+// --- CLI način: `dotnet run -- --import <xlsx> [--dry-run] [--no-geocode] [--geocode-retry]` ---
 if (args.Contains("--import"))
 {
     await RunImportAsync(app, args);
@@ -59,12 +59,14 @@ static async Task RunImportAsync(WebApplication app, string[] args)
     var path = args.SkipWhile(a => a != "--import").Skip(1).FirstOrDefault();
     if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
     {
-        Console.Error.WriteLine("Upotreba: dotnet run -- --import <putanja.xlsx> [--dry-run] [--no-geocode]");
+        Console.Error.WriteLine("Upotreba: dotnet run -- --import <putanja.xlsx> [--dry-run] [--no-geocode] [--geocode-retry]");
         Environment.ExitCode = 1;
         return;
     }
     bool dryRun = args.Contains("--dry-run");
     bool noGeocode = args.Contains("--no-geocode");
+    // Ponovno pokušaj gradove koji su ranije završili kao null u cacheu (nakon popravka upita).
+    bool retryNegatives = args.Contains("--geocode-retry");
 
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -74,7 +76,7 @@ static async Task RunImportAsync(WebApplication app, string[] args)
 
     Geocoder? geocoder = noGeocode || dryRun
         ? null
-        : new Geocoder(Path.Combine(Directory.GetCurrentDirectory(), "geocode-cache.json"));
+        : new Geocoder(Path.Combine(Directory.GetCurrentDirectory(), "geocode-cache.json")) { RetryNegatives = retryNegatives };
 
     var importer = new ExcelImporter(db, geocoder, dryRun);
     await importer.RunAsync(path, CancellationToken.None);

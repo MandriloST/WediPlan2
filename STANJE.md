@@ -4,22 +4,16 @@
 > Ažurira se na kraju SVAKE radne sesije (kratko, činjenično). Novije sesije na vrhu.
 > Uvijek provjeriti i stvarni `git log` — repo je izvor istine, ovo je sažetak.
 
-## Trenutna faza: **Faza 2 ✅ + Zadatak D ✅ + Zadatak C ✅ (2026-09-16)** → sljedeće: Faza 3 (auth; treba odluka #5 email servis) ili Faza 4; preduvjet za Vercel nad pravim API-jem je hosting (#1)
+## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
+## Trenutna faza: **Faza 2 ✅ + D ✅ + C ✅ + geokod fix ✅ (2026-09-16)** → sljedeće: **Faza 3 (auth)**; treba odluka #5 (email — Resend). Preduvjet za Vercel nad pravim API-jem: hosting (#1). Odluke #14–#17 odobrene.
 
-## ⚠️ HITNO (odluka #18) — GDPR — JOŠ NIJE RIJEŠENO (stanje 2026-09-16, nakon da5729a)
-Repo `MandriloST/wediplan` je i dalje JAVAN (anonimni `git clone` prolazi), a
-`data/vendors-live.xlsx` (2295 telefona, 1748 emailova, 1813 webova) je PONOVNO u gitu:
-`68c3b05` ga je izbacio, ali `da5729a` ga je vratio jer je redak u `.gitignore` bio
-`"data/vendors-live.xlsx" ` — git navodnike čita doslovno, pa pravilo nije vrijedilo i
-`git add .` je datoteku ponovno dodao. Ispravljeno pravilo (`/data/vendors-live.xlsx`, bez
-navodnika) je u commitu Faze 2. Preostali koraci za vlasnika:
-(1) GitHub → Settings → General → Danger Zone → Change visibility → **Private**;
-(2) nakon mergea: `git rm --cached data/vendors-live.xlsx` + commit + push (lokalna datoteka
-ostaje; `.gitignore` sada sprječava ponovno dodavanje; provjera: `git check-ignore -v
-data/vendors-live.xlsx` mora ispisati pravilo);
-(3) opcionalno čišćenje povijesti (`git filter-repo`) — datoteka je u povijesti od srpnja.
-Model NE smije commitati tu datoteku niti je brisati u vlastitim commitovima (merge bi je
-obrisao i s vlasnikova diska).
+## Odluka #18 — GDPR: ✅ RIJEŠENO (2026-09-16, novi repo WediPlan2)
+Rad prebačen na novi repo **WediPlan2** s čistom poviješću (jedan initial commit).
+`data/vendors-live.xlsx` NIJE u gitu — `.gitignore` pravilo `/data/vendors-live.xlsx` ga
+blokira (`git check-ignore -v` potvrđuje), a anonimni klon ga ne sadrži. Stari repo
+`MandriloST/wediplan` (sa zaraženom poviješću) ide na **private**. Novi repo ostaje **javan
+dok razvoj traje** (Claude ga mora klonirati radi provjere paketa), na kraju projekta → private.
+Pravilo: Claude nikad ne commita niti briše taj Excel (`.gitignore` ga drži izvan gita).
 
 ## Stalna pravila predaje (vrijede svaku sesiju)
 - Rad isključivo na `develop` (ili `claude/*` → develop). `main` se ne dira.
@@ -137,6 +131,27 @@ sitemap 3181 URL. Backend: kompilacija izmijenjenih datoteka uz stub EF površin
 s paketima i EF prijevod novih upita u SQL nad Postgresom — na vlasniku.
 
 **Otvoreno:** #18 HITNO; #1 hosting; #14–#16 potvrda; #17 u Fazi 5.
+
+---
+
+## Sesija 2026-09-16 — Faza 2 + Zadatak D + Zadatak C + geokod fix ✅ (novi repo WediPlan2)
+
+Ova sesija objedinjuje rad prenesen u novi repo. Detalji ranijih koraka (Faza 2 spajanje na
+.NET, Zadatak D category-first, Zadatak C analitika) — v. commitove i API.md/PLAN.
+
+**Geokod fix (koordinate gradova) — glavni fokus:**
+Bug: import je za Split, Zagreb, Rijeku i SVE gradove regija "Dalmacija"/"Zagreb i
+okolica"/"Kvarner" vraćao null i trajno keširao. Uzrok: geokod upit slao naše interne "regije"
+koje OSM ne poznaje kao administrativne jedinice (Pula/Poreč prošli slučajno — Istra JEST OSM
+ime). Dodatno: bbox odbacivao inozemne (BiH) pogotke; složeni gradovi ("Split / Zagreb") se
+nisu čistili.
+Popravak (backend; frontend jitter netaknut): `Geocoder.cs` — kandidati upita
+(grad+SLUŽBENA županija → "grad, Hrvatska" → structured `city=`), bbox po državi, `RetryNegatives`
++ CLI `--geocode-retry`; `ImportRules.cs` — `CountyForRegion` (regija→županija), `CleanCity`
+prošireni separatori + skida "i okolica"; `ExcelImporter.cs` — `CleanCity` i za HR; `Program.cs`
+— zastavica. `geocode-cache.json` — uklonjeno 603 null-a (ostalo 71 pogodak).
+Verificirano: Probe (CleanCity/CountyForRegion točni) + geokoder protiv lažnog Nominatima 9/9.
+Nije izvršeno: pravi import + stvarni Nominatim (na vlasniku; koraci u DEPLOY.md).
 
 ---
 
