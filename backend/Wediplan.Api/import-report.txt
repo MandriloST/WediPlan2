@@ -1,4 +1,4 @@
-# Wediplan import izvještaj — 2026-09-16 07:49:00Z
+# Wediplan import izvještaj — 2026-09-16 14:33:10Z
 
 ## Preskočeni retci (greške)
 red 322 (Lookman Film / Sead Okić): nepoznata/prazna regija „” (grad nije prepoznat kao BiH/SI)
