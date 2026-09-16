@@ -1,0 +1,6 @@
+Novinarski dom
+
+Ubaci ovdje: 01.jpg (glavna), po želji 02.jpg, 03.jpg.
+Zatim: npm run sync:images
+
+Ova se datoteka može obrisati.

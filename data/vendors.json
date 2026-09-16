@@ -1,0 +1,748 @@
+[
+  {
+    "id": "aria-sala-za-vjencanja",
+    "slug": "aria-sala-za-vjencanja",
+    "name": "Aria sala za vjenčanja",
+    "category": "restorani-i-sale",
+    "region": "dalmacija",
+    "city": "Split",
+    "lng": 16.451171229873047,
+    "lat": 43.508496471742916,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "guranis",
+    "slug": "guranis",
+    "name": "Guranis",
+    "category": "restorani-i-sale",
+    "region": "istra",
+    "city": "Vodnjan",
+    "lng": 13.8908782,
+    "lat": 44.9660021,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "monte-rosso",
+    "slug": "monte-rosso",
+    "name": "Monte Rosso",
+    "category": "restorani-i-sale",
+    "region": "istra",
+    "city": "Savudrija / Crveni Vrh",
+    "lng": 13.5388,
+    "lat": 45.4905,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "restoran-joker",
+    "slug": "restoran-joker",
+    "name": "Restoran Joker",
+    "category": "restorani-i-sale",
+    "region": "istra",
+    "city": "Sveti Jakov / Mali Lošinj",
+    "lng": 14.39306,
+    "lat": 44.64075,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "restoran-ljubas",
+    "slug": "restoran-ljubas",
+    "name": "Restoran Ljubas",
+    "category": "restorani-i-sale",
+    "region": "kvarner",
+    "city": "Viškovo / Marinići",
+    "lng": 14.3950008,
+    "lat": 45.3722697,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "villa-calussovo",
+    "slug": "villa-calussovo",
+    "name": "Villa Calussovo",
+    "category": "restorani-i-sale",
+    "region": "istra",
+    "city": "Labin / Ripenda Kras",
+    "lng": 14.15041,
+    "lat": 45.101773,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "villa-lav",
+    "slug": "villa-lav",
+    "name": "Villa Lav",
+    "category": "restorani-i-sale",
+    "region": "istra",
+    "city": "Bale",
+    "lng": 13.785952668472635,
+    "lat": 45.04539441878593,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "corner-osijek-wedding-hall",
+    "slug": "corner-osijek-wedding-hall",
+    "name": "Corner Osijek wedding hall",
+    "category": "restorani-i-sale",
+    "region": "slavonija",
+    "city": "Osijek",
+    "lng": 18.72846487034348,
+    "lat": 45.545812603029475,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "gardens-vjencanja",
+    "slug": "gardens-vjencanja",
+    "name": "Gardens Vjenčanja",
+    "category": "restorani-i-sale",
+    "region": "slavonija",
+    "city": "Osijek",
+    "lng": 18.63734,
+    "lat": 45.56467,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "svecane-dvorane-gracia",
+    "slug": "svecane-dvorane-gracia",
+    "name": "Svečane dvorane Gracia",
+    "category": "restorani-i-sale",
+    "region": "slavonija",
+    "city": "Osijek",
+    "lng": 18.6772784,
+    "lat": 45.5518091,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "grand-hotel-park-dubrovnik",
+    "slug": "grand-hotel-park-dubrovnik",
+    "name": "Grand Hotel Park Dubrovnik",
+    "category": "restorani-i-sale",
+    "region": "dalmacija",
+    "city": "Dubrovnik",
+    "lng": 18.074506,
+    "lat": 42.656403,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "lazareti-complex",
+    "slug": "lazareti-complex",
+    "name": "Lazareti Complex",
+    "category": "restorani-i-sale",
+    "region": "dalmacija",
+    "city": "Dubrovnik",
+    "lng": 18.113048,
+    "lat": 42.641748,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "museum-of-modern-art-dubrovnik",
+    "slug": "museum-of-modern-art-dubrovnik",
+    "name": "Museum of Modern Art Dubrovnik",
+    "category": "restorani-i-sale",
+    "region": "dalmacija",
+    "city": "Dubrovnik",
+    "lng": 18.1141502,
+    "lat": 42.6408496,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "palace-natali",
+    "slug": "palace-natali",
+    "name": "Palace Natali",
+    "category": "restorani-i-sale",
+    "region": "dalmacija",
+    "city": "Dubrovnik",
+    "lng": 18.102918,
+    "lat": 42.6481827,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "matis-absolut-lounge",
+    "slug": "matis-absolut-lounge",
+    "name": "Matis Absolut Lounge",
+    "category": "restorani-i-sale",
+    "region": "zagreb",
+    "city": "Zagreb",
+    "lng": 15.9800529,
+    "lat": 45.8015174,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "novinarski-dom",
+    "slug": "novinarski-dom",
+    "name": "Novinarski dom",
+    "category": "restorani-i-sale",
+    "region": "zagreb",
+    "city": "Zagreb",
+    "lng": 15.9682261,
+    "lat": 45.8077261,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "phoenix",
+    "slug": "phoenix",
+    "name": "Phoenix",
+    "category": "restorani-i-sale",
+    "region": "zagreb",
+    "city": "Sesvete",
+    "lng": 16.112291026172564,
+    "lat": 45.688773412150866,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "restoran-casablanca",
+    "slug": "restoran-casablanca",
+    "name": "Restoran Casablanca",
+    "category": "restorani-i-sale",
+    "region": "zagreb",
+    "city": "Zagreb",
+    "lng": 16.0084345,
+    "lat": 45.8029051,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "restoran-muzej",
+    "slug": "restoran-muzej",
+    "name": "Restoran Muzej",
+    "category": "restorani-i-sale",
+    "region": "zagreb",
+    "city": "Zagreb",
+    "lng": 15.96870042617802,
+    "lat": 45.8095387840522,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "bolero-restaurant-weddings",
+    "slug": "bolero-restaurant-weddings",
+    "name": "Bolero Restaurant & Weddings",
+    "category": "restorani-i-sale",
+    "region": "dalmacija",
+    "city": "Split",
+    "lng": 16.47222836821845,
+    "lat": 43.51328102301298,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "dolis-wedding-event",
+    "slug": "dolis-wedding-event",
+    "name": "Dolis Wedding & Event",
+    "category": "restorani-i-sale",
+    "region": "dalmacija",
+    "city": "Dugopolje / Split okolica",
+    "lng": 16.4534387,
+    "lat": 43.546399,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "galerija-mestrovic-split",
+    "slug": "galerija-mestrovic-split",
+    "name": "Galerija Meštrović Split",
+    "category": "restorani-i-sale",
+    "region": "dalmacija",
+    "city": "Split",
+    "lng": 16.388611,
+    "lat": 43.508333,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "restoran-kampus-catering-sc",
+    "slug": "restoran-kampus-catering-sc",
+    "name": "Restoran Kampus – Catering SC",
+    "category": "restorani-i-sale",
+    "region": "dalmacija",
+    "city": "Split",
+    "lng": 16.466460176268544,
+    "lat": 43.51181423129992,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "perPerson",
+      "from": 40,
+      "to": 100
+    },
+    "rating": 4.4,
+    "reviewCount": 132,
+    "ratingSource": "Google recenzije",
+    "verified": true,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "river-band",
+    "slug": "river-band",
+    "name": "River Band",
+    "category": "glazba-bendovi",
+    "region": "zagreb",
+    "city": "Velika Gorica",
+    "lng": 16.079855934335264,
+    "lat": 45.7138411403686,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "myweday-films",
+    "slug": "myweday-films",
+    "name": "MyWeDay Films",
+    "category": "foto-i-video",
+    "region": "slavonija",
+    "city": "Osijek",
+    "lng": 18.695779367539384,
+    "lat": 45.554711004652255,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "studio-simba",
+    "slug": "studio-simba",
+    "name": "Studio Simba",
+    "category": "foto-i-video",
+    "region": "slavonija",
+    "city": "Osijek",
+    "lng": 18.718577623695705,
+    "lat": 45.551380188878355,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "from",
+      "from": 1250
+    },
+    "rating": 5,
+    "reviewCount": 42,
+    "ratingSource": "Google recenzije",
+    "verified": true,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "studio-c",
+    "slug": "studio-c",
+    "name": "Studio C",
+    "category": "foto-i-video",
+    "region": "slavonija",
+    "city": "Osijek",
+    "lng": 18.695779367539384,
+    "lat": 45.554711004652255,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 4.8,
+    "reviewCount": 259,
+    "ratingSource": "Google recenzije",
+    "verified": true,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "classic-cars-for-rent-split-croatia",
+    "slug": "classic-cars-for-rent-split-croatia",
+    "name": "Classic Cars for Rent Split Croatia",
+    "category": "najam-limuzina",
+    "region": "dalmacija",
+    "city": "Split",
+    "lng": 16.45184871258262,
+    "lat": 43.51459542665039,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "catering-kvatric",
+    "slug": "catering-kvatric",
+    "name": "Catering Kvatrić",
+    "category": "catering",
+    "region": "zagreb",
+    "city": "Zagreb",
+    "lng": 16.024483982000998,
+    "lat": 45.82191026154278,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "zvona-catering",
+    "slug": "zvona-catering",
+    "name": "Zvona Catering",
+    "category": "catering",
+    "region": "zagreb",
+    "city": "Zagreb",
+    "lng": 15.928551068506366,
+    "lat": 45.79494581931543,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "seven-wedding-events-catering-split",
+    "slug": "seven-wedding-events-catering-split",
+    "name": "Seven Wedding & Events / Catering Split",
+    "category": "catering",
+    "region": "dalmacija",
+    "city": "Split",
+    "lng": 16.42931474326798,
+    "lat": 43.55070395768302,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "vintage-empire-zagreb",
+    "slug": "vintage-empire-zagreb",
+    "name": "Vintage Empire Zagreb",
+    "category": "najam-limuzina",
+    "region": "zagreb",
+    "city": "Zagreb",
+    "lng": 15.982214314044352,
+    "lat": 45.81355897369877,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "grupa-prvi-plan",
+    "slug": "grupa-prvi-plan",
+    "name": "Grupa Prvi Plan",
+    "category": "glazba-bendovi",
+    "region": "dalmacija",
+    "city": "Zadar",
+    "lng": 15.230044684671324,
+    "lat": 44.11904198700834,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "m2-band-novska",
+    "slug": "m2-band-novska",
+    "name": "M2 Band Novska",
+    "category": "glazba-bendovi",
+    "region": "zagreb",
+    "city": "Novska",
+    "lng": 16.979213718988955,
+    "lat": 45.33936602408229,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "click-band",
+    "slug": "click-band",
+    "name": "Click Band",
+    "category": "glazba-bendovi",
+    "region": "dalmacija",
+    "city": "Split",
+    "lng": 16.44449541179862,
+    "lat": 43.51476954211381,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "grupa-status-zagreb",
+    "slug": "grupa-status-zagreb",
+    "name": "Grupa Status Zagreb",
+    "category": "glazba-bendovi",
+    "region": "zagreb",
+    "city": "Zagreb",
+    "lng": 15.982214314044352,
+    "lat": 45.81355897369877,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  },
+  {
+    "id": "showtime-band-vinkovci",
+    "slug": "showtime-band-vinkovci",
+    "name": "Showtime Band Vinkovci",
+    "category": "glazba-bendovi",
+    "region": "slavonija",
+    "city": "Vinkovci",
+    "lng": 18.806884700099072,
+    "lat": 45.288048367359096,
+    "locationPrecision": "exact",
+    "price": {
+      "kind": "onRequest"
+    },
+    "rating": 0,
+    "reviewCount": 0,
+    "verified": false,
+    "liveCalendar": false,
+    "styleTags": [],
+    "photos": []
+  }
+]

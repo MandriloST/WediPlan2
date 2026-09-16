@@ -1,0 +1,37 @@
+# Lokalni razvoj: `docker compose up --build` u backend/ folderu.
+# API:      http://localhost:5080  (health: /health, ugovor: /api/vendors)
+# Postgres: localhost:5433 (namjerno NE 5432, da ne kolidira s lokalnim Postgresom)
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: wediplan
+      POSTGRES_USER: wediplan
+      POSTGRES_PASSWORD: wediplan
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wediplan -d wediplan"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./Wediplan.Api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=wediplan;Username=wediplan;Password=wediplan"
+      Cors__Origins__0: "http://localhost:3000"
+      # Faza 2: iza Vercel/Next rewritea stvarni IP klijenta je u X-Forwarded-For.
+      # U produkciji true SAMO ako API prima promet isključivo preko proxyja (v. ClientIp.cs).
+      Proxy__TrustForwardedFor: "false"
+    ports:
+      - "5080:8080"
+
+volumes:
+  pgdata:

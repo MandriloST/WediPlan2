@@ -1,0 +1,16 @@
+node_modules/
+node_modules
+.next/
+# .NET (backend/)
+backend/**/bin/
+backend/**/obj/
+backend/**/.vs/
+backend/**/*.user
+/.vs
+
+# GDPR: izvorni Excel s kontaktima pružatelja NIKAD u git (odluka #13, #18).
+# BEZ navodnika — git ih čita doslovno, pa "data/…" ne bi odgovaralo datoteci.
+/data/vendors-live.xlsx
+# lokalne env datoteke (API_URL i sl.)
+.env*.local
+*.tsbuildinfo
