@@ -1,9 +1,15 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Domain;
 
 namespace Wediplan.Api.Data;
 
-public class AppDbContext : DbContext
+/// <summary>
+/// Glavni DbContext. Od Faze 3 nasljeđuje IdentityDbContext (ASP.NET Core Identity nad Guid
+/// ključem) — donosi tablice korisnika/rola/logina. Domenske tablice (vendors, events…) i
+/// auth pomoćne tablice (magic_links…) su niže.
+/// </summary>
+public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -15,8 +21,14 @@ public class AppDbContext : DbContext
     public DbSet<DailyStat> DailyStats => Set<DailyStat>();
     public DbSet<Sponsorship> Sponsorships => Set<Sponsorship>();
 
+    // Faza 3 — auth pomoćne tablice
+    public DbSet<MagicLink> MagicLinks => Set<MagicLink>();
+    public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
+        base.OnModelCreating(b); // OBAVEZNO prvo — konfigurira Identity tablice
+
         // pg_trgm za typeahead (tolerancija tipfelera) — §2.2
         b.HasPostgresExtension("pg_trgm");
 
@@ -93,6 +105,34 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.VendorId);
         });
+
+        // --- Faza 3: auth pomoćne tablice ---
+        b.Entity<MagicLink>(e =>
+        {
+            e.ToTable("magic_links");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Email).HasMaxLength(320);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.Email); // rate-limit po emailu
+        });
+
+        b.Entity<EmailVerificationToken>(e =>
+        {
+            e.ToTable("email_verification_tokens");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.UserId);
+        });
+
+        // Identity tablice u snake_case (default su AspNetUsers itd.). Radi konzistentnosti sa
+        // ostatkom sheme; imena su stabilna jer migracije ionako fiksiraju shemu.
+        b.Entity<AppUser>().ToTable("users");
+        b.Entity<AppRole>().ToTable("roles");
+        b.Entity<IdentityUserRole<Guid>>().ToTable("user_roles");
+        b.Entity<IdentityUserClaim<Guid>>().ToTable("user_claims");
+        b.Entity<IdentityUserLogin<Guid>>().ToTable("user_logins");
+        b.Entity<IdentityUserToken<Guid>>().ToTable("user_tokens");
+        b.Entity<IdentityRoleClaim<Guid>>().ToTable("role_claims");
 
         // snake_case za sve stupce (Postgres konvencija)
         foreach (var entity in b.Model.GetEntityTypes())

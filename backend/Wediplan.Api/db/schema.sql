@@ -109,3 +109,106 @@ CREATE TABLE sponsorships (
   ends_at    timestamptz
 );
 CREATE INDEX ix_sponsorships_vendor ON sponsorships (vendor_id);
+
+-- ============================================================================
+-- Faza 3 — auth (ASP.NET Core Identity nad Guid + pomoćne tablice).
+-- REFERENCA: pravu shemu generira `dotnet ef migrations add Faza3Auth`. Identity
+-- tablice (users, roles, user_roles…) EF stvara automatski; ovdje su radi pregleda i
+-- brzog testa (psql -f). Standardna Identity shema, samo u snake_case imenima (v. AppDbContext).
+-- ============================================================================
+
+CREATE TABLE users (
+  id                     uuid PRIMARY KEY,
+  user_name              varchar(256),
+  normalized_user_name   varchar(256),
+  email                  varchar(256),
+  normalized_email       varchar(256),
+  email_confirmed        boolean NOT NULL DEFAULT false,
+  password_hash          text,
+  security_stamp         text,
+  concurrency_stamp      text,
+  phone_number           text,
+  phone_number_confirmed boolean NOT NULL DEFAULT false,
+  two_factor_enabled     boolean NOT NULL DEFAULT false,
+  lockout_end            timestamptz,
+  lockout_enabled        boolean NOT NULL DEFAULT false,
+  access_failed_count    integer NOT NULL DEFAULT 0,
+  -- naša dodatna polja (AppUser)
+  display_name           text,
+  created_at             timestamptz NOT NULL DEFAULT now(),
+  last_login_at          timestamptz
+);
+CREATE UNIQUE INDEX ix_users_normalized_email ON users (normalized_email);
+CREATE UNIQUE INDEX ix_users_normalized_user_name ON users (normalized_user_name);
+
+CREATE TABLE roles (
+  id                uuid PRIMARY KEY,
+  name              varchar(256),
+  normalized_name   varchar(256),
+  concurrency_stamp text
+);
+CREATE UNIQUE INDEX ix_roles_normalized_name ON roles (normalized_name);
+
+CREATE TABLE user_roles (
+  user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  role_id uuid NOT NULL REFERENCES roles (id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, role_id)
+);
+CREATE INDEX ix_user_roles_role_id ON user_roles (role_id);
+
+CREATE TABLE user_claims (
+  id         serial PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  claim_type text,
+  claim_value text
+);
+CREATE INDEX ix_user_claims_user_id ON user_claims (user_id);
+
+CREATE TABLE user_logins (
+  login_provider        text NOT NULL,
+  provider_key          text NOT NULL,
+  provider_display_name text,
+  user_id               uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  PRIMARY KEY (login_provider, provider_key)
+);
+CREATE INDEX ix_user_logins_user_id ON user_logins (user_id);
+
+CREATE TABLE user_tokens (
+  user_id        uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  login_provider text NOT NULL,
+  name           text NOT NULL,
+  value          text,
+  PRIMARY KEY (user_id, login_provider, name)
+);
+
+CREATE TABLE role_claims (
+  id          serial PRIMARY KEY,
+  role_id     uuid NOT NULL REFERENCES roles (id) ON DELETE CASCADE,
+  claim_type  text,
+  claim_value text
+);
+CREATE INDEX ix_role_claims_role_id ON role_claims (role_id);
+
+-- pomoćne auth tablice (naše)
+CREATE TABLE magic_links (
+  id          uuid PRIMARY KEY,
+  email       varchar(320) NOT NULL,
+  token_hash  text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  expires_at  timestamptz NOT NULL,
+  consumed_at timestamptz,
+  request_ip  text
+);
+CREATE UNIQUE INDEX ix_magic_links_token_hash ON magic_links (token_hash);
+CREATE INDEX ix_magic_links_email ON magic_links (email);
+
+CREATE TABLE email_verification_tokens (
+  id          uuid PRIMARY KEY,
+  user_id     uuid NOT NULL,
+  token_hash  text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  expires_at  timestamptz NOT NULL,
+  consumed_at timestamptz
+);
+CREATE UNIQUE INDEX ix_email_verification_tokens_token_hash ON email_verification_tokens (token_hash);
+CREATE INDEX ix_email_verification_tokens_user_id ON email_verification_tokens (user_id);

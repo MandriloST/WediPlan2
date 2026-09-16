@@ -5,7 +5,8 @@
 > Uvijek provjeriti i stvarni `git log` — repo je izvor istine, ovo je sažetak.
 
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
-## Trenutna faza: **Faza 2 ✅ + D ✅ + C ✅ + geokod fix ✅ (2026-09-16)** → sljedeće: **Faza 3 (auth)**; treba odluka #5 (email — Resend). Preduvjet za Vercel nad pravim API-jem: hosting (#1). Odluke #14–#17 odobrene.
+## Trenutna faza: **Faza 3 auth — BACKEND ✅ (2026-09-16)**; sljedeće: frontend auth UI (forme, magic/verify/reset stranice, useAuth store) + localStorage→account sync. Google/Resend rade čim se upišu ključevi.
+## (raniji redak faze:  **Faza 2 ✅ + D ✅ + C ✅ + geokod fix ✅ (2026-09-16)** → sljedeće: **Faza 3 (auth)**; treba odluka #5 (email — Resend). Preduvjet za Vercel nad pravim API-jem: hosting (#1). Odluke #14–#17 odobrene.
 
 ## Odluka #18 — GDPR: ✅ RIJEŠENO (2026-09-16, novi repo WediPlan2)
 Rad prebačen na novi repo **WediPlan2** s čistom poviješću (jedan initial commit).
@@ -131,6 +132,46 @@ sitemap 3181 URL. Backend: kompilacija izmijenjenih datoteka uz stub EF površin
 s paketima i EF prijevod novih upita u SQL nad Postgresom — na vlasniku.
 
 **Otvoreno:** #18 HITNO; #1 hosting; #14–#16 potvrda; #17 u Fazi 5.
+
+---
+
+## Sesija 2026-09-16 (4) — Faza 3: auth BACKEND ✅
+
+**Dodano (backend):** ASP.NET Core Identity nad Guid (§5).
+- Entiteti `Domain/AuthEntities.cs`: `AppUser` (+displayName, lastLoginAt), `AppRole`, `Roles`
+  (couple/provider/admin), `MagicLink`, `EmailVerificationToken` (tokeni se čuvaju kao SHA-256 hash).
+- `AppDbContext` → `IdentityDbContext<AppUser,AppRole,Guid>`; Identity tablice + magic/verify u
+  snake_case; DbSetovi. `base.OnModelCreating` prvi.
+- `Auth/`: `IEmailSender` + `ResendEmailSender` (Resend API) + `ConsoleEmailSender` (dev fallback);
+  `Tokens` (base64url token, hash u bazi); `AuthEmails` (HR mailovi: magic/verify/reset).
+- Kontroleri: `AuthController` (register, login, magic request/consume, verify-email,
+  password forgot/reset, logout), `MeController` (`GET /api/me`), `ExternalAuthController`
+  (Google, uvjetno), `AuthProvidersController`.
+- `Program.cs`: AddIdentityCore + role + EF stores + SignInManager + token provideri; cookie
+  auth (`wediplan.session`, httpOnly, SameSite=Lax, Secure u prod, 401/403 umjesto redirecta);
+  Google registriran SAMO ako su ključevi; email DI (Resend ili konzola); seed rola pri startu.
+- Config: appsettings App/Auth/Email/Google sekcije; `backend/.env.example`.
+- `db/schema.sql`: dopunjen svim Identity + auth tablicama (referenca; izvor istine = EF migracija).
+
+**Sigurnost:** tokeni hash+jednokratni+istječu; rate-limit magic linka (3/15 min); anti-enumeracija
+(uniformni odgovori); lockout (8→15 min); Google callback open-redirect blokiran (samo relativni
+returnTo); analitika/PII nedirnuta.
+
+**Frontend (temelj):** `lib/api/auth.ts` (authApi: me, providers, register, login, logout,
+magic, verify, forgot/reset, googleUrl) — sve `credentials: include`.
+
+**Verificirano:** auth kod (kontroleri, email, tokeni, DbContext-veze) kompajliran protiv PRAVIH
+ASP.NET Identity dll-ova iz shared frameworka 8.0.31 (UserManager/SignInManager/cookie/OAuth/
+ResetPassword/ExternalLogin API potpisi) — **Build succeeded**; kontrolna greška potvrdila da
+build stvarno provjerava potpise. `db/schema.sql` (cijela, s auth tablicama) učitana na Postgres
+16 bez greške. Frontend `tsc` čist. **NIJE izvršeno u sandboxu (NuGet blokiran):** pravi
+`dotnet build`/`dotnet ef migrations add Faza3Auth`/`database update` — na vlasniku (koraci u
+DEPLOY.md/README). EF fluent mapiranje (ToTable pozivi) nije prošlo kroz EF prevoditelj —
+standardni Identity obrazac, ali provjeriti pri prvoj migraciji.
+
+**Sljedeće (Faza 3 nastavak):** frontend auth UI (prijava/registracija/magic/verify/reset
+stranice, `useAuth` store, header stanje) + migracija localStorage favorita/plana u account
+nakon prijave (merge, ne pregazi) — §5.
 
 ---
 

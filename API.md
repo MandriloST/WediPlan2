@@ -118,6 +118,31 @@ zadani tekst kategorije (`lib/profile.ts withProfileDefaults`). 404 za nepostoje
   "importedReviews": [{ "author": "Marija i Ivan", "rating": 5, "text": "…", "source": "Google recenzije", "year": 2025 }] }
 ```
 
+## Auth (Faza 3, §5)
+
+Sesija = httpOnly cookie `wediplan.session` (Identity aplikacijski cookie, SameSite=Lax, Secure u
+produkciji). Klijent NE vidi token; svi pozivi idu s `credentials: "include"`. Odgovori na
+"zatraži link/reset" NE otkrivaju postoji li email (zaštita od enumeracije).
+
+- `POST /api/auth/register` `{email,password,displayName?}` → `{message}`; šalje verifikacijski mail.
+- `POST /api/auth/login` `{email,password}` → `MeDto` + postavlja cookie; 401 `invalid_credentials`
+  ili `email_not_confirmed`; 429 `locked_out` (8 promašaja → 15 min).
+- `POST /api/auth/logout` → `{message}`; briše cookie.
+- `POST /api/auth/magic/request` `{email}` → `{message}` (link vrijedi 15 min; max 3/15 min po emailu).
+- `POST /api/auth/magic/consume` `{token}` → `MeDto` + cookie (kreira korisnika pri prvom korištenju,
+  email time potvrđen).
+- `POST /api/auth/verify-email` `{token}` → `MeDto` + cookie (24 h rok).
+- `POST /api/auth/password/forgot` `{email}` → `{message}` (Identity reset token, 1 h).
+- `POST /api/auth/password/reset` `{email,token,password}` → `{message}`.
+- `GET  /api/auth/providers` → `{password:true, magicLink:true, google:bool}` (google true samo ako
+  su ključevi postavljeni).
+- `GET  /api/auth/google?returnTo=/…` → redirect na Google → `/api/auth/google/callback` → cookie +
+  redirect na frontend (samo relativni returnTo; open-redirect blokiran).
+- `GET  /api/me` → `MeDto` ili 401.
+
+`MeDto`: `{ id, email, displayName?, emailConfirmed, roles[] }` (role: couple|provider|admin).
+Kontakti/tokeni/hashevi se NIKAD ne vraćaju.
+
 ## POST /api/events
 First-party analitika (§A). Batch max 20, whitelist `event_name`, tihi **204**.
 IP se koristi samo za rate limit (ne pohranjuje se); bez PII. Iza Vercel rewritea stvarni IP je

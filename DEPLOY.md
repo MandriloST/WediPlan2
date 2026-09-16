@@ -51,6 +51,33 @@ Vercel projekt → Settings → Domains → Add → slijedi DNS upute (A/CNAME z
   sitemap bez API-ja sadrži samo kategorije/regije.
 - Dok backend nije hostan, **ne postavljaj** `API_URL` na Vercelu — preview ostaje na mocku.
 
+## Auth (Faza 3) — konfiguracija
+
+Nakon migracije (`dotnet ef database update`) auth radi ODMAH s dva načina (email+lozinka,
+magic link). Bez Resend ključa e-mailovi (magic/verify/reset linkovi) ispisuju se u KONZOLU
+servera (dev) — dovoljno za lokalni test cijelog toka.
+
+Konfiguracija (appsettings ili env; env NADJAČAVA i NIKAD ne ide u git):
+```
+App__PublicUrl        = http://localhost:3000     (frontend; odredište linkova u mailovima)
+Email__ResendApiKey   = re_...                     (prazno → dev konzola)
+Email__From           = Wediplan <no-reply@tvoja-domena>
+Google__ClientId      = ...apps.googleusercontent.com   (prazno → Google gumb skriven)
+Google__ClientSecret  = ...
+Auth__CookieDomain    = .wediplan.hr               (samo produkcija; dev prazno)
+```
+
+**Resend:** registriraj se na resend.com, verificiraj domenu (ili koristi test `onboarding@resend.dev`),
+kreiraj API ključ → `Email__ResendApiKey`. Bez toga sve radi, samo se mailovi ispisuju u konzolu.
+
+**Google OAuth:** Google Cloud Console → OAuth consent + Credentials → OAuth client (Web).
+Authorized redirect URI: `http://localhost:5080/signin-google` (dev) i
+`https://api.wediplan.hr/signin-google` (prod). Client ID/Secret → env. Dok ovo ne postaviš,
+prijava Googleom je skrivena, ostala dva načina rade.
+
+**Cookie:** dev radi na localhost bez ičega. Produkcija: frontend i API na istoj baznoj domeni
+(`wediplan.hr` + `api.wediplan.hr`), postavi `Auth__CookieDomain=.wediplan.hr`, oboje preko HTTPS.
+
 ## Geokodiranje pri importu (koordinate gradova)
 
 Import geokodira grad → koordinate preko Nominatima (OpenStreetMap). Zahtijeva izlaz na
