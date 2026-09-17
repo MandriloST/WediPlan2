@@ -8,7 +8,15 @@
 > Uvijek provjeriti i stvarni `git log` — repo je izvor istine, ovo je sažetak.
 
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
-## Trenutna faza: **Faza 5 (slike + očvršćivanje) — IMPLEMENTIRANA ✅ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (traži `dotnet restore`+`build`; NEMA nove migracije). Sve odluke #1–#19 ODOBRENE. Sljedeće: **Faza 6** (lansiranje: domena, pravne stranice §9, Search Console, merge u `main`).
+## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
+
+## Sesija 2026-09-17 (c) — Faza 6: lansiranje (pravne stranice + GDPR opt-out)
+- **GDPR opt-out (§9):** `OptOutController` (`POST /api/optout`, javno+rate-limited) — postavlja `Vendor.OptOut=true` odmah (koristi postojeće polje → **bez migracije**); razlog/kontakt samo u log (minimizacija). Admin: `GET /api/admin/optouts` + `POST /api/admin/vendors/{slug}/restore-optout` (reverzibilno zbog moguće zloupotrebe anonimne forme). Frontend: `OptOutLink` na neclaimanom profilu (aside), admin sekcija "Skriveni profili".
+- **Pravne stranice (§9):** `/pravila-privatnosti`, `/uvjeti-koristenja` (s anti-scraping klauzulom), `/impressum` — HR predlošci s placeholderima za podatke tvrtke + oznaka „dati na pravnu provjeru". `Footer` (poveznice) + `CookieNotice` (minimalna, samo nužni kolačići, dismiss u localStorage), oboje u `layout.tsx`.
+- **Već postojalo (provjereno, ništa mijenjano):** `app/robots.ts` (disallow /api/, sitemap), `app/sitemap.ts` (kategorije+regije+profili preko `/api/sitemap`), `lib/site.ts` (`NEXT_PUBLIC_SITE_URL`), `.Published()` = `IsPublished && !OptOut` na SVIM javnim upitima.
+- **Verifikacija:** `tsc` + `next build` čisti (28 ruta; /pravila-privatnosti, /uvjeti-koristenja, /impressum statične). Backend brace-balans OK; **NIJE kompajliran** (sandbox nema .NET SDK). **Faza 6 NE traži novu migraciju.**
+- **Preostalo vlasniku (OPS, ne kod):** kupiti domenu → `NEXT_PUBLIC_SITE_URL` u Vercel env; popuniti [NAZIV/OIB/ADRESA/EMAIL] u pravnim stranicama + pravna provjera; Google Search Console (dodati verifikacijski meta/DNS); finalna regresija; **merge `develop`→`main`** (tek nakon što `dotnet build` + regresija prođu). Napomena: opt-out forma je anonimna i skida odmah — ako se pojavi zloupotreba, prijeći na model s admin-odobrenjem.
+
 
 ## Sesija 2026-09-17 (b) — Faza 5: slike + očvršćivanje
 - **Odobrenja:** sve odluke #1–#19 označene ✅ ODOBRENO u PLAN §11 (banner + retci). Kanonski repo banner dodan na vrh PLAN/STANJE/README; ispravljen krivi URL u `PLAN-ARHITEKTURA.md` (redak s "Repo:" pokazivao je na stari `wediplan.git` — GLAVNI uzrok zašto su nove sesije išle na krivi repo).

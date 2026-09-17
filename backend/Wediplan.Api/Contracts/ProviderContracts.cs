@@ -94,3 +94,10 @@ public record AdminReviewDto(
     string Text,
     string Status,
     DateTime CreatedAt);
+
+// ---------------------------------------------------------------- Faza 6: GDPR opt-out (§9)
+/// <summary>Zahtjev za skidanje neclaimanog profila (GDPR §9). Slug + neobavezni razlog/kontakt.</summary>
+public record OptOutRequest(string Slug, string? Reason, string? Contact);
+
+/// <summary>Skriveni (opt-out) pružatelj u admin pregledu.</summary>
+public record AdminOptOutDto(string Slug, string Name, string Category, bool IsPublished);

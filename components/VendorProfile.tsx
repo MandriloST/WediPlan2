@@ -16,6 +16,7 @@ import { vendorBadges } from "@/lib/badges";
 import VendorCard from "./VendorCard";
 import ReviewForm from "./ReviewForm";
 import ClaimPanel from "./ClaimPanel";
+import OptOutLink from "./OptOutLink";
 import { homeLabel } from "@/lib/data";
 import {
   canAddToCompare,
@@ -272,6 +273,7 @@ export default function VendorProfile({ data, similar }: { data: VendorProfileDa
         <aside className="profile-aside">
           <AvailabilityCalendar vendor={vendor} />
           <ClaimPanel vendor={vendor} />
+          <OptOutLink slug={vendor.slug} claimStatus={vendor.claimStatus} />
           {similar.length > 0 && (
             <div className="similar">
               <h3>Slično u kategoriji {cat.short ?? cat.name}</h3>

@@ -436,8 +436,13 @@ backup baze; monitoring (uptime + error log). DoD: checklista u §8 zadovoljena.
 Kod: `Media/*`, `PhotosController`, rate limiter + `/api/health` u `Program.cs`, `ops/backup.sh`.
 Preostalo za produkciju (ops, ne kod): R2 bucket + env, Cloudflare proxy, uptime monitor, backup cron.
 
-**Faza 6 — lansiranje.** Domena, `NEXT_PUBLIC_SITE_URL`, pravne stranice (§9),
+**Faza 6 — lansiranje. ⏳ KOD IMPLEMENTIRAN (2026-09-17); preostaju ops koraci.** Domena, `NEXT_PUBLIC_SITE_URL`, pravne stranice (§9),
 Google Search Console, finalna regresija, merge u `main`.
+Kod: pravne stranice (`/pravila-privatnosti`, `/uvjeti-koristenja`, `/impressum`), `Footer` + `CookieNotice`,
+GDPR opt-out (`OptOutController` + forma na neclaimanom profilu + admin pregled/vraćanje).
+Već postojalo: `robots.ts`, `sitemap.ts`, `lib/site.ts`, `.Published()` filtar (`!OptOut`).
+**Preostalo (ops, vlasnik):** kupiti domenu + `NEXT_PUBLIC_SITE_URL`, popuniti podatke tvrtke u pravnim
+stranicama + pravna provjera, Google Search Console (verifikacija), finalna regresija, **merge `develop` → `main`**.
 
 Redoslijed 0→2 je fiksan; 3 i 4 mogu zamijeniti mjesta ako vlasnik želi ranije claim.
 

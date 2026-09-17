@@ -4,6 +4,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 import Providers from "./providers";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import CookieNotice from "@/components/CookieNotice";
 import MobileTabBar from "@/components/MobileTabBar";
 import CompareTray from "@/components/CompareTray";
 import Toast from "@/components/Toast";
@@ -43,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <Header />
           {children}
+          <Footer />
           <CompareTray />
           <BudgetDrawer />
           <Toast />
@@ -51,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Analytics />
           <AuthBootstrap />
           <AccountSync />
+          <CookieNotice />
         </Providers>
       </body>
     </html>
