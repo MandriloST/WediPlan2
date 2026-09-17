@@ -1,5 +1,8 @@
 # Wediplan — MVP (Landing + Search + Compare + Budget)
 
+> 📍 **KANONSKI REPO: https://github.com/MandriloST/WediPlan2.git** (grana `develop`). Ovo je JEDINI ispravan repo — NE `WediPlan`/`wediplan` bez 2.
+
+
 Marketplace za planiranje vjenčanja u Hrvatskoj. Implementacija odobrenog **hibridnog smjera** (wireframe `2a` desktop + `2b` mobilna PWA): pretraga odmah + interaktivna karta Hrvatske kao hero, usporedba i kalkulator budžeta neintruzivno dostupni.
 
 ## Pokretanje

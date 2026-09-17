@@ -86,12 +86,16 @@ public record BudgetDefaultsDto(
     string Region,
     IReadOnlyDictionary<string, double> Shares);
 
-/// <summary>GET /api/vendors/{slug} — profil pružatelja.</summary>
+/// <summary>
+/// GET /api/vendors/{slug} — profil pružatelja. UserReviews (Faza 4) su objavljene recenzije
+/// korisnika platforme ("što korisnici kažu"); ImportedReviews su prenesene ("što oni kažu").
+/// </summary>
 public record VendorProfileDto(
     VendorDto Vendor,
     string About,
     IReadOnlyList<string> Services,
-    IReadOnlyList<ImportedReviewDto> ImportedReviews);
+    IReadOnlyList<ImportedReviewDto> ImportedReviews,
+    IReadOnlyList<UserReviewDto>? UserReviews = null);
 
 public record ImportedReviewDto(
     string Author,
