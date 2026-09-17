@@ -3,6 +3,7 @@ import type {
   AdminClaim,
   AdminReview,
   Claim,
+  ProviderPhoto,
   ProviderVendor,
   VendorDraft,
 } from "@/lib/types";
@@ -40,6 +41,25 @@ export const providerApi = {
     call<void>(`/provider/vendors/${encodeURIComponent(slug)}/draft`, "PUT", draft),
   publish: (slug: string) =>
     call<void>(`/provider/vendors/${encodeURIComponent(slug)}/publish`, "POST"),
+
+  // Faza 5 — fotografije (samo odobreni vlasnik)
+  uploadPhoto: async (slug: string, file: File): Promise<ProviderPhoto> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/provider/vendors/${encodeURIComponent(slug)}/photos`, {
+      method: "POST",
+      credentials: "include",
+      body: fd, // ne postavljati Content-Type ručno — browser dodaje boundary
+    });
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!res.ok) throw new AuthError(data.error ?? "error", res.status, data.details);
+    return data as ProviderPhoto;
+  },
+  deletePhoto: (slug: string, id: string) =>
+    call<void>(`/provider/vendors/${encodeURIComponent(slug)}/photos/${id}`, "DELETE"),
+  reorderPhotos: (slug: string, orderedIds: string[], coverId: string | null) =>
+    call<void>(`/provider/vendors/${encodeURIComponent(slug)}/photos/order`, "PUT", { orderedIds, coverId }),
 };
 
 // ---------------------------------------------------------------- korisničke recenzije
@@ -83,6 +103,13 @@ export function providerMessage(e: unknown): string {
         return "Cijena nije ispravna. Provjerite unos.";
       case "no_draft":
         return "Nema izmjena za objavu.";
+      case "file_too_large":
+        return "Slika je prevelika (maks. 10 MB).";
+      case "not_an_image":
+      case "invalid_image":
+        return "Datoteka nije valjana slika.";
+      case "too_many_photos":
+        return "Dosegnut je maksimalan broj fotografija.";
       default:
         if (e.status === 401) return "Prijavite se za nastavak.";
         if (e.status === 403) return "Nemate ovlasti za ovu radnju.";

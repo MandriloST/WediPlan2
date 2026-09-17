@@ -155,6 +155,15 @@ export interface ProviderStats {
   favorites30: number;
 }
 
+/** Fotografija pružatelja (Faza 5). */
+export interface ProviderPhoto {
+  id: string;
+  url: string;
+  thumbUrl: string;
+  isCover: boolean;
+  sortOrder: number;
+}
+
 /** Jedan pružatelj u nadzornoj ploči partnera. */
 export interface ProviderVendor {
   slug: string;
@@ -165,6 +174,7 @@ export interface ProviderVendor {
   canPublish: boolean;
   draft: VendorDraft;
   stats: ProviderStats;
+  photos: ProviderPhoto[];
 }
 
 export interface AdminClaim {

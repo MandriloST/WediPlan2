@@ -42,6 +42,7 @@ public class ProviderController : ControllerBase
         var vendors = await _db.Vendors.AsNoTracking().Where(v => ids.Contains(v.Id)).ToListAsync(ct);
         var claims = await _db.Claims.AsNoTracking().Where(c => c.UserId == uid && ids.Contains(c.VendorId)).ToListAsync(ct);
         var drafts = await _db.VendorDrafts.AsNoTracking().Where(d => ids.Contains(d.VendorId)).ToListAsync(ct);
+        var photos = await _db.Set<VendorPhoto>().AsNoTracking().Where(p => ids.Contains(p.VendorId)).ToListAsync(ct);
 
         var list = new List<ProviderVendorDto>(vendors.Count);
         foreach (var v in vendors)
@@ -50,11 +51,14 @@ public class ProviderController : ControllerBase
             var isOwner = v.OwnerUserId == uid && v.ClaimStatus == "claimed";
             var myStatus = isOwner ? "owner" : (claim?.Status ?? "pending");
             var draft = drafts.FirstOrDefault(d => d.VendorId == v.Id) ?? ProviderMapper.SeedFromVendor(v);
+            var vPhotos = photos.Where(p => p.VendorId == v.Id).OrderBy(p => p.SortOrder)
+                .Select(ProviderMapper.PhotoDto).ToList();
             list.Add(new ProviderVendorDto(
                 Slug: v.Slug, Name: v.Name, Category: v.CategorySlug,
                 MyStatus: myStatus, ClaimStatus: v.ClaimStatus, CanPublish: isOwner,
                 Draft: ProviderMapper.ToDto(draft),
-                Stats: await StatsFor(v.Slug, ct)));
+                Stats: await StatsFor(v.Slug, ct),
+                Photos: vPhotos));
         }
         return Ok(list.OrderByDescending(x => x.MyStatus == "pending").ToList());
     }

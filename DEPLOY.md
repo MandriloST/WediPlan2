@@ -171,3 +171,58 @@ se keširaju pa su idući importi brzi.
 - Ne postavljaj `output: 'export'` — API rute i on-demand stranice trebaju server.
 - Ne dodavaj `vercel.json` — defaulti su ispravni za ovaj projekt.
 - Ne commitaj `.env` datoteke (za sada ih ni nemamo; tajne idu u Vercel env UI).
+
+---
+
+## Faza 5 — slike + produkcijsko očvršćivanje (2026-09-17)
+
+### 1. Pohrana slika (odluka #3 — Cloudflare R2)
+Backend bira pohranu prema konfiguraciji: ako je `Storage:R2:Bucket` postavljen → R2 (S3 API),
+inače lokalno (`wwwroot/uploads`, servira se na `/uploads`). Dev radi bez ikakve konfiguracije.
+
+Env / `appsettings` (produkcija):
+```
+Storage__PublicBaseUrl   = https://cdn.wediplan.hr      (javna R2/CDN domena, bez završnog /)
+Storage__R2__Bucket      = wediplan-media
+Storage__R2__AccountId   = <cloudflare-account-id>       (ili Storage__R2__ServiceUrl za pun endpoint)
+Storage__R2__AccessKey   = <r2-access-key>
+Storage__R2__SecretKey   = <r2-secret-key>
+# opcionalni žig na slikama:
+Storage__WatermarkText     = WediPlan
+Storage__WatermarkFontPath = /opt/wediplan/fonts/Inter-Bold.ttf   (ako nije zadano → bez žiga)
+```
+Frontend (Vercel): `NEXT_PUBLIC_UPLOADS_BASE=https://cdn.wediplan.hr` (da `next/image` dopusti domenu).
+
+R2 postavljanje: kreiraj bucket → poveži javnu domenu (R2 public bucket ili custom domenu
+`cdn.wediplan.hr` preko Cloudflarea) → generiraj S3 API token (Access/Secret). Objekti se pišu
+pod ključem `vendors/{vendorId}/{guid}.webp` (+ `_thumb.webp`).
+
+> **Licenca:** obrada slika koristi **SixLabors ImageSharp** (Six Labors Split License —
+> besplatno za OSS/male; komercijalna licenca iznad praga prihoda). Provjeriti prije
+> komercijalnog lansiranja; alternativa je Magick.NET (Apache 2.0) ako se poželi zamijeniti.
+
+### 2. Rate limiting (§8)
+Ugrađeni `Microsoft.AspNetCore.RateLimiting`: globalno 300/min po IP-u, liste (`/api/vendors`,
+`/api/pins`, `/api/suggest`) 60/min. Iza Cloudflarea/Vercela postavi `Proxy__TrustForwardedFor=true`
+(odluka #17) da limiter vidi stvarni IP iz `X-Forwarded-For`. **Ne uključuj** dok API nije dostupan
+isključivo preko proxyja — inače se IP može lažirati.
+
+### 3. Cloudflare ispred API-ja
+Usmjeri `api.wediplan.hr` preko Cloudflarea (proxy ON): bot fight mode, rate limiting pravila,
+opcionalno JS challenge na `/api/vendors`. Tek tada `Proxy__TrustForwardedFor=true`.
+
+### 4. Backup baze
+`ops/backup.sh` (pg_dump + gzip + rotacija). Cron primjer:
+```
+0 3 * * * /opt/wediplan/ops/backup.sh >> /var/log/wediplan-backup.log 2>&1
+```
+Povremeno kopirati backupe izvan servera (isti R2, odvojeni prefix, ili rclone drugdje).
+
+### 5. Monitoring
+Health endpoint: `GET /api/health` → `200 {status:ok}` kad je baza dostupna, `503` inače.
+Priključi vanjski uptime monitor (npr. UptimeRobot/BetterStack) na `https://api.wediplan.hr/api/health`
+i na frontend. Error log: pratiti stderr .NET procesa (systemd `journalctl -u wediplan-api`).
+
+### 6. Migracije
+Faza 5 **ne uvodi novu migraciju** (tablica `vendor_photos` postoji od Faze 1). Potrebno je samo
+`dotnet restore` (novi paketi ImageSharp + AWSSDK.S3) i `dotnet build`.

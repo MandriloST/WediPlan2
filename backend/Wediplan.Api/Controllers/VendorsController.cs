@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
@@ -22,6 +23,7 @@ public class VendorsController : ControllerBase
     public VendorsController(AppDbContext db) => _db = db;
 
     [HttpGet]
+    [EnableRateLimiting("lists")] // §8 — stroži limit na listu (glavni scraping cilj)
     public async Task<ActionResult<PagedResult<VendorDto>>> List(
         [FromQuery] string? q,
         [FromQuery] string? region,

@@ -1,11 +1,24 @@
 # STANJE.md — dnevnik rada i trenutno stanje projekta
 
+> 📍 **KANONSKI REPO: https://github.com/MandriloST/WediPlan2.git** (grana `develop`). Ovo je JEDINI ispravan repo — NE `WediPlan`/`wediplan` bez 2.
+
+
 > **Namjena:** model koji nastavlja rad čita OVO + `PLAN-ARHITEKTURA.md` + `API.md` prije koda.
 > Ažurira se na kraju SVAKE radne sesije (kratko, činjenično). Novije sesije na vrhu.
 > Uvijek provjeriti i stvarni `git log` — repo je izvor istine, ovo je sažetak.
 
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
-## Trenutna faza: **Faza 4 (claim + admin + korisničke recenzije) — IMPLEMENTIRANA ✅ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (migracija `Faza4` + `--make-admin` na vlasniku — sandbox nema NuGet). Sljedeće: **Faza 5** (slike/R2 + očvršćivanje) ili produkcijski hosting (#1). Otvoreno: #19 (stapanje ocjena).
+## Trenutna faza: **Faza 5 (slike + očvršćivanje) — IMPLEMENTIRANA ✅ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (traži `dotnet restore`+`build`; NEMA nove migracije). Sve odluke #1–#19 ODOBRENE. Sljedeće: **Faza 6** (lansiranje: domena, pravne stranice §9, Search Console, merge u `main`).
+
+## Sesija 2026-09-17 (b) — Faza 5: slike + očvršćivanje
+- **Odobrenja:** sve odluke #1–#19 označene ✅ ODOBRENO u PLAN §11 (banner + retci). Kanonski repo banner dodan na vrh PLAN/STANJE/README; ispravljen krivi URL u `PLAN-ARHITEKTURA.md` (redak s "Repo:" pokazivao je na stari `wediplan.git` — GLAVNI uzrok zašto su nove sesije išle na krivi repo).
+- **Slike (odluka #3):** `Media/` — `IPhotoStorage` (+ `LocalPhotoStorage` za dev, `R2PhotoStorage` za produkciju), `ImagePipeline` (ImageSharp: auto-orient, resize, WebP, opcionalni žig, thumbnail). `PhotosController` (owner-only upload/delete/order). csproj: +SixLabors.ImageSharp.Drawing, +AWSSDK.S3. `ProviderController.MyVendors` sada vraća `photos`.
+- **Očvršćivanje:** rate limiting (global 300/min, liste 60/min) + `[EnableRateLimiting("lists")]` na vendors-list/pins/suggest; ForwardedHeaders iza `Proxy:TrustForwardedFor` (#17); `GET /api/health`; `UseStaticFiles` za `/uploads`.
+- **Frontend:** `lib/images.ts` (apsolutni URL-ovi), `next.config.mjs` (uploads rewrite + CDN remotePattern), `providerApi` (uploadPhoto/deletePhoto/reorderPhotos), `ProviderDashboard` PhotoManager + CSS.
+- **Ops/docs:** `ops/backup.sh` (pg_dump rotacija); DEPLOY.md (R2/Cloudflare/backup/monitoring/ImageSharp licenca), API.md (photo + health), PLAN §7 Faza 5 → implementirano.
+- **Verifikacija:** frontend `tsc` + `next build` čisti (/partner, /admin u ruti). Backend NIJE kompajliran (sandbox nema .NET SDK/NuGet); brace-balans OK. Faza 5 **NE traži novu migraciju** (`vendor_photos` postoji od Faze 1).
+- **Za vlasnika:** `git fetch`+merge bundle → `dotnet restore` (novi paketi) → `dotnet build`. Ako Faza 4 nije primijenjena: `dotnet ef migrations add Faza4 && dotnet ef database update` + `dotnet run -- --make-admin <email>`. Test: claim→odobri→recenzija→objava; upload fotografije u /partner (owner). Produkcija: postaviti R2 env + `Proxy:TrustForwardedFor=true` tek iza Cloudflarea.
+
 
 ## Odluka #18 — GDPR: ✅ RIJEŠENO (2026-09-16, novi repo WediPlan2)
 Rad prebačen na novi repo **WediPlan2** s čistom poviješću (jedan initial commit).

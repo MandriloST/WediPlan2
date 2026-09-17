@@ -238,3 +238,28 @@ Napomena: objavljene korisničke recenzije zasad NE mijenjaju `vendor.rating`/`r
 ## Kasnije (Coming soon)
 - `GET /api/vendors/{id}/availability?month=YYYY-MM` → `{ "days": { "2026-09-05": "free|busy" } }` — do tada frontend koristi deterministički mock iz `lib/availability.ts` (ista logika na profilu i u usporedbi)
 - Fotografije u draftu (Faza 5, R2), premium mogućnosti iz `subscriptions` (§M.1)
+
+---
+
+## Faza 5 — fotografije pružatelja + health
+
+Sve rute fotografija traže prijavu i **odobrenog vlasnika** (claimed + owner), inače `403`.
+Bazna ruta: `/api/provider/vendors/{slug}/photos`.
+
+| Metoda | Ruta | Tijelo | Odgovor |
+|---|---|---|---|
+| POST | `…/photos` | multipart, polje `file` (slika, ≤10 MB) | `200 ProviderPhoto` |
+| DELETE | `…/photos/{id}` | — | `204` |
+| PUT | `…/photos/order` | `{ orderedIds: string[], coverId: string\|null }` | `204` |
+
+`ProviderPhoto = { id, url, thumbUrl, isCover, sortOrder }`. `url`/`thumbUrl` su apsolutni
+(R2/CDN u produkciji, `/uploads/…` u dev-u). Prva uploadana fotografija automatski je naslovna.
+Greške (400): `no_file`, `file_too_large`, `not_an_image`, `invalid_image`, `too_many_photos`.
+
+Upload prolazi kroz obradu: auto-orijentacija → smanjivanje (glavna ≤1600px, thumb ≤400px) →
+WebP → opcionalni tekstualni žig. `GET /api/provider/vendors` sada vraća i `photos: ProviderPhoto[]`.
+
+**Health:** `GET /api/health` (bez autentikacije) → `200 {status:"ok"}` / `503 {status:"db_down"}`.
+
+**Rate limiting:** globalno 300/min po IP-u; liste (`/api/vendors`, `/api/pins`, `/api/suggest`)
+60/min. Prekoračenje → `429`.

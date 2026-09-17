@@ -51,6 +51,12 @@ public record VendorDraftDto(
 /// <summary>Osnovna statistika profila (§6.5, §M.1 free): pregledi i dodavanja u usporedbu, 30 dana.</summary>
 public record ProviderStatsDto(int Views30, int Compares30, int Favorites30);
 
+/// <summary>Fotografija pružatelja (Faza 5). thumbUrl je izveden iz url-a konvencijom (_thumb).</summary>
+public record ProviderPhotoDto(string Id, string Url, string ThumbUrl, bool IsCover, int SortOrder);
+
+/// <summary>PUT …/photos/order — novi poredak + naslovna.</summary>
+public record PhotoOrderRequest(IReadOnlyList<string> OrderedIds, string? CoverId);
+
 /// <summary>
 /// Jedan pružatelj u nadzornoj ploči partnera. myStatus opisuje odnos ovog korisnika:
 /// pending (čeka odobrenje), owner (odobren vlasnik), rejected.
@@ -63,7 +69,8 @@ public record ProviderVendorDto(
     string ClaimStatus,   // vendor.claim_status: unclaimed | claimed
     bool CanPublish,      // true samo za odobrenog vlasnika (pending ide preko admina)
     VendorDraftDto Draft,
-    ProviderStatsDto Stats);
+    ProviderStatsDto Stats,
+    IReadOnlyList<ProviderPhotoDto> Photos);
 
 // ---------------------------------------------------------------- admin (moderacija)
 

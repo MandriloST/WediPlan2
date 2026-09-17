@@ -76,6 +76,13 @@ public static class ProviderMapper
         v.UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>Thumbnail URL po konvenciji: "{base}.webp" → "{base}_thumb.webp".</summary>
+    public static string ThumbUrl(string url) =>
+        url.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? url[..^5] + "_thumb.webp" : url;
+
+    public static ProviderPhotoDto PhotoDto(VendorPhoto p) =>
+        new(p.Id.ToString(), p.StorageKey, ThumbUrl(p.StorageKey), p.IsCover, p.SortOrder);
+
     /// <summary>Domena iz e-maila (dio iza @, lowercase) ili null.</summary>
     public static string? EmailDomain(string? email)
     {
