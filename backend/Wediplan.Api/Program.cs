@@ -138,7 +138,7 @@ builder.Services.AddRateLimiter(o =>
 // Cloudflarea/proxyja. Default false — inače bi se IP mogao lažirati i zaobići rate limit.
 var trustProxy = builder.Configuration.GetValue<bool>("Proxy:TrustForwardedFor");
 if (trustProxy)
-    builder.Services.Configure<Microsoft.AspNetCore.HttpOverrides.ForwardedHeadersOptions>(o =>
+    builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(o =>
     {
         o.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
                            | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
