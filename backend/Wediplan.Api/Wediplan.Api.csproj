@@ -16,6 +16,9 @@
     </PackageReference>
     <!-- Excel čitanje za import komandu (B2) -->
     <PackageReference Include="ClosedXML" Version="0.104.1" />
+    <!-- Faza 3 — auth: ASP.NET Core Identity nad EF Core + Google OAuth -->
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.11" />
   </ItemGroup>
 
 </Project>

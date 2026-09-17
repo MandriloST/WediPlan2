@@ -1,9 +1,16 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Domain;
 
 namespace Wediplan.Api.Data;
 
-public class AppDbContext : DbContext
+/// <summary>
+/// Glavni DbContext. Od Faze 3 nasljeđuje IdentityDbContext (ASP.NET Core Identity nad Guid
+/// ključem) — donosi tablice korisnika/rola/logina. Domenske tablice (vendors, events…) i
+/// auth pomoćne tablice (magic_links…) su niže.
+/// </summary>
+public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -15,8 +22,18 @@ public class AppDbContext : DbContext
     public DbSet<DailyStat> DailyStats => Set<DailyStat>();
     public DbSet<Sponsorship> Sponsorships => Set<Sponsorship>();
 
+    // Faza 3 — auth pomoćne tablice
+    public DbSet<MagicLink> MagicLinks => Set<MagicLink>();
+    public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
+
+    // Faza 3 (kraj) — couple podaci
+    public DbSet<Favorite> Favorites => Set<Favorite>();
+    public DbSet<BudgetPlan> BudgetPlans => Set<BudgetPlan>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
+        base.OnModelCreating(b); // OBAVEZNO prvo — konfigurira Identity tablice
+
         // pg_trgm za typeahead (tolerancija tipfelera) — §2.2
         b.HasPostgresExtension("pg_trgm");
 
@@ -93,6 +110,51 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.VendorId);
         });
+
+        // --- Faza 3: auth pomoćne tablice ---
+        b.Entity<MagicLink>(e =>
+        {
+            e.ToTable("magic_links");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Email).HasMaxLength(320);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.Email); // rate-limit po emailu
+        });
+
+        b.Entity<EmailVerificationToken>(e =>
+        {
+            e.ToTable("email_verification_tokens");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.UserId);
+        });
+
+        b.Entity<Favorite>(e =>
+        {
+            e.ToTable("favorites");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.UserId, x.VendorId }).IsUnique(); // jedan favorit po paru/pružatelju
+            e.HasIndex(x => x.UserId);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            // NEMA FK na Vendor namjerno (v. Favorite komentar)
+        });
+
+        b.Entity<BudgetPlan>(e =>
+        {
+            e.ToTable("budget_plans");
+            e.HasKey(x => x.UserId); // 1:1 s korisnikom
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Identity tablice u snake_case (default su AspNetUsers itd.). Radi konzistentnosti sa
+        // ostatkom sheme; imena su stabilna jer migracije ionako fiksiraju shemu.
+        b.Entity<AppUser>().ToTable("users");
+        b.Entity<AppRole>().ToTable("roles");
+        b.Entity<IdentityUserRole<Guid>>().ToTable("user_roles");
+        b.Entity<IdentityUserClaim<Guid>>().ToTable("user_claims");
+        b.Entity<IdentityUserLogin<Guid>>().ToTable("user_logins");
+        b.Entity<IdentityUserToken<Guid>>().ToTable("user_tokens");
+        b.Entity<IdentityRoleClaim<Guid>>().ToTable("role_claims");
 
         // snake_case za sve stupce (Postgres konvencija)
         foreach (var entity in b.Model.GetEntityTypes())

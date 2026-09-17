@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NpgsqlTypes;
@@ -13,9 +14,11 @@ using Wediplan.Api.Data;
 namespace Wediplan.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916220547_Faza3Auth")]
+    partial class Faza3Auth
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -269,34 +272,6 @@ namespace Wediplan.Api.Migrations
                     b.ToTable("users", (string)null);
                 });
 
-            modelBuilder.Entity("Wediplan.Api.Domain.BudgetPlan", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<int>("Guests")
-                        .HasColumnType("integer")
-                        .HasColumnName("guests");
-
-                    b.Property<string>("Region")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("region");
-
-                    b.Property<int>("Total")
-                        .HasColumnType("integer")
-                        .HasColumnName("total");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("budget_plans", (string)null);
-                });
-
             modelBuilder.Entity("Wediplan.Api.Domain.DailyStat", b =>
                 {
                     b.Property<DateOnly>("Day")
@@ -403,35 +378,6 @@ namespace Wediplan.Api.Migrations
                     b.HasIndex("EventName", "Ts");
 
                     b.ToTable("events", (string)null);
-                });
-
-            modelBuilder.Entity("Wediplan.Api.Domain.Favorite", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<Guid>("VendorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("vendor_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("UserId", "VendorId")
-                        .IsUnique();
-
-                    b.ToTable("favorites", (string)null);
                 });
 
             modelBuilder.Entity("Wediplan.Api.Domain.ImportedReview", b =>
@@ -837,24 +783,6 @@ namespace Wediplan.Api.Migrations
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
-                {
-                    b.HasOne("Wediplan.Api.Domain.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Wediplan.Api.Domain.BudgetPlan", b =>
-                {
-                    b.HasOne("Wediplan.Api.Domain.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Wediplan.Api.Domain.Favorite", b =>
                 {
                     b.HasOne("Wediplan.Api.Domain.AppUser", null)
                         .WithMany()

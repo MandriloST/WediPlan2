@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Data;
 using Wediplan.Api.Import;
+using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,9 +29,83 @@ builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
         ?? new[] { "http://localhost:3000" })
     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
+// ---------------------------------------------------------------- Faza 3: Identity + auth
+builder.Services.AddIdentityCore<Wediplan.Api.Domain.AppUser>(o =>
+    {
+        o.User.RequireUniqueEmail = true;
+        o.Password.RequiredLength = 8;
+        o.Password.RequireNonAlphanumeric = false; // dužina > složeni znakovi (NIST); 8+ je minimum
+        o.Lockout.MaxFailedAccessAttempts = 8;
+        o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        o.SignIn.RequireConfirmedEmail = true;
+    })
+    .AddRoles<Wediplan.Api.Domain.AppRole>()
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+// Sesija = aplikacijski httpOnly cookie (NE JWT u localStorage — §5).
+builder.Services.AddAuthentication(o =>
+    {
+        o.DefaultScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme;
+        o.DefaultSignInScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ExternalScheme;
+    })
+    .AddCookie(Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme, o =>
+    {
+        o.Cookie.Name = "wediplan.session";
+        o.Cookie.HttpOnly = true;
+        o.ExpireTimeSpan = TimeSpan.FromDays(30);
+        o.SlidingExpiration = true;
+        // SameSite=Lax radi za frontend↔API na istoj domeni (wediplan.hr / api.wediplan.hr)
+        // i za lokalni razvoj na localhost (isti host, drugi port). Secure u produkciji (HTTPS).
+        o.Cookie.SameSite = SameSiteMode.Lax;
+        o.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+        if (!builder.Environment.IsDevelopment())
+        {
+            var domain = builder.Configuration["Auth:CookieDomain"]; // npr. ".wediplan.hr"
+            if (!string.IsNullOrWhiteSpace(domain)) o.Cookie.Domain = domain;
+        }
+        // API vraća statusni kod umjesto redirecta na login stranicu
+        o.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = 401; return Task.CompletedTask; };
+        o.Events.OnRedirectToAccessDenied = ctx => { ctx.Response.StatusCode = 403; return Task.CompletedTask; };
+    })
+    .AddCookie(Microsoft.AspNetCore.Identity.IdentityConstants.ExternalScheme, o =>
+    {
+        o.Cookie.Name = "wediplan.external";
+        o.Cookie.SameSite = SameSiteMode.Lax;
+        o.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+        o.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+    });
+
+// Google OAuth — registrira se SAMO ako su ključevi postavljeni (inače rute vraćaju 404).
+var googleId = builder.Configuration["Google:ClientId"];
+var googleSecret = builder.Configuration["Google:ClientSecret"];
+if (!string.IsNullOrWhiteSpace(googleId) && !string.IsNullOrWhiteSpace(googleSecret))
+{
+    builder.Services.AddAuthentication().AddGoogle(o =>
+    {
+        o.ClientId = googleId;
+        o.ClientSecret = googleSecret;
+        o.SignInScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ExternalScheme;
+        o.CallbackPath = "/signin-google";
+    });
+}
+
+builder.Services.AddAuthorization();
+
+// Email: Resend ako je ključ postavljen, inače dev konzola (potpuni auth tok lokalno bez servisa).
+builder.Services.AddHttpClient();
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Email:ResendApiKey"]))
+    builder.Services.AddSingleton<Wediplan.Api.Auth.IEmailSender, Wediplan.Api.Auth.ResendEmailSender>();
+else
+    builder.Services.AddSingleton<Wediplan.Api.Auth.IEmailSender, Wediplan.Api.Auth.ConsoleEmailSender>();
+builder.Services.AddScoped<Wediplan.Api.Auth.AuthEmails>();
+
 var app = builder.Build();
 
-// --- CLI način: `dotnet run -- --import <xlsx> [--dry-run] [--no-geocode]` ---
+// --- CLI način: `dotnet run -- --import <xlsx> [--dry-run] [--no-geocode] [--geocode-retry]` ---
 if (args.Contains("--import"))
 {
     await RunImportAsync(app, args);
@@ -51,7 +126,19 @@ if (args.Contains("--rollup"))
 }
 
 app.UseCors(CorsPolicy);
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
+
+// Seed rola (couple/provider/admin) pri startu — idempotentno.
+using (var scope = app.Services.CreateScope())
+{
+    var roleMgr = scope.ServiceProvider.GetRequiredService<RoleManager<Wediplan.Api.Domain.AppRole>>();
+    foreach (var r in Wediplan.Api.Domain.Roles.All)
+        if (!await roleMgr.RoleExistsAsync(r))
+            await roleMgr.CreateAsync(new Wediplan.Api.Domain.AppRole(r));
+}
+
 app.Run();
 
 static async Task RunImportAsync(WebApplication app, string[] args)
@@ -59,12 +146,14 @@ static async Task RunImportAsync(WebApplication app, string[] args)
     var path = args.SkipWhile(a => a != "--import").Skip(1).FirstOrDefault();
     if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
     {
-        Console.Error.WriteLine("Upotreba: dotnet run -- --import <putanja.xlsx> [--dry-run] [--no-geocode]");
+        Console.Error.WriteLine("Upotreba: dotnet run -- --import <putanja.xlsx> [--dry-run] [--no-geocode] [--geocode-retry]");
         Environment.ExitCode = 1;
         return;
     }
     bool dryRun = args.Contains("--dry-run");
     bool noGeocode = args.Contains("--no-geocode");
+    // Ponovno pokušaj gradove koji su ranije završili kao null u cacheu (nakon popravka upita).
+    bool retryNegatives = args.Contains("--geocode-retry");
 
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -74,7 +163,7 @@ static async Task RunImportAsync(WebApplication app, string[] args)
 
     Geocoder? geocoder = noGeocode || dryRun
         ? null
-        : new Geocoder(Path.Combine(Directory.GetCurrentDirectory(), "geocode-cache.json"));
+        : new Geocoder(Path.Combine(Directory.GetCurrentDirectory(), "geocode-cache.json")) { RetryNegatives = retryNegatives };
 
     var importer = new ExcelImporter(db, geocoder, dryRun);
     await importer.RunAsync(path, CancellationToken.None);

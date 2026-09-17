@@ -101,7 +101,7 @@ public class ExcelImporter
             }
             if (extra.Count > 2) { extra = extra.Take(2).ToList(); Warn(rowNo, name, "dodatne_kategorije: >2 — uzeto prve 2"); }
 
-            var city = country == "hr" ? cityRaw.Trim() : ImportRules.CleanCity(cityRaw);
+            var city = ImportRules.CleanCity(cityRaw);  // "Split / Zagreb" → "Split" (prikaz i geokod); vrijedi za sve države
             if (country != "hr" && ImportRules.Norm(city) is "bih" or "bosna i hercegovina") city = "";
 
             ImportRules.Coords? coords = null;

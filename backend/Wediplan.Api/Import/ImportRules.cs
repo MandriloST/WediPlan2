@@ -149,7 +149,32 @@ public static class ImportRules
     }.Select(Norm));
 
     /// <summary>Očisti grad: "Banja Luka (BiH)" → "Banja Luka", "Bijeljina / destination" → "Bijeljina".</summary>
-    public static string CleanCity(string? raw) => (raw ?? "").Split('/', '(')[0].Trim();
+    public static string CleanCity(string? raw) =>
+        (raw ?? "").Split('/', '(', ';', '–', '-')[0]
+            .Replace(" i okolica", "", StringComparison.OrdinalIgnoreCase)
+            .Trim();
+
+    /// <summary>
+    /// Interna regija (naziv ili slug) → SLUŽBENA hrvatska županija koju OSM/Nominatim poznaje.
+    /// Naše regije ("Dalmacija", "Zagreb i okolica", "Kvarner") nisu administrativne jedinice, pa
+    /// se za geokodiranje moraju preslikati. Za regije koje pokrivaju više županija biramo onu s
+    /// glavnim gradom regije (Split, Rijeka, Zagreb…) — dovoljno za centroid grada; točnu poziciju
+    /// ionako daje sam grad u upitu, a raspored pinova radi frontend jitter. null = ne dodaji
+    /// županiju (npr. nepoznata regija) → fallback na "grad, Hrvatska".
+    /// </summary>
+    public static string? CountyForRegion(string? region)
+    {
+        switch (Norm(region))
+        {
+            case "istra": return "Istarska županija";
+            case "kvarner": return "Primorsko-goranska županija";
+            case "dalmacija": return "Splitsko-dalmatinska županija";
+            case "zagreb":
+            case "zagreb i okolica": return "Grad Zagreb";
+            case "slavonija": return "Osječko-baranjska županija";
+            default: return null;
+        }
+    }
 
     /// <summary>
     /// Odredi državu iz eksplicitnog stupca `drzava` (ako postoji u Excelu) ili

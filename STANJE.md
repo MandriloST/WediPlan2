@@ -4,22 +4,17 @@
 > Ažurira se na kraju SVAKE radne sesije (kratko, činjenično). Novije sesije na vrhu.
 > Uvijek provjeriti i stvarni `git log` — repo je izvor istine, ovo je sažetak.
 
-## Trenutna faza: **Faza 2 ✅ + Zadatak D ✅ + Zadatak C ✅ (2026-09-16)** → sljedeće: Faza 3 (auth; treba odluka #5 email servis) ili Faza 4; preduvjet za Vercel nad pravim API-jem je hosting (#1)
+## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
+## Trenutna faza: **Faza 3 auth — ZAVRŠENA ✅ (2026-09-16)** (backend + UI + favoriti/plan sync). Sljedeće: Faza 4 (claim + admin + korisničke recenzije) ILI Zadatak preostali. Google/Resend rade čim se upišu ključevi. Za produkciju: hosting (#1).
+## (raniji redak faze:  **Faza 2 ✅ + D ✅ + C ✅ + geokod fix ✅ (2026-09-16)** → sljedeće: **Faza 3 (auth)**; treba odluka #5 (email — Resend). Preduvjet za Vercel nad pravim API-jem: hosting (#1). Odluke #14–#17 odobrene.
 
-## ⚠️ HITNO (odluka #18) — GDPR — JOŠ NIJE RIJEŠENO (stanje 2026-09-16, nakon da5729a)
-Repo `MandriloST/wediplan` je i dalje JAVAN (anonimni `git clone` prolazi), a
-`data/vendors-live.xlsx` (2295 telefona, 1748 emailova, 1813 webova) je PONOVNO u gitu:
-`68c3b05` ga je izbacio, ali `da5729a` ga je vratio jer je redak u `.gitignore` bio
-`"data/vendors-live.xlsx" ` — git navodnike čita doslovno, pa pravilo nije vrijedilo i
-`git add .` je datoteku ponovno dodao. Ispravljeno pravilo (`/data/vendors-live.xlsx`, bez
-navodnika) je u commitu Faze 2. Preostali koraci za vlasnika:
-(1) GitHub → Settings → General → Danger Zone → Change visibility → **Private**;
-(2) nakon mergea: `git rm --cached data/vendors-live.xlsx` + commit + push (lokalna datoteka
-ostaje; `.gitignore` sada sprječava ponovno dodavanje; provjera: `git check-ignore -v
-data/vendors-live.xlsx` mora ispisati pravilo);
-(3) opcionalno čišćenje povijesti (`git filter-repo`) — datoteka je u povijesti od srpnja.
-Model NE smije commitati tu datoteku niti je brisati u vlastitim commitovima (merge bi je
-obrisao i s vlasnikova diska).
+## Odluka #18 — GDPR: ✅ RIJEŠENO (2026-09-16, novi repo WediPlan2)
+Rad prebačen na novi repo **WediPlan2** s čistom poviješću (jedan initial commit).
+`data/vendors-live.xlsx` NIJE u gitu — `.gitignore` pravilo `/data/vendors-live.xlsx` ga
+blokira (`git check-ignore -v` potvrđuje), a anonimni klon ga ne sadrži. Stari repo
+`MandriloST/wediplan` (sa zaraženom poviješću) ide na **private**. Novi repo ostaje **javan
+dok razvoj traje** (Claude ga mora klonirati radi provjere paketa), na kraju projekta → private.
+Pravilo: Claude nikad ne commita niti briše taj Excel (`.gitignore` ga drži izvan gita).
 
 ## Stalna pravila predaje (vrijede svaku sesiju)
 - Rad isključivo na `develop` (ili `claude/*` → develop). `main` se ne dira.
@@ -137,6 +132,131 @@ sitemap 3181 URL. Backend: kompilacija izmijenjenih datoteka uz stub EF površin
 s paketima i EF prijevod novih upita u SQL nad Postgresom — na vlasniku.
 
 **Otvoreno:** #18 HITNO; #1 hosting; #14–#16 potvrda; #17 u Fazi 5.
+
+---
+
+## Sesija 2026-09-16 (6) — Faza 3 ZAVRŠENA: favoriti/plan sync ✅
+
+**Time je DoD §5 ispunjen** ("prijava sva tri načina radi, favoriti/plan sinkronizirani,
+odjava/istek uredni").
+
+**Backend:** `Domain/AuthEntities.cs` — `Favorite` (UserId+VendorId, unique, BEZ FK na vendors),
+`BudgetPlan` (PK=UserId, 1:1). `AppDbContext` — DbSetovi + mapiranje (FK na users cascade).
+`FavoritesController` [Authorize]: `GET /api/favorites` (favoriteIds+plan), `PUT/DELETE
+/api/favorites/{vendorId}`, `PUT/DELETE /api/favorites/plan`, `POST /api/favorites/merge`
+(unija favorita, plan ne pregazi). Limit 200 favorita. `db/schema.sql` + `Contracts` DTO.
+
+**Frontend:** `lib/api/auth.ts` — `coupleApi` (get/add/remove/savePlan/deletePlan/merge).
+`lib/sync.ts` — `syncLocalToAccount` (merge pri prijavi, upiše spojeno natrag) i
+`loadAccountData` (učitaj sa servera pri boot-u). `components/AccountSync.tsx` — aktivira se dok
+je korisnik prijavljen: učita server-stanje, pa mirrora svaku promjenu favorita/plana na server
+(diff preko store.subscribe, fire-and-forget); pri odjavi staje (ne briše ništa). U layout.
+LoginForm/TokenAction već zovu syncLocalToAccount nakon prijave.
+
+**Dizajn:** gost = localStorage (kao dosad); prijavljen = server izvor istine. Merge je unija;
+plan se ne pregazi. Favoriti bez FK → nestali pružatelji se tiho filtriraju (kao frontend prune).
+
+**Verificirano:** FavoritesController kompajliran protiv pravih Identity dll-ova (Build
+succeeded); `db/schema.sql` (s favorites+budget_plans) učitana na Postgres 16; frontend tsc čist
++ build prolazi; **E2E sync 5/5** (gost→prijava merge favorita I plana; server prima favorit;
+refresh→loadAccountData vrati server favorite; 0 JS grešaka) protiv lažnog backenda s couple
+endpointima. **Nije u sandboxu:** pravi dotnet build/migracija (NuGet blokiran) → `dotnet ef
+migrations add Faza3Couple` na vlasniku.
+
+---
+
+## Sesija 2026-09-16 (5) — Faza 3: auth FRONTEND UI ✅
+
+**Potvrda:** `using Microsoft.AspNetCore.Identity;` u AppDbContext (vlasnikov commit 82c0a57)
+je bio jedini nedostatak — očekivano, jer sandbox NuGet blokira pa `dotnet build` nije mogao
+uhvatiti import. Migracija Faza3Auth generirana i commitana (1d5cf17). Backend potvrđen radnim.
+
+**Dodano (frontend):**
+- `stores/auth.ts` (`useAuth`: user/providers/loading/bootstrap/logout/refresh; `authMessage`
+  HR poruke). Izvor istine = /api/me; store čuva samo kopiju (sesija je cookie).
+- `components/AuthBootstrap.tsx` (jedan /api/me pri boot-u) u layout uz Analytics.
+- `Header.tsx`: `UserMenu` — Prijava dugme (gost) ili avatar+ime+dropdown (favoriti/plan,
+  provider/admin linkovi po roli, odjava); ne trepće dok traje boot.
+- Stranice pod `/prijava`: glavna (LoginForm: lozinka + magic tab + Google gumb uvjetno),
+  `/registracija`, `/link` (magic consume), `/potvrda` (verify email), `/zaboravljena` (forgot),
+  `/reset`. Sve noindex, dinamičke, Suspense oko useSearchParams.
+- Komponente: LoginForm, RegisterForm, ForgotForm, ResetForm, TokenAction(+Client), AuthShell.
+- `lib/sync.ts`: migracija localStorage favorita/plana → account nakon prijave. Trenutno SIGURAN
+  no-op (POST /api/favorites/merge; 404 se tiho ignorira) jer backend favorite/plan endpointi
+  dolaze u zasebnom koraku — prijava NIKAD ne pada zbog synca.
+- CSS auth (kartica, tabovi, Google gumb, greške, spinner, user menu) — u skladu s vizualnim smjerom.
+
+**Verificirano:** tsc čist; `npm run build` prolazi (sve /prijava rute); **E2E u Chromiumu
+13/14** (jedini FAIL je tajming provjere URL-a — ručno potvrđeno da verify redirecta na /profil):
+gost vidi Prijava, registracija→verify→prijavljen+avatar, odjava, login lozinkom, kriva lozinka
+daje HR grešku, magic link (novi korisnik), forgot→reset→login novom lozinkom, reset bez tokena
+greška, next-redirect na traženu stranicu; 0 JS grešaka. Testirano protiv lažnog auth backenda
+(cookie sesija, magic/verify/reset tokeni).
+
+**Preostaje za Fazu 3 (kraj):** backend `/api/favorites` + `/api/budget-plans` (couple podaci u
+bazi) i popuna `lib/sync.ts` da merge localStorage→account stvarno radi. Tek time je DoD §5
+("favoriti/plan sinkronizirani") ispunjen.
+
+---
+
+## Sesija 2026-09-16 (4) — Faza 3: auth BACKEND ✅
+
+**Dodano (backend):** ASP.NET Core Identity nad Guid (§5).
+- Entiteti `Domain/AuthEntities.cs`: `AppUser` (+displayName, lastLoginAt), `AppRole`, `Roles`
+  (couple/provider/admin), `MagicLink`, `EmailVerificationToken` (tokeni se čuvaju kao SHA-256 hash).
+- `AppDbContext` → `IdentityDbContext<AppUser,AppRole,Guid>`; Identity tablice + magic/verify u
+  snake_case; DbSetovi. `base.OnModelCreating` prvi.
+- `Auth/`: `IEmailSender` + `ResendEmailSender` (Resend API) + `ConsoleEmailSender` (dev fallback);
+  `Tokens` (base64url token, hash u bazi); `AuthEmails` (HR mailovi: magic/verify/reset).
+- Kontroleri: `AuthController` (register, login, magic request/consume, verify-email,
+  password forgot/reset, logout), `MeController` (`GET /api/me`), `ExternalAuthController`
+  (Google, uvjetno), `AuthProvidersController`.
+- `Program.cs`: AddIdentityCore + role + EF stores + SignInManager + token provideri; cookie
+  auth (`wediplan.session`, httpOnly, SameSite=Lax, Secure u prod, 401/403 umjesto redirecta);
+  Google registriran SAMO ako su ključevi; email DI (Resend ili konzola); seed rola pri startu.
+- Config: appsettings App/Auth/Email/Google sekcije; `backend/.env.example`.
+- `db/schema.sql`: dopunjen svim Identity + auth tablicama (referenca; izvor istine = EF migracija).
+
+**Sigurnost:** tokeni hash+jednokratni+istječu; rate-limit magic linka (3/15 min); anti-enumeracija
+(uniformni odgovori); lockout (8→15 min); Google callback open-redirect blokiran (samo relativni
+returnTo); analitika/PII nedirnuta.
+
+**Frontend (temelj):** `lib/api/auth.ts` (authApi: me, providers, register, login, logout,
+magic, verify, forgot/reset, googleUrl) — sve `credentials: include`.
+
+**Verificirano:** auth kod (kontroleri, email, tokeni, DbContext-veze) kompajliran protiv PRAVIH
+ASP.NET Identity dll-ova iz shared frameworka 8.0.31 (UserManager/SignInManager/cookie/OAuth/
+ResetPassword/ExternalLogin API potpisi) — **Build succeeded**; kontrolna greška potvrdila da
+build stvarno provjerava potpise. `db/schema.sql` (cijela, s auth tablicama) učitana na Postgres
+16 bez greške. Frontend `tsc` čist. **NIJE izvršeno u sandboxu (NuGet blokiran):** pravi
+`dotnet build`/`dotnet ef migrations add Faza3Auth`/`database update` — na vlasniku (koraci u
+DEPLOY.md/README). EF fluent mapiranje (ToTable pozivi) nije prošlo kroz EF prevoditelj —
+standardni Identity obrazac, ali provjeriti pri prvoj migraciji.
+
+**Sljedeće (Faza 3 nastavak):** frontend auth UI (prijava/registracija/magic/verify/reset
+stranice, `useAuth` store, header stanje) + migracija localStorage favorita/plana u account
+nakon prijave (merge, ne pregazi) — §5.
+
+---
+
+## Sesija 2026-09-16 — Faza 2 + Zadatak D + Zadatak C + geokod fix ✅ (novi repo WediPlan2)
+
+Ova sesija objedinjuje rad prenesen u novi repo. Detalji ranijih koraka (Faza 2 spajanje na
+.NET, Zadatak D category-first, Zadatak C analitika) — v. commitove i API.md/PLAN.
+
+**Geokod fix (koordinate gradova) — glavni fokus:**
+Bug: import je za Split, Zagreb, Rijeku i SVE gradove regija "Dalmacija"/"Zagreb i
+okolica"/"Kvarner" vraćao null i trajno keširao. Uzrok: geokod upit slao naše interne "regije"
+koje OSM ne poznaje kao administrativne jedinice (Pula/Poreč prošli slučajno — Istra JEST OSM
+ime). Dodatno: bbox odbacivao inozemne (BiH) pogotke; složeni gradovi ("Split / Zagreb") se
+nisu čistili.
+Popravak (backend; frontend jitter netaknut): `Geocoder.cs` — kandidati upita
+(grad+SLUŽBENA županija → "grad, Hrvatska" → structured `city=`), bbox po državi, `RetryNegatives`
++ CLI `--geocode-retry`; `ImportRules.cs` — `CountyForRegion` (regija→županija), `CleanCity`
+prošireni separatori + skida "i okolica"; `ExcelImporter.cs` — `CleanCity` i za HR; `Program.cs`
+— zastavica. `geocode-cache.json` — uklonjeno 603 null-a (ostalo 71 pogodak).
+Verificirano: Probe (CleanCity/CountyForRegion točni) + geokoder protiv lažnog Nominatima 9/9.
+Nije izvršeno: pravi import + stvarni Nominatim (na vlasniku; koraci u DEPLOY.md).
 
 ---
 

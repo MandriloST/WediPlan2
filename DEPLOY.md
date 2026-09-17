@@ -51,6 +51,63 @@ Vercel projekt → Settings → Domains → Add → slijedi DNS upute (A/CNAME z
   sitemap bez API-ja sadrži samo kategorije/regije.
 - Dok backend nije hostan, **ne postavljaj** `API_URL` na Vercelu — preview ostaje na mocku.
 
+## Couple podaci (favoriti/plan) — sinkronizacija (kraj Faze 3)
+
+Prijavljeni korisnik: favoriti i budžetski plan žive u bazi (`favorites`, `budget_plans`).
+Gost: sve u localStorage (kao dosad). Pri prijavi frontend (`lib/sync.ts`) POST-a
+`/api/favorites/merge` — spaja lokalno u account (unija favorita; plan se ne pregazi). Nakon
+toga `components/AccountSync.tsx` mirrora svaku promjenu na server, a pri boot-u (refresh)
+učita server-stanje. Nema dodatne konfiguracije — radi čim je auth postavljen i migracija primijenjena.
+
+## Auth (Faza 3) — konfiguracija
+
+Nakon migracije (`dotnet ef database update`) auth radi ODMAH s dva načina (email+lozinka,
+magic link). Bez Resend ključa e-mailovi (magic/verify/reset linkovi) ispisuju se u KONZOLU
+servera (dev) — dovoljno za lokalni test cijelog toka.
+
+Konfiguracija (appsettings ili env; env NADJAČAVA i NIKAD ne ide u git):
+```
+App__PublicUrl        = http://localhost:3000     (frontend; odredište linkova u mailovima)
+Email__ResendApiKey   = re_...                     (prazno → dev konzola)
+Email__From           = Wediplan <no-reply@tvoja-domena>
+Google__ClientId      = ...apps.googleusercontent.com   (prazno → Google gumb skriven)
+Google__ClientSecret  = ...
+Auth__CookieDomain    = .wediplan.hr               (samo produkcija; dev prazno)
+```
+
+**Resend:** registriraj se na resend.com, verificiraj domenu (ili koristi test `onboarding@resend.dev`),
+kreiraj API ključ → `Email__ResendApiKey`. Bez toga sve radi, samo se mailovi ispisuju u konzolu.
+
+**Google OAuth:** Google Cloud Console → OAuth consent + Credentials → OAuth client (Web).
+Authorized redirect URI: `http://localhost:5080/signin-google` (dev) i
+`https://api.wediplan.hr/signin-google` (prod). Client ID/Secret → env. Dok ovo ne postaviš,
+prijava Googleom je skrivena, ostala dva načina rade.
+
+**Cookie:** dev radi na localhost bez ičega. Produkcija: frontend i API na istoj baznoj domeni
+(`wediplan.hr` + `api.wediplan.hr`), postavi `Auth__CookieDomain=.wediplan.hr`, oboje preko HTTPS.
+
+## Geokodiranje pri importu (koordinate gradova)
+
+Import geokodira grad → koordinate preko Nominatima (OpenStreetMap). Zahtijeva izlaz na
+`https://nominatim.openstreetmap.org` (rate limit 1 req/s; User-Agent je već postavljen —
+zamijeni kontakt e-mail u `Import/Geocoder.cs`).
+
+**Popravak 2026-09-16:** raniji upit je koristio naše interne "regije" ("Dalmacija",
+"Zagreb i okolica", "Kvarner"), koje OSM ne poznaje, pa je za Split/Zagreb/Rijeku i sve gradove
+tih regija vraćao prazno i trajno keširao kao `null`. Sada se regija preslikava u SLUŽBENU
+županiju (Split → Splitsko-dalmatinska županija), uz fallback na "grad, Hrvatska" i strukturirani
+`city=` upit. Složeni nazivi ("Split / Zagreb", "Zagreb (Sesvete)") se čiste na prvi grad.
+
+**Ako ti pinovi za Split/Zagreb ne rade nakon update-a:** stari `geocode-cache.json` je te
+gradove imao spremljene kao `null`. Null-ovi su u ovom commitu uklonjeni iz cachea, pa ih sljedeći
+import pokušava ponovno. Ako radiš sa svojim starijim cacheom, pokreni jednom:
+```
+dotnet run -- --import data/vendors-live.xlsx --geocode-retry
+```
+`--geocode-retry` ponovno pokušava SAMO ključeve koji su prije bili `null` (pozitivni pogodci se
+ne diraju, mreža se štedi). Prvi import ~3200 gradova traje (1 req/s + fallback upiti); rezultati
+se keširaju pa su idući importi brzi.
+
 ## Analitika (Zadatak C)
 
 - Bez `API_URL` eventi idu u mock rutu i odbacuju se (204). Za pregled što se šalje:
