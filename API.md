@@ -140,9 +140,17 @@ produkciji). Klijent NE vidi token; svi pozivi idu s `credentials: "include"`. O
   redirect na frontend (samo relativni returnTo; open-redirect blokiran).
 - `GET  /api/me` → `MeDto` ili 401.
 
-**Slijedi (kraj Faze 3):** `POST /api/favorites/merge` (spoji localStorage favorite/plan u
-account nakon prijave), `GET/PUT /api/favorites`, `GET/PUT /api/budget-plans`. Frontend
-`lib/sync.ts` već zove `/api/favorites/merge` (za sada tiho podnosi 404).
+### Couple podaci (favoriti/plan) — sve traže sesiju ([Authorize])
+- `GET /api/favorites` → `{ favoriteIds: string[], plan: {guests,region,total}|null }`.
+  favoriteIds su vendor Guid-ovi (frontend njima dohvaća pune Vendore preko `?ids=`).
+- `PUT /api/favorites/{vendorId}` → 204 (dodaj, idempotentno; 409 `too_many_favorites` iznad 200).
+- `DELETE /api/favorites/{vendorId}` → 204 (makni, idempotentno).
+- `PUT /api/favorites/plan` `{guests,region,total}` → 204 (spremi/zamijeni plan).
+- `DELETE /api/favorites/plan` → 204.
+- `POST /api/favorites/merge` `{favoriteIds?, plan?}` → `{favoriteIds, plan}` — UNIJA favorita;
+  plan se postavlja SAMO ako korisnik još nema plan ("merge, ne pregazi"). Zove se nakon prijave.
+
+Favoriti NEMAJU FK na vendors: ako pružatelj nestane, zapis je bezopasan i filtrira se pri čitanju.
 
 `MeDto`: `{ id, email, displayName?, emailConfirmed, roles[] }` (role: couple|provider|admin).
 Kontakti/tokeni/hashevi se NIKAD ne vraćaju.

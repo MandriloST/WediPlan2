@@ -212,3 +212,21 @@ CREATE TABLE email_verification_tokens (
 );
 CREATE UNIQUE INDEX ix_email_verification_tokens_token_hash ON email_verification_tokens (token_hash);
 CREATE INDEX ix_email_verification_tokens_user_id ON email_verification_tokens (user_id);
+
+-- Couple podaci (Faza 3 kraj): favoriti i budžetski plan po korisniku.
+CREATE TABLE favorites (
+  id         uuid PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  vendor_id  uuid NOT NULL,   -- BEZ FK na vendors (v. Favorite entitet): nevažeći se filtriraju pri čitanju
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX ix_favorites_user_vendor ON favorites (user_id, vendor_id);
+CREATE INDEX ix_favorites_user ON favorites (user_id);
+
+CREATE TABLE budget_plans (
+  user_id    uuid PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  guests     integer NOT NULL DEFAULT 0,
+  region     text NOT NULL DEFAULT '',
+  total      integer NOT NULL DEFAULT 0,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);

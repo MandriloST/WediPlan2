@@ -51,6 +51,14 @@ Vercel projekt → Settings → Domains → Add → slijedi DNS upute (A/CNAME z
   sitemap bez API-ja sadrži samo kategorije/regije.
 - Dok backend nije hostan, **ne postavljaj** `API_URL` na Vercelu — preview ostaje na mocku.
 
+## Couple podaci (favoriti/plan) — sinkronizacija (kraj Faze 3)
+
+Prijavljeni korisnik: favoriti i budžetski plan žive u bazi (`favorites`, `budget_plans`).
+Gost: sve u localStorage (kao dosad). Pri prijavi frontend (`lib/sync.ts`) POST-a
+`/api/favorites/merge` — spaja lokalno u account (unija favorita; plan se ne pregazi). Nakon
+toga `components/AccountSync.tsx` mirrora svaku promjenu na server, a pri boot-u (refresh)
+učita server-stanje. Nema dodatne konfiguracije — radi čim je auth postavljen i migracija primijenjena.
+
 ## Auth (Faza 3) — konfiguracija
 
 Nakon migracije (`dotnet ef database update`) auth radi ODMAH s dva načina (email+lozinka,

@@ -67,3 +67,34 @@ public class EmailVerificationToken
     public DateTime ExpiresAt { get; set; }
     public DateTime? ConsumedAt { get; set; }
 }
+
+// ============================================================================
+// Couple podaci (Faza 3 kraj, §4/§5): favoriti i budžetski plan vezani uz korisnika.
+// Migriraju se iz localStorage nakon prijave (merge, ne pregazi).
+// ============================================================================
+
+/// <summary>
+/// Favorit (par → pružatelj). Bez FK na vendors: ako pružatelj nestane (opt-out, brisanje),
+/// zapis ostaje bezopasan, a čita se preko JOIN-a pa se nevažeći tiho izostave (kao frontend prune).
+/// Jedinstveno po (UserId, VendorId).
+/// </summary>
+public class Favorite
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid UserId { get; set; }
+    public Guid VendorId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Budžetski plan para (jedan po korisniku — zadnji spremljeni). `caps` se NE sprema (izvodi se
+/// iz total+region na klijentu/serveru), pa ovdje samo ulazi plana.
+/// </summary>
+public class BudgetPlan
+{
+    public Guid UserId { get; set; }          // PK = UserId (1:1 s korisnikom)
+    public int Guests { get; set; }
+    public string Region { get; set; } = "";
+    public int Total { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}

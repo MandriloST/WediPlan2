@@ -1,44 +1,59 @@
+"use client";
+
+import { coupleApi } from "@/lib/api/auth";
+import { useBudget, useFavorites } from "@/stores";
+import type { RegionId } from "@/lib/types";
+
 /**
  * Migracija localStorage → account nakon prijave (§5: "merge, ne pregazi").
  *
- * Backend endpointi za favorite/plan (`/api/favorites`, `/api/budget-plans`) dolaze u zasebnom
- * koraku. Do tada je ovo siguran no-op: prijava NIKAD ne smije pasti zbog sinkronizacije, pa je
- * sve u try/catch i tiho izlazi ako endpointa nema (404). Kad backend bude spreman, popuni se
- * tijelo — storeovi i oblik su već ovdje.
+ * Tok pri prijavi:
+ *  1. pročitaj lokalne favorite/plan (Zustand persist),
+ *  2. POST /api/favorites/merge — server radi UNIJU favorita i postavlja plan SAMO ako ga
+ *     korisnik još nema,
+ *  3. rezultat (spojeno stanje sa servera) upiši natrag u storeove → UI odmah pokazuje
+ *     spojene favorite/plan, a od tada su izvor istine na serveru.
+ *
+ * Sve je best-effort: ako mreža/endpoint zakažu, prijava se nastavlja (favoriti ostaju lokalno).
  */
-
-const FAV_KEY = "wediplan.favorites";
-const PLAN_KEY = "wediplan.budget";
-
-function readLocal<T>(key: string): T | null {
+export async function syncLocalToAccount(): Promise<void> {
   try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
+    const favIds = useFavorites.getState().ids;
+    const localPlan = useBudget.getState().plan;
+    const planDto = localPlan
+      ? { guests: localPlan.guests, region: localPlan.region, total: localPlan.total }
+      : null;
+
+    const merged = await coupleApi.merge(favIds, planDto);
+    if (!merged) return;
+
+    // upiši spojeno stanje natrag (server je sad izvor istine)
+    useFavorites.setState({ ids: merged.favoriteIds });
+    if (merged.plan) {
+      useBudget.getState().setPlan(
+        merged.plan.guests,
+        merged.plan.region as RegionId,
+        merged.plan.total
+      );
+    }
   } catch {
-    return null;
+    /* prijava se nastavlja bez obzira na sync */
   }
 }
 
 /**
- * Gura lokalne favorite i plan u account (merge na serveru). Vraća true ako je nešto poslano.
- * Trenutno: priprema podatke i pokušava POST; 404 (endpoint još ne postoji) se tiho ignorira.
+ * Učitaj couple podatke sa servera u storeove (poziva se kad je korisnik već prijavljen,
+ * npr. pri boot-u nakon osvježavanja stranice). NE radi merge — server je izvor istine.
  */
-export async function syncLocalToAccount(): Promise<void> {
+export async function loadAccountData(): Promise<void> {
   try {
-    const fav = readLocal<{ state?: { ids?: string[] } }>(FAV_KEY);
-    const favIds = fav?.state?.ids ?? [];
-    const plan = readLocal<{ state?: { plan?: unknown } }>(PLAN_KEY);
-
-    if (favIds.length === 0 && !plan?.state?.plan) return;
-
-    // Best-effort; endpoint možda još ne postoji (Faza 3 nastavak).
-    await fetch("/api/favorites/merge", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ favoriteIds: favIds, plan: plan?.state?.plan ?? null }),
-    }).catch(() => {});
+    const data = await coupleApi.get();
+    if (!data) return;
+    useFavorites.setState({ ids: data.favoriteIds });
+    if (data.plan) {
+      useBudget.getState().setPlan(data.plan.guests, data.plan.region as RegionId, data.plan.total);
+    }
   } catch {
-    /* prijava se nastavlja bez obzira na sync */
+    /* ostani na localStorage */
   }
 }

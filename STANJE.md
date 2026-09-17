@@ -5,7 +5,7 @@
 > Uvijek provjeriti i stvarni `git log` — repo je izvor istine, ovo je sažetak.
 
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
-## Trenutna faza: **Faza 3 auth — BACKEND ✅ + FRONTEND UI ✅ (2026-09-16)**; preostaje SAMO localStorage→account sync (treba backend `/api/favorites`+`/api/budget-plans`). Google/Resend rade čim se upišu ključevi.
+## Trenutna faza: **Faza 3 auth — ZAVRŠENA ✅ (2026-09-16)** (backend + UI + favoriti/plan sync). Sljedeće: Faza 4 (claim + admin + korisničke recenzije) ILI Zadatak preostali. Google/Resend rade čim se upišu ključevi. Za produkciju: hosting (#1).
 ## (raniji redak faze:  **Faza 2 ✅ + D ✅ + C ✅ + geokod fix ✅ (2026-09-16)** → sljedeće: **Faza 3 (auth)**; treba odluka #5 (email — Resend). Preduvjet za Vercel nad pravim API-jem: hosting (#1). Odluke #14–#17 odobrene.
 
 ## Odluka #18 — GDPR: ✅ RIJEŠENO (2026-09-16, novi repo WediPlan2)
@@ -132,6 +132,36 @@ sitemap 3181 URL. Backend: kompilacija izmijenjenih datoteka uz stub EF površin
 s paketima i EF prijevod novih upita u SQL nad Postgresom — na vlasniku.
 
 **Otvoreno:** #18 HITNO; #1 hosting; #14–#16 potvrda; #17 u Fazi 5.
+
+---
+
+## Sesija 2026-09-16 (6) — Faza 3 ZAVRŠENA: favoriti/plan sync ✅
+
+**Time je DoD §5 ispunjen** ("prijava sva tri načina radi, favoriti/plan sinkronizirani,
+odjava/istek uredni").
+
+**Backend:** `Domain/AuthEntities.cs` — `Favorite` (UserId+VendorId, unique, BEZ FK na vendors),
+`BudgetPlan` (PK=UserId, 1:1). `AppDbContext` — DbSetovi + mapiranje (FK na users cascade).
+`FavoritesController` [Authorize]: `GET /api/favorites` (favoriteIds+plan), `PUT/DELETE
+/api/favorites/{vendorId}`, `PUT/DELETE /api/favorites/plan`, `POST /api/favorites/merge`
+(unija favorita, plan ne pregazi). Limit 200 favorita. `db/schema.sql` + `Contracts` DTO.
+
+**Frontend:** `lib/api/auth.ts` — `coupleApi` (get/add/remove/savePlan/deletePlan/merge).
+`lib/sync.ts` — `syncLocalToAccount` (merge pri prijavi, upiše spojeno natrag) i
+`loadAccountData` (učitaj sa servera pri boot-u). `components/AccountSync.tsx` — aktivira se dok
+je korisnik prijavljen: učita server-stanje, pa mirrora svaku promjenu favorita/plana na server
+(diff preko store.subscribe, fire-and-forget); pri odjavi staje (ne briše ništa). U layout.
+LoginForm/TokenAction već zovu syncLocalToAccount nakon prijave.
+
+**Dizajn:** gost = localStorage (kao dosad); prijavljen = server izvor istine. Merge je unija;
+plan se ne pregazi. Favoriti bez FK → nestali pružatelji se tiho filtriraju (kao frontend prune).
+
+**Verificirano:** FavoritesController kompajliran protiv pravih Identity dll-ova (Build
+succeeded); `db/schema.sql` (s favorites+budget_plans) učitana na Postgres 16; frontend tsc čist
++ build prolazi; **E2E sync 5/5** (gost→prijava merge favorita I plana; server prima favorit;
+refresh→loadAccountData vrati server favorite; 0 JS grešaka) protiv lažnog backenda s couple
+endpointima. **Nije u sandboxu:** pravi dotnet build/migracija (NuGet blokiran) → `dotnet ef
+migrations add Faza3Couple` na vlasniku.
 
 ---
 

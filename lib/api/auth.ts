@@ -65,3 +65,44 @@ export const authApi = {
   /** URL za Google prijavu (redirect). returnTo = putanja natrag nakon prijave. */
   googleUrl: (returnTo = "/") => `/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`,
 };
+
+// ---------------------------------------------------------------- couple podaci (Faza 3 kraj)
+
+export interface BudgetPlanDto {
+  guests: number;
+  region: string;
+  total: number;
+}
+
+export interface CoupleData {
+  favoriteIds: string[];
+  plan: BudgetPlanDto | null;
+}
+
+export const coupleApi = {
+  get: async (): Promise<CoupleData | null> => {
+    const res = await fetch("/api/favorites", { credentials: "include" });
+    if (res.status === 401) return null;
+    if (!res.ok) throw new AuthError("favorites_failed", res.status);
+    return res.json();
+  },
+  add: (vendorId: string) =>
+    fetch(`/api/favorites/${encodeURIComponent(vendorId)}`, { method: "PUT", credentials: "include" }),
+  remove: (vendorId: string) =>
+    fetch(`/api/favorites/${encodeURIComponent(vendorId)}`, { method: "DELETE", credentials: "include" }),
+  savePlan: (plan: BudgetPlanDto) =>
+    fetch("/api/favorites/plan", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(plan),
+    }),
+  deletePlan: () => fetch("/api/favorites/plan", { method: "DELETE", credentials: "include" }),
+  merge: (favoriteIds: string[], plan: BudgetPlanDto | null): Promise<CoupleData | null> =>
+    fetch("/api/favorites/merge", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ favoriteIds, plan }),
+    }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+};

@@ -31,3 +31,18 @@ public record MeDto(
     string? DisplayName,
     bool EmailConfirmed,
     IReadOnlyList<string> Roles);
+
+// ---------------------------------------------------------------- couple podaci (Faza 3 kraj)
+
+/// <summary>Budžetski plan (ulazi; caps se izvode). null total/guests = nema plana.</summary>
+public record BudgetPlanDto(int Guests, string Region, int Total);
+
+/// <summary>Merge localStorage → account nakon prijave. Sve opcionalno (može biti samo jedno).</summary>
+public record MergeRequest(
+    IReadOnlyList<string>? FavoriteIds,
+    BudgetPlanDto? Plan);
+
+/// <summary>Odgovor /api/favorites i /api/me couple dijela: ID-jevi favorita + plan.</summary>
+public record CoupleDataDto(
+    IReadOnlyList<string> FavoriteIds,
+    BudgetPlanDto? Plan);

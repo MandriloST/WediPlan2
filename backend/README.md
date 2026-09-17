@@ -79,6 +79,10 @@ dotnet ef database update
 dotnet ef migrations add Faza3Auth
 dotnet ef database update
 
+# Faza 3 (kraj) — favoriti/plan:
+dotnet ef migrations add Faza3Couple
+dotnet ef database update
+
 # 4) pokreni API
 dotnet run   # http://localhost:5080
 ```

@@ -11,6 +11,7 @@ import BudgetDrawer from "@/components/BudgetDrawer";
 import SWRegister from "@/components/SWRegister";
 import Analytics from "@/components/Analytics";
 import AuthBootstrap from "@/components/AuthBootstrap";
+import AccountSync from "@/components/AccountSync";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SWRegister />
           <Analytics />
           <AuthBootstrap />
+          <AccountSync />
         </Providers>
       </body>
     </html>

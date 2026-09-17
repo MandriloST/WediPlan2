@@ -26,6 +26,10 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
     public DbSet<MagicLink> MagicLinks => Set<MagicLink>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
 
+    // Faza 3 (kraj) — couple podaci
+    public DbSet<Favorite> Favorites => Set<Favorite>();
+    public DbSet<BudgetPlan> BudgetPlans => Set<BudgetPlan>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b); // OBAVEZNO prvo — konfigurira Identity tablice
@@ -123,6 +127,23 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.TokenHash).IsUnique();
             e.HasIndex(x => x.UserId);
+        });
+
+        b.Entity<Favorite>(e =>
+        {
+            e.ToTable("favorites");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.UserId, x.VendorId }).IsUnique(); // jedan favorit po paru/pružatelju
+            e.HasIndex(x => x.UserId);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            // NEMA FK na Vendor namjerno (v. Favorite komentar)
+        });
+
+        b.Entity<BudgetPlan>(e =>
+        {
+            e.ToTable("budget_plans");
+            e.HasKey(x => x.UserId); // 1:1 s korisnikom
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Identity tablice u snake_case (default su AspNetUsers itd.). Radi konzistentnosti sa
