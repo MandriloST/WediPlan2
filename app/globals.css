@@ -702,3 +702,69 @@ select option:checked {
 .user-skel { width: 80px; height: 34px; border-radius: var(--r-pill); background: var(--surface-2); display: inline-block; }
 
 @media (max-width: 640px) { .user-label { display: none; } }
+
+/* ================================================================
+   Faza 4 — claim, korisničke recenzije, nadzorna ploča, admin
+   ================================================================ */
+
+/* preuzimanje profila (na profilu, u asideu) */
+.claim-box {
+  margin-top: 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-card); padding: 14px 15px;
+}
+.claim-box strong { font-size: 14.5px; }
+.claim-form { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.claim-form label { display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; font-weight: 600; }
+.claim-form textarea, .review-text, .prov-form textarea, .prov-form input[type="text"],
+.prov-form input[type="number"], .prov-price select {
+  font: inherit; padding: 9px 11px; border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctrl); background: var(--surface); color: var(--ink); width: 100%;
+}
+.claim-form textarea:focus, .review-text:focus, .prov-form textarea:focus,
+.prov-form input:focus, .prov-price select:focus {
+  outline: 2px solid var(--primary); outline-offset: 1px; border-color: var(--primary);
+}
+.claim-form .actions { display: flex; gap: 8px; }
+
+/* recenzija — forma */
+.review-form { display: flex; flex-direction: column; gap: 10px; margin-top: 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 14px 15px; }
+.review-form h3 { margin: 0; font-family: var(--font-display); font-weight: 550; font-size: 17px; }
+.star-input { display: flex; gap: 2px; }
+.star-btn { background: none; border: 0; padding: 0 2px; font-size: 26px; line-height: 1; color: var(--border-strong); }
+.star-btn.on { color: #d9a514; }
+.star-btn:hover { color: #d9a514; }
+
+/* nadzorna ploča partnera */
+.prov-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card);
+  padding: 16px 18px; margin-bottom: 18px; }
+.prov-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.prov-stats { display: flex; gap: 22px; margin: 14px 0; padding: 12px 0; border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.prov-stats div { display: flex; flex-direction: column; }
+.prov-stats strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.prov-stats span { font-size: 12.5px; color: var(--muted); }
+.prov-form { display: flex; flex-direction: column; gap: 12px; }
+.prov-form label { display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; font-weight: 600; }
+.prov-price { border: 1px solid var(--border); border-radius: var(--r-ctrl); padding: 10px 12px;
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.prov-price legend { font-size: 13.5px; font-weight: 600; padding: 0 4px; }
+.prov-price select { width: auto; }
+.prov-price input { width: 130px; }
+.prov-form .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* admin */
+.admin-h2 { font-family: var(--font-display); font-weight: 550; font-size: 20px; margin: 0 0 10px; }
+.admin-list { display: flex; flex-direction: column; gap: 10px; }
+.admin-item { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 13px 15px; }
+.admin-item-main { min-width: 0; }
+.admin-msg { margin: 6px 0 0; font-size: 14px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--r-ctrl); padding: 8px 10px; }
+.admin-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .prov-stats { gap: 16px; }
+  .admin-item { flex-direction: column; }
+  .admin-actions { width: 100%; }
+}

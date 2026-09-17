@@ -14,7 +14,7 @@ Provjeri prije pusha: `git status` ne smije pokazivati `.next/` datoteke, a slik
 ## Prvi deploy (~10 min)
 
 1. **vercel.com** → Sign up with GitHub (besplatan Hobby plan je dovoljan za start).
-2. **Add New… → Project** → Import `MandriloST/wediplan`.
+2. **Add New… → Project** → Import `MandriloST/WediPlan2`.
 3. Vercel sam prepozna Next.js — **ništa ne mijenjaj** (build command, output, install su automatski). Env varijable za sada nisu potrebne.
 4. **Deploy.** Prvi build traje ~2 min. Dobivaš URL oblika `wediplan-xxxx.vercel.app`.
 
@@ -85,6 +85,39 @@ prijava Googleom je skrivena, ostala dva načina rade.
 
 **Cookie:** dev radi na localhost bez ičega. Produkcija: frontend i API na istoj baznoj domeni
 (`wediplan.hr` + `api.wediplan.hr`), postavi `Auth__CookieDomain=.wediplan.hr`, oboje preko HTTPS.
+
+## Faza 4 (claim + admin + korisničke recenzije) — konfiguracija i test
+
+**1. Migracija** (nove tablice: `claims`, `user_reviews`, `vendor_drafts`, `subscriptions`):
+```bash
+cd backend/Wediplan.Api
+dotnet ef migrations add Faza4     # generira se iz izmijenjenog modela (AppDbContext)
+dotnet ef database update
+```
+(Sandbox nema NuGet pa migracija nije generirana ondje — pokreće se ovdje, kao i za Faze 1/3.)
+
+**2. Admin** (jednokratno, nakon što se registriraš u aplikaciji tim e-mailom):
+```bash
+dotnet run -- --make-admin tvoj-email@primjer.hr
+```
+Zatim se **odjavi i ponovno prijavi** da rola `admin` uđe u sesiju (cookie). Admin panel: `/admin`.
+
+**3. Ručni test cijelog toka (DoD):**
+- Registriraj korisnika A (e-mail+lozinka), potvrdi e-mail (link u konzoli servera ako nema Resenda).
+- Otvori bilo koji profil `/pruzatelj/<slug>` → “Ovo je moj profil — preuzmi ga” → pošalji zahtjev.
+  Korisnik A dobiva rolu `provider` i pristup `/partner` (uređivanje **skice** — nije još javno).
+- U `/partner` uredi opis/cijenu/usluge → “Spremi skicu”.
+- Kao **admin** otvori `/admin` → “Zahtjevi za preuzimanje” → **Odobri**. Profil je sad `claimed`,
+  skica je objavljena, korisnik A je vlasnik (može “Spremi i objavi” izravno).
+- Registriraj korisnika B → na istom profilu “Napiši recenziju” (zvjezdice + tekst) → šalje se u moderaciju.
+- Kao admin `/admin` → “Recenzije za provjeru” → **Objavi**. Recenzija se pojavljuje na profilu
+  (“Wediplan recenzije”). Time je DoD Faze 4 ispunjen.
+
+**Napomena:** objavljene korisničke recenzije zasad **ne** mijenjaju ocjenu/broj recenzija na kartici
+(oni ostaju iz importa) — prikazuju se zasebno. Stapanje je zasebna odluka (PLAN §11 #19).
+
+**Bez backenda (mock):** claim/recenzije/admin traže .NET (kao i auth) — u čistom mock načinu
+korisnik nije prijavljen pa se te akcije ni ne nude; landing/karta/usporedba/budžet rade kao i dosad.
 
 ## Geokodiranje pri importu (koordinate gradova)
 

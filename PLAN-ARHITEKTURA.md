@@ -418,9 +418,13 @@ API-jem; eventi se tiho pune u bazu.
 **Faza 3 — auth.** §5 u cijelosti + migracija localStorage → account. DoD: prijava
 sva tri načina radi, favoriti/plan sinkronizirani, odjava/istek sesije uredni.
 
-**Faza 4 — claim + admin + recenzije korisnika.** §6, `POST /api/reviews`
+**Faza 4 — claim + admin + recenzije korisnika. ✅ IMPLEMENTIRANO 2026-09-17.** §6, `POST /api/reviews`
 (auth required, ide u moderaciju), minimalni admin. DoD: cijeli put od registracije
 pružatelja do odobrenog claima i objavljene korisničke recenzije prolazi ručni test.
+Implementirano: `claims`/`user_reviews`/`vendor_drafts`/`subscriptions` entiteti +
+Claims/Provider/Reviews/Admin kontroleri; frontend claim CTA + recenzije na profilu, `/partner`
+nadzorna ploča (draft/statistika/objava), `/admin` moderacija; `--make-admin` CLI. Migraciju
+`Faza4` generira vlasnik (`dotnet ef migrations add Faza4`). Otvoreno: #19 (stapanje ocjena).
 
 **Faza 5 — slike + produkcijsko očvršćivanje.** R2 storage + upload u provider
 dashboardu + varijante/WebP + žig; rate limiting middleware; Cloudflare ispred svega;
@@ -504,6 +508,10 @@ Ugrađeno u arhitekturu od početka:
 | 15 | Brojači regija po pravilu liste (sjedište ∪ pokrivanje) umjesto samo sjedišta | Implementirano po preporuci — **čeka potvrdu** |
 | 16 | Tekst-pretraga na stranici kategorije traži unutar kategorije (prazno stanje nudi "u svim kategorijama") | Implementirano po preporuci — **čeka potvrdu** |
 | 17 | Rate limit iza proxyja: `Proxy:TrustForwardedFor` (default false; true tek kad je API dostupan samo preko Cloudflarea/Vercela) | Implementirano — uključiti u Fazi 5 |
-| 18 | **GDPR incident:** repo je javan, a `data/vendors-live.xlsx` (2295 tel., 1748 email) je u povijesti gita | **HITNO** — repo privatan + `git rm --cached` (v. STANJE.md); čišćenje povijesti opcionalno |
+| 18 | **GDPR incident:** repo je javan, a `data/vendors-live.xlsx` (2295 tel., 1748 email) je u povijesti gita | ✅ RIJEŠENO — novi čisti repo WediPlan2 (`.gitignore` drži Excel izvan gita) |
+| 19 | **Stapanje korisničkih ocjena u `vendor.rating`/`reviewCount`** (Faza 4) | Implementirano ODVOJENO (profil prikazuje Wediplan recenzije zasebno); rating iz importa se ne dira — **čeka odluku** hoće li i kako se stapati kad bude stvarnih recenzija |
 
-Preostale otvorene: **#18 (hitno)**, #1 (blokira Vercel preview nad pravim API-jem), #14–#16 (potvrda), #3, #5, #7, #9.
+**Faza 4 (claim + admin + korisničke recenzije) — IMPLEMENTIRANA 2026-09-17** (v. STANJE.md).
+
+Preostale otvorene: #19 (stapanje ocjena), #1 (hosting — blokira Vercel nad pravim API-jem),
+#14–#16 (potvrda), #3 (R2, Faza 5), #5 (Resend ključ), #7, #9.

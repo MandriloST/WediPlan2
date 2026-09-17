@@ -47,9 +47,9 @@ export default function Header() {
           </div>
         </nav>
         <div className="header-right">
-          <a className="partner" href="#partneri">
+          <Link className="partner" href="/partner">
             Za partnere
-          </a>
+          </Link>
           <UserMenu />
         </div>
       </div>

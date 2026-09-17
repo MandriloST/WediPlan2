@@ -230,3 +230,58 @@ CREATE TABLE budget_plans (
   total      integer NOT NULL DEFAULT 0,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- ============================================================================
+-- Faza 4: claim (preuzimanje profila), korisničke recenzije, draft, pretplate.
+-- Izvor istine je EF migracija (Faza4); ovo je referentni prikaz sheme.
+-- ============================================================================
+CREATE TABLE claims (
+  id          uuid PRIMARY KEY,
+  vendor_id   uuid NOT NULL REFERENCES vendors (id) ON DELETE CASCADE,
+  user_id     uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  message     varchar(2000) NOT NULL DEFAULT '',
+  evidence    text NOT NULL DEFAULT '',   -- 'domain_match' | ''
+  status      text NOT NULL DEFAULT 'pending',  -- pending | approved | rejected
+  decided_by  uuid,
+  decided_at  timestamptz,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_claims_vendor ON claims (vendor_id);
+CREATE INDEX ix_claims_user ON claims (user_id);
+CREATE INDEX ix_claims_status ON claims (status);
+CREATE UNIQUE INDEX ix_claims_user_vendor ON claims (user_id, vendor_id);
+
+CREATE TABLE user_reviews (
+  id          uuid PRIMARY KEY,
+  vendor_id   uuid NOT NULL REFERENCES vendors (id) ON DELETE CASCADE,
+  user_id     uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  rating      integer NOT NULL,          -- 1..5
+  text        varchar(4000) NOT NULL DEFAULT '',
+  status      text NOT NULL DEFAULT 'pending',  -- pending | published | rejected
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  decided_at  timestamptz
+);
+CREATE INDEX ix_user_reviews_vendor ON user_reviews (vendor_id);
+CREATE INDEX ix_user_reviews_vendor_status ON user_reviews (vendor_id, status);
+CREATE UNIQUE INDEX ix_user_reviews_user_vendor ON user_reviews (user_id, vendor_id);
+
+CREATE TABLE vendor_drafts (
+  vendor_id   uuid PRIMARY KEY REFERENCES vendors (id) ON DELETE CASCADE,
+  about       text,
+  services    text[] NOT NULL DEFAULT '{}',
+  price_kind  text NOT NULL DEFAULT 'onRequest',
+  price_from  integer,
+  price_to    integer,
+  style_tags  text[] NOT NULL DEFAULT '{}',
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE subscriptions (
+  id          uuid PRIMARY KEY,
+  vendor_id   uuid NOT NULL,
+  plan        text NOT NULL DEFAULT 'free',  -- free | premium | founding
+  active_from timestamptz,
+  active_to   timestamptz,
+  granted_by  uuid
+);
+CREATE INDEX ix_subscriptions_vendor ON subscriptions (vendor_id);

@@ -125,6 +125,31 @@ if (args.Contains("--rollup"))
     return;
 }
 
+// --- CLI način: `dotnet run -- --make-admin <email>` (jednokratna dodjela admin role) ---
+if (args.Contains("--make-admin"))
+{
+    var email = args.SkipWhile(a => a != "--make-admin").Skip(1).FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(email))
+    {
+        Console.Error.WriteLine("Upotreba: dotnet run -- --make-admin <email>");
+        Environment.ExitCode = 1; return;
+    }
+    using var scope = app.Services.CreateScope();
+    var sp = scope.ServiceProvider;
+    var mdb = sp.GetRequiredService<AppDbContext>();
+    if (!await EnsureDbAsync(mdb)) { Environment.ExitCode = 1; return; }
+    var roleMgr = sp.GetRequiredService<RoleManager<Wediplan.Api.Domain.AppRole>>();
+    foreach (var r in Wediplan.Api.Domain.Roles.All)
+        if (!await roleMgr.RoleExistsAsync(r)) await roleMgr.CreateAsync(new Wediplan.Api.Domain.AppRole(r));
+    var userMgr = sp.GetRequiredService<UserManager<Wediplan.Api.Domain.AppUser>>();
+    var user = await userMgr.FindByEmailAsync(email.Trim().ToLowerInvariant());
+    if (user == null) { Console.Error.WriteLine($"Nema korisnika s e-mailom {email}. Prvo se registriraj u aplikaciji."); Environment.ExitCode = 1; return; }
+    if (!await userMgr.IsInRoleAsync(user, Wediplan.Api.Domain.Roles.Admin))
+        await userMgr.AddToRoleAsync(user, Wediplan.Api.Domain.Roles.Admin);
+    Console.WriteLine($"OK — {email} je sada admin. Odjavi se i ponovno prijavi da rola uđe u sesiju.");
+    return;
+}
+
 app.UseCors(CorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();

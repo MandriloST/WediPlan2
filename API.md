@@ -113,9 +113,12 @@ Samo slugovi objavljenih pružatelja + zadnja izmjena (za `sitemap.xml`, osvjež
 ## GET /api/vendors/{slug}
 Profil pružatelja. `about: ""` i `services: []` kad nisu uneseni — frontend tada prikazuje
 zadani tekst kategorije (`lib/profile.ts withProfileDefaults`). 404 za nepostojeće/skrivene.
+`userReviews` (Faza 4) su OBJAVLJENE recenzije korisnika platforme ("što korisnici kažu");
+izostavljeno kad ih nema. `importedReviews` su prenesene ("što oni kažu").
 ```json
 { "vendor": {}, "about": "…", "services": ["…"],
-  "importedReviews": [{ "author": "Marija i Ivan", "rating": 5, "text": "…", "source": "Google recenzije", "year": 2025 }] }
+  "importedReviews": [{ "author": "Marija i Ivan", "rating": 5, "text": "…", "source": "Google recenzije", "year": 2025 }],
+  "userReviews": [{ "id": "…", "author": "Ana", "rating": 5, "text": "…", "createdAt": "2026-09-17T08:00:00Z" }] }
 ```
 
 ## Auth (Faza 3, §5)
@@ -189,6 +192,49 @@ Privatnost: `page` je samo pathname (bez query stringa); `q` je lowercase, ≤ 4
 **izostavlja se** ako sadrži `@` ili niz od 6+ znamenki; DNT/GPC → ništa se ne šalje;
 bez kolačića (`credentials: "omit"`); `sessionHash` živi u sessionStorage taba.
 
+## Claim, recenzije i admin (Faza 4, §6)
+
+Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
+(dodjela: `dotnet run -- --make-admin <email>`).
+
+### Preuzimanje profila (provider claim)
+- `POST /api/claims` `{vendorSlug, message?}` → `ClaimDto`. Kreira `pending` claim, korisniku
+  dodjeljuje rolu `provider` i seeda draft iz žive verzije; 404 `vendor_not_found`,
+  409 `already_claimed`. Ponovni poziv istog korisnika za istog pružatelja vraća postojeći
+  (idempotentno); odbijeni se može ponovno zatražiti.
+  `evidence`: `"domain_match"` kad se domena e-maila korisnika poklapa s web-domenom profila.
+- `GET /api/claims/mine` → `ClaimDto[]` (svi zahtjevi korisnika).
+
+`ClaimDto`: `{ id, vendorSlug, vendorName, status: pending|approved|rejected, evidence, createdAt }`.
+
+### Nadzorna ploča partnera
+- `GET /api/provider/vendors` → `ProviderVendorDto[]` — pružatelji koje korisnik posjeduje ili
+  za koje ima ne-odbijen claim; svaki nosi `draft`, `stats` (30 dana) i `myStatus`
+  (`pending|owner|rejected`), `canPublish` (true samo za odobrenog vlasnika).
+- `PUT /api/provider/vendors/{slug}/draft` `VendorDraftDto` → 204. Sprema draft (pending ili
+  vlasnik); 403 ako nema pravo, 400 `invalid_price`/`invalid_price_kind`.
+- `POST /api/provider/vendors/{slug}/publish` → 204. Objavljuje draft u živu verziju —
+  **samo odobreni vlasnik** (pending objavu radi admin pri odobrenju claima). 403/400 `no_draft`.
+
+`VendorDraftDto`: `{ about?, services[], price: {kind,from?,to?}, styleTags[] }`.
+`ProviderStats`: `{ views30, compares30, favorites30 }` (iz `daily_stats`, §A).
+
+### Korisničke recenzije
+- `POST /api/reviews` `{vendorSlug, rating (1–5), text}` → `{status:"pending", message}`.
+  Ide u moderaciju; jedna recenzija po (korisnik, pružatelj) — 409 `already_reviewed`;
+  400 `own_vendor` (vlasnik ne recenzira sebe); 404 `vendor_not_found`.
+
+### Admin (rola admin)
+- `GET /api/admin/claims?status=pending` → `AdminClaimDto[]`.
+- `POST /api/admin/claims/{id}/approve` → objavi draft, `claim_status=claimed`, postavi vlasnika,
+  ostale pending zahtjeve za istog pružatelja odbaci. `POST …/reject`.
+- `GET /api/admin/reviews?status=pending` → `AdminReviewDto[]`.
+- `POST /api/admin/reviews/{id}/approve` (→ `published`) · `POST …/reject`.
+- `POST /api/admin/vendors/{slug}/unpublish` · `POST …/publish` → toggla `is_published` (§9).
+
+Napomena: objavljene korisničke recenzije zasad NE mijenjaju `vendor.rating`/`reviewCount`
+(oni ostaju iz importa). Stapanje ocjena je zasebna odluka (v. PLAN §11 #19).
+
 ## Kasnije (Coming soon)
 - `GET /api/vendors/{id}/availability?month=YYYY-MM` → `{ "days": { "2026-09-05": "free|busy" } }` — do tada frontend koristi deterministički mock iz `lib/availability.ts` (ista logika na profilu i u usporedbi)
-- `POST /api/plan` (sync plana uz auth), `POST /api/reviews` (registrirani korisnici)
+- Fotografije u draftu (Faza 5, R2), premium mogućnosti iz `subscriptions` (§M.1)

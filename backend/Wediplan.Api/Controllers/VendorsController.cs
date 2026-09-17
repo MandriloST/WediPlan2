@@ -95,12 +95,24 @@ public class VendorsController : ControllerBase
             .Select(r => new ImportedReviewDto(r.Author, r.Rating, r.Text, r.Source, r.Year))
             .ToList();
 
+        // Objavljene korisničke recenzije ("što korisnici kažu", Faza 4). Autor = displayName ili generički.
+        var userReviews = await (
+            from ur in _db.UserReviews.AsNoTracking().Where(x => x.VendorId == v.Id && x.Status == "published")
+            join u in _db.Users.AsNoTracking() on ur.UserId equals u.Id
+            orderby ur.CreatedAt descending
+            select new UserReviewDto(
+                ur.Id.ToString(),
+                u.DisplayName != null && u.DisplayName != "" ? u.DisplayName : "Korisnik Wediplana",
+                ur.Rating, ur.Text, ur.CreatedAt)
+        ).ToListAsync(ct);
+
         // about "" / services [] kad nisu uneseni — frontend (lib/profile withProfileDefaults)
         // tada prikazuje zadani tekst kategorije.
         return Ok(new VendorProfileDto(
             Vendor: VendorMapper.ToDto(v),
             About: v.About ?? "",
             Services: v.Services,
-            ImportedReviews: reviews));
+            ImportedReviews: reviews,
+            UserReviews: userReviews.Count > 0 ? userReviews : null));
     }
 }
