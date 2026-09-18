@@ -127,6 +127,29 @@ public class AdminController : ControllerBase
         return Ok(new { status = "rejected" });
     }
 
+    // ---------------------------------------------------------------- GDPR opt-out (§9, faza 6)
+    /// <summary>GET /api/admin/optouts — skriveni profili (opt-out), za pregled i eventualno vraćanje.</summary>
+    [HttpGet("optouts")]
+    public async Task<ActionResult<IEnumerable<AdminOptOutDto>>> OptOuts(CancellationToken ct)
+    {
+        var rows = await _db.Vendors.AsNoTracking().Where(v => v.OptOut)
+            .OrderBy(v => v.Name)
+            .Select(v => new AdminOptOutDto(v.Slug, v.Name, v.CategorySlug, v.IsPublished))
+            .ToListAsync(ct);
+        return Ok(rows);
+    }
+
+    /// <summary>POST /api/admin/vendors/{slug}/restore-optout — poništi opt-out (npr. zloupotreba).</summary>
+    [HttpPost("vendors/{slug}/restore-optout")]
+    public async Task<IActionResult> RestoreOptOut(string slug, CancellationToken ct)
+    {
+        var v = await _db.Vendors.FirstOrDefaultAsync(x => x.Slug == slug, ct);
+        if (v == null) return NotFound();
+        v.OptOut = false;
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { ok = true });
+    }
+
     // ---------------------------------------------------------------- publish/unpublish (§6, §9)
     /// <summary>POST /api/admin/vendors/{slug}/unpublish — skini profil iz javnog prikaza.</summary>
     [HttpPost("vendors/{slug}/unpublish")]

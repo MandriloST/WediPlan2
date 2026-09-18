@@ -263,3 +263,18 @@ WebP → opcionalni tekstualni žig. `GET /api/provider/vendors` sada vraća i `
 
 **Rate limiting:** globalno 300/min po IP-u; liste (`/api/vendors`, `/api/pins`, `/api/suggest`)
 60/min. Prekoračenje → `429`.
+
+---
+
+## Faza 6 — GDPR opt-out (§9)
+
+| Metoda | Ruta | Auth | Tijelo | Odgovor |
+|---|---|---|---|---|
+| POST | `/api/optout` | javno (rate-limited) | `{ slug, reason?, contact? }` | `200 {ok:true}` / `404 vendor_not_found` |
+| GET | `/api/admin/optouts` | admin | — | `AdminOptOut[]` |
+| POST | `/api/admin/vendors/{slug}/restore-optout` | admin | — | `200 {ok:true}` |
+
+`POST /api/optout` postavlja `Vendor.OptOut = true` **odmah** → `.Published()` filtar isključuje profil
+iz svih javnih upita (lista, profil, karta, sitemap, budget-matches). Reverzibilno preko admina.
+Razlog/kontakt se **ne perzistiraju** (minimizacija podataka) — bilježe se u aplikacijski log.
+`AdminOptOut = { slug, name, category, isPublished }`.

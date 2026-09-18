@@ -1,6 +1,7 @@
 import { AuthError } from "./auth";
 import type {
   AdminClaim,
+  AdminOptOut,
   AdminReview,
   Claim,
   ProviderPhoto,
@@ -84,6 +85,17 @@ export const adminApi = {
     call<{ slug: string; isPublished: boolean }>(`/admin/vendors/${encodeURIComponent(slug)}/unpublish`, "POST"),
   republish: (slug: string) =>
     call<{ slug: string; isPublished: boolean }>(`/admin/vendors/${encodeURIComponent(slug)}/publish`, "POST"),
+
+  // Faza 6 — GDPR opt-out pregled
+  optouts: () => call<AdminOptOut[]>("/admin/optouts", "GET"),
+  restoreOptout: (slug: string) =>
+    call<{ ok: boolean }>(`/admin/vendors/${encodeURIComponent(slug)}/restore-optout`, "POST"),
+};
+
+/** Javni GDPR opt-out (§9) — neclaimani pružatelj traži skidanje profila. Bez prijave. */
+export const optOutApi = {
+  submit: (slug: string, reason: string, contact: string) =>
+    call<{ ok: boolean }>("/optout", "POST", { slug, reason: reason || null, contact: contact || null }),
 };
 
 /** Prijateljske HR poruke za Faza 4 kodove (nadopuna authMessage). */

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { adminApi, providerMessage } from "@/lib/api/provider";
 import { useAuth } from "@/stores/auth";
-import type { AdminClaim, AdminReview } from "@/lib/types";
+import type { AdminClaim, AdminOptOut, AdminReview } from "@/lib/types";
 
 /** Minimalno admin sučelje (§6): moderacija claimova i korisničkih recenzija. Samo rola admin. */
 export default function AdminPanel() {
@@ -13,12 +13,13 @@ export default function AdminPanel() {
   const router = useRouter();
   const [claims, setClaims] = useState<AdminClaim[]>([]);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [optouts, setOptouts] = useState<AdminOptOut[]>([]);
   const [error, setError] = useState<string | null>(null);
   const isAdmin = !!user?.roles.includes("admin");
 
   const load = useCallback(() => {
-    Promise.all([adminApi.claims("pending"), adminApi.reviews("pending")])
-      .then(([c, r]) => { setClaims(c); setReviews(r); })
+    Promise.all([adminApi.claims("pending"), adminApi.reviews("pending"), adminApi.optouts()])
+      .then(([c, r, o]) => { setClaims(c); setReviews(r); setOptouts(o); })
       .catch((e) => setError(providerMessage(e)));
   }, []);
 
@@ -91,6 +92,25 @@ export default function AdminPanel() {
               <div className="admin-actions">
                 <button className="btn btn-primary btn-sm" onClick={() => act(() => adminApi.approveReview(r.id))}>Objavi</button>
                 <button className="btn btn-sm" onClick={() => act(() => adminApi.rejectReview(r.id))}>Odbij</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <h2 className="admin-h2" style={{ marginTop: 28 }}>Skriveni profili — GDPR opt-out ({optouts.length})</h2>
+      {optouts.length === 0 ? (
+        <p className="muted">Nema skrivenih profila.</p>
+      ) : (
+        <div className="admin-list">
+          {optouts.map((o) => (
+            <article key={o.slug} className="admin-item">
+              <div className="admin-item-main">
+                <div><strong>{o.name}</strong> <span className="muted">({o.category})</span></div>
+                <p className="muted" style={{ fontSize: 13 }}>/{o.slug}{o.isPublished ? "" : " · nije objavljen"}</p>
+              </div>
+              <div className="admin-actions">
+                <button className="btn btn-sm" onClick={() => act(() => adminApi.restoreOptout(o.slug))}>Vrati u prikaz</button>
               </div>
             </article>
           ))}

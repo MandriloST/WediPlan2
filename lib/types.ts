@@ -200,6 +200,14 @@ export interface AdminReview {
   createdAt: string;
 }
 
+/** Skriveni (GDPR opt-out) pružatelj u admin pregledu (Faza 6). */
+export interface AdminOptOut {
+  slug: string;
+  name: string;
+  category: string;
+  isPublished: boolean;
+}
+
 /* ------------------------------------------------------------------ */
 /* Faza 2 — dopune ugovora (API.md)                                    */
 /* ------------------------------------------------------------------ */
