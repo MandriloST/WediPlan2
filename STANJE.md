@@ -10,6 +10,15 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 
+## Sesija 2026-09-19 (c) — Paginacija 12 po stranici + ravni grid kategorija
+- **Rezultati:** `PAGE_SIZE = 12` (`lib/paths.ts`) — klijent i SSR uvijek traže 12, više se ne može prikazati.
+  „Učitaj još” (infinite query) zamijenjen paginacijom (`components/Pagination.tsx`): `?page=N` pravi linkovi s
+  rel=prev/next; desktop = brojevi + Prethodna/Sljedeća + velike strelice uz mrežu (≥ 1270 px) + tipkovnica ←/→;
+  mobitel = kompaktno „‹ 3 / 9 ›” (mete 48 px), bez swipea (sukobio bi se s horizontalnim chipovima i kartom).
+  Promjena stranice skrola na vrh liste, ne cijele stranice. Stranica iza kraja i dalje 404.
+- **/kategorije i /regija:** bez naslova skupina — jedna mreža 29 pločica (6 u redu, responzivno 3/2), redoslijed po omotnicama.
+- API nepromijenjen (`pageSize` je već u ugovoru). `tsc` + `next build` čisti; ručno testirano (desktop, mobitel, ←/→).
+
 ## Sesija 2026-09-19 (b) — Foto-pločice na /kategorije + odvojene slike kategorija i pružatelja
 - **`components/CategoryTile.tsx`** — zajednička foto-pločica (naslovnica i `/kategorije` + `/regija` su sad identične).
   `CategoryGrid` više nema emoji ikone; prazne kategorije su sive (grayscale), i dalje klikabilne.

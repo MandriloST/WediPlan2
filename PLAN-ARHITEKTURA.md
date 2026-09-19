@@ -363,7 +363,7 @@ Pravila (komponente ih moraju slijediti):
   odabira kategorije** (odluka a).
 - **Rezultati** su uvijek u opsegu jedne kategorije (opcionalno + regija). URL ostaje
   `/regija/kategorija` (SEO/shareable — nepromijenjeno).
-- **Paginacija** (odluka b, c): `pageSize` default **24**, cap 50 (već u ugovoru);
+- **Paginacija** (odluka b, c; izmjena 2026-09-19): frontend traži **12** po stranici (`PAGE_SIZE`), numerirana paginacija umjesto „Učitaj još”; API default ostaje 24, cap 50;
   UI "Učitaj još" (load-more) + `?page=` linkovi s `rel=next/prev` za crawlere; ukupan
   broj vidljiv ("214 rezultata").
 - **Karta** (odluka d): pinovi samo odabrane kategorije; zbog geokodiranja po gradu
