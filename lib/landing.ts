@@ -10,7 +10,8 @@ import { CATEGORIES } from "./data";
  * public/images/hero/naslovnica.jpg (≥ 2000 px širine, motiv lijevo/desno od sredine
  * jer je tekst centriran) i postavi HERO_IMAGE = `${IMAGE_BASE}/hero/naslovnica.jpg`.
  */
-export const HERO_IMAGE: string | null = null;
+// export const HERO_IMAGE: string | null = null;
+export const HERO_IMAGE = `${IMAGE_BASE}/hero/naslovnica.jpg`;
 export const HERO_IMAGE_EXAMPLE = `${IMAGE_BASE}/hero/naslovnica.jpg`;
 
 /** 6 foto-pločica "Istražite kategorije" (redoslijed = prikaz). label = kratki naziv na pločici. */
