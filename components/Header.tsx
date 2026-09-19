@@ -3,21 +3,18 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { CATEGORIES } from "@/lib/data";
 import { useAuth } from "@/stores/auth";
 
-export default function Header() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+/** Glavna navigacija (redizajn 3a). match = rute koje označavaju stavku aktivnom. */
+const NAV: { href: string; label: string; match: (p: string) => boolean }[] = [
+  { href: "/kategorije", label: "Kategorije", match: (p) => p === "/kategorije" },
+  { href: "/karta", label: "Lokacije", match: (p) => p.startsWith("/karta") },
+  { href: "/inspiracija", label: "Inspiracija", match: (p) => p.startsWith("/inspiracija") },
+  { href: "/partner", label: "Za pružatelje", match: (p) => p.startsWith("/partner") },
+];
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
+export default function Header() {
+  const pathname = usePathname() ?? "/";
 
   return (
     <header className="header">
@@ -27,29 +24,22 @@ export default function Header() {
             WEDI<span className="boxed">PLAN</span>
           </span>
         </Link>
-        <nav className="nav" aria-label="Kategorije">
-          <Link href="/restorani-i-sale">Dvorane</Link>
-          <Link href="/foto-i-video">Fotografi</Link>
-          <Link href="/glazba-bendovi">Glazba</Link>
-          <div className="nav-more" ref={ref}>
-            <button aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-              Sve ▾
-            </button>
-            {open && (
-              <div className="nav-menu" role="menu">
-                {CATEGORIES.map((c) => (
-                  <Link key={c.slug} href={`/${c.slug}`} onClick={() => setOpen(false)} role="menuitem">
-                    {c.name}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+        <nav className="nav" aria-label="Glavna navigacija">
+          {NAV.map((n) => {
+            const active = n.match(pathname);
+            return (
+              <Link
+                key={n.href}
+                href={n.href}
+                className={active ? "active" : undefined}
+                aria-current={active ? "page" : undefined}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="header-right">
-          <a className="partner" href="#partneri">
-            Za partnere
-          </a>
           <UserMenu />
         </div>
       </div>

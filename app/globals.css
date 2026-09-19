@@ -107,12 +107,10 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   margin-left: 4px;
 }
 .nav { display: flex; align-items: center; gap: 20px; font-size: 14.5px; }
-.nav > a, .nav-more > button { color: var(--muted); font-weight: 500; }
-.nav > a { display: inline-flex; align-items: center; min-height: 44px; }
+.nav > a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); font-weight: 500; position: relative; }
 .nav > a:hover { color: var(--ink); }
-.nav-more { position: relative; }
-.nav-more > button { background: none; border: 0; padding: 0; min-height: 44px; }
-.nav-more > button:hover { color: var(--ink); }
+.nav > a.active { color: var(--ink); }
+.nav > a.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: 8px; height: 2px; border-radius: 2px; background: var(--primary); }
 .nav-menu {
   position: absolute; top: calc(100% + 2px); left: -12px; z-index: 60;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card);
@@ -122,8 +120,6 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 .nav-menu a { padding: 7px 10px; border-radius: 6px; color: var(--ink); font-size: 14px; }
 .nav-menu a:hover { background: var(--primary-tint); color: var(--primary-deep); }
 .header-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
-.header-right .partner { font-size: 14px; color: var(--muted); }
-.header-right .partner:hover { color: var(--ink); }
 
 /* ---------------- hero + search bar ---------------- */
 .hero { padding: 30px 0 0; }
@@ -407,7 +403,6 @@ select option:checked {
 @media (max-width: 700px) {
   body { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom)); }
   .tabbar { display: flex; }
-  .header-right .partner { display: none; }
   .container { padding: 0 14px; }
   .hero { padding-top: 18px; }
   .searchbar { flex-direction: column; }
@@ -702,3 +697,204 @@ select option:checked {
 .user-skel { width: 80px; height: 34px; border-radius: var(--r-pill); background: var(--surface-2); display: inline-block; }
 
 @media (max-width: 640px) { .user-label { display: none; } }
+
+/* ================================================================
+   Faza 4 — claim, korisničke recenzije, nadzorna ploča, admin
+   ================================================================ */
+
+/* preuzimanje profila (na profilu, u asideu) */
+.claim-box {
+  margin-top: 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-card); padding: 14px 15px;
+}
+.claim-box strong { font-size: 14.5px; }
+.claim-form { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.claim-form label { display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; font-weight: 600; }
+.claim-form textarea, .review-text, .prov-form textarea, .prov-form input[type="text"],
+.prov-form input[type="number"], .prov-price select {
+  font: inherit; padding: 9px 11px; border: 1px solid var(--border-strong);
+  border-radius: var(--r-ctrl); background: var(--surface); color: var(--ink); width: 100%;
+}
+.claim-form textarea:focus, .review-text:focus, .prov-form textarea:focus,
+.prov-form input:focus, .prov-price select:focus {
+  outline: 2px solid var(--primary); outline-offset: 1px; border-color: var(--primary);
+}
+.claim-form .actions { display: flex; gap: 8px; }
+
+/* recenzija — forma */
+.review-form { display: flex; flex-direction: column; gap: 10px; margin-top: 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 14px 15px; }
+.review-form h3 { margin: 0; font-family: var(--font-display); font-weight: 550; font-size: 17px; }
+.star-input { display: flex; gap: 2px; }
+.star-btn { background: none; border: 0; padding: 0 2px; font-size: 26px; line-height: 1; color: var(--border-strong); }
+.star-btn.on { color: #d9a514; }
+.star-btn:hover { color: #d9a514; }
+
+/* nadzorna ploča partnera */
+.prov-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card);
+  padding: 16px 18px; margin-bottom: 18px; }
+.prov-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.prov-stats { display: flex; gap: 22px; margin: 14px 0; padding: 12px 0; border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.prov-stats div { display: flex; flex-direction: column; }
+.prov-stats strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.prov-stats span { font-size: 12.5px; color: var(--muted); }
+.prov-form { display: flex; flex-direction: column; gap: 12px; }
+.prov-form label { display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; font-weight: 600; }
+.prov-price { border: 1px solid var(--border); border-radius: var(--r-ctrl); padding: 10px 12px;
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.prov-price legend { font-size: 13.5px; font-weight: 600; padding: 0 4px; }
+.prov-price select { width: auto; }
+.prov-price input { width: 130px; }
+.prov-form .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* admin */
+.admin-h2 { font-family: var(--font-display); font-weight: 550; font-size: 20px; margin: 0 0 10px; }
+.admin-list { display: flex; flex-direction: column; gap: 10px; }
+.admin-item { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 13px 15px; }
+.admin-item-main { min-width: 0; }
+.admin-msg { margin: 6px 0 0; font-size: 14px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--r-ctrl); padding: 8px 10px; }
+.admin-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .prov-stats { gap: 16px; }
+  .admin-item { flex-direction: column; }
+  .admin-actions { width: 100%; }
+}
+
+/* Faza 5 — upravljanje fotografijama u nadzornoj ploči */
+.prov-photos { margin: 14px 0; padding: 12px 0; border-top: 1px solid var(--border); }
+.prov-photos-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.prov-photos-head .btn { cursor: pointer; }
+.photo-grid { list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.photo-cell { position: relative; border: 1px solid var(--border); border-radius: var(--r-ctrl);
+  overflow: hidden; aspect-ratio: 4 / 3; background: var(--surface-2); }
+.photo-cell.cover { outline: 2px solid var(--primary); outline-offset: -2px; }
+.photo-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover-badge { position: absolute; top: 6px; left: 6px; background: var(--primary); color: #fff;
+  font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; }
+.photo-tools { position: absolute; inset: auto 0 0 0; display: flex; gap: 2px; justify-content: center;
+  padding: 4px; background: linear-gradient(transparent, rgba(0,0,0,.55)); opacity: 0; transition: opacity .15s; }
+.photo-cell:hover .photo-tools, .photo-cell:focus-within .photo-tools { opacity: 1; }
+.photo-tools button { border: 0; background: rgba(255,255,255,.92); color: #111; border-radius: 6px;
+  width: 26px; height: 26px; font-size: 13px; line-height: 1; cursor: pointer; }
+.photo-tools button:disabled { opacity: .4; cursor: default; }
+
+/* Faza 6 — podnožje, cookie obavijest, opt-out, pravne stranice */
+.site-footer { border-top: 1px solid var(--border); margin-top: 48px; padding: 28px 20px 40px;
+  background: var(--surface-2); }
+.footer-inner { max-width: 1120px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 16px;
+  justify-content: space-between; align-items: center; }
+.footer-brand { display: flex; flex-direction: column; gap: 2px; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 18px; }
+.footer-links a { color: var(--text); text-decoration: none; font-size: 14px; }
+.footer-links a:hover { text-decoration: underline; }
+.footer-copy { max-width: 1120px; margin: 16px auto 0; font-size: 13px; }
+
+.cookie-notice { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 60;
+  max-width: 640px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-card); box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,.18));
+  padding: 14px 16px; display: flex; gap: 14px; align-items: center; }
+.cookie-notice p { margin: 0; font-size: 13.5px; }
+.cookie-notice a { color: var(--primary); }
+
+.optout-box { margin-top: 14px; }
+.optout-link { background: none; border: 0; padding: 0; color: var(--muted-fg, #6b7280);
+  font-size: 12.5px; text-decoration: underline; cursor: pointer; }
+.optout-link:hover { color: var(--text); }
+.optout-form { border: 1px solid var(--border); border-radius: var(--r-card); padding: 12px;
+  display: flex; flex-direction: column; gap: 8px; }
+.optout-intro { margin: 0; font-size: 13px; color: var(--muted-fg, #6b7280); }
+.optout-form textarea, .optout-form input { width: 100%; padding: 8px; border: 1px solid var(--border);
+  border-radius: var(--r-ctrl); font: inherit; }
+.optout-actions { display: flex; gap: 8px; }
+.optout-done { font-size: 13px; color: var(--text); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--r-ctrl); padding: 10px; margin: 0; }
+
+.legal-page { max-width: 760px; margin: 0 auto; padding: 32px 20px 56px; line-height: 1.65; }
+.legal-page h1 { margin: 8px 0 4px; }
+.legal-page h2 { margin: 26px 0 6px; font-size: 1.15rem; }
+.legal-page p { margin: 6px 0; }
+.legal-note { background: #fff6e5; border: 1px solid #f0d28a; color: #7a5b00;
+  border-radius: var(--r-ctrl); padding: 8px 12px; font-size: 13px; }
+
+/* ================================================================
+   Naslovnica — redizajn 3a (hero s tražilicom → kategorije →
+   najbolje ocijenjeni → karta). Postojeći tokeni, bez novih boja.
+   ================================================================ */
+.lp-hero {
+  background-color: var(--primary-deep);
+  background-size: cover; background-position: center;
+  color: #fff; padding: 64px 0 52px;
+}
+.lp-hero.has-photo { padding: 96px 0 72px; }
+.lp-hero-in { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.lp-hero h1 {
+  font-family: var(--font-display); font-weight: 550; letter-spacing: -0.015em;
+  font-size: clamp(32px, 5.4vw, 58px); line-height: 1.04; margin: 0; max-width: 16ch;
+  text-wrap: balance;
+}
+.lp-lead { font-size: 17px; line-height: 1.5; max-width: 50ch; margin: 16px 0 26px; color: rgba(255, 255, 255, 0.86); }
+.lp-hero .searchbar { width: 100%; max-width: 900px; text-align: left; color: var(--ink); box-shadow: var(--shadow-2); border-color: transparent; }
+.lp-perks { list-style: none; padding: 0; margin: 18px 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 26px; font-size: 14px; color: rgba(255, 255, 255, 0.86); }
+.lp-perks li { display: inline-flex; align-items: center; min-height: 32px; }
+.lp-perks a, .lp-perks button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0;
+  background: none; border: 0; color: #fff; font-weight: 600;
+  text-decoration: underline; text-decoration-color: rgba(255, 255, 255, 0.4); text-underline-offset: 4px;
+}
+.lp-perks a:hover, .lp-perks button:hover { color: #fff; text-decoration-color: #fff; }
+.lp-perks span[aria-hidden] { margin-right: 4px; }
+.lp-perks a span[aria-hidden], .lp-perks button span[aria-hidden] { margin-right: 0; }
+.lp-hero :focus-visible { outline-color: #fff; }
+
+.lp-sec { padding: 44px 0 4px; }
+.lp-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin-bottom: 16px; }
+.lp-head h2 { font-family: var(--font-display); font-weight: 550; font-size: clamp(22px, 2.6vw, 28px); margin: 0; letter-spacing: -0.01em; }
+.lp-more { margin-left: auto; font-weight: 600; font-size: 14.5px; }
+.lp-note { font-size: 14px; }
+.lp-sub { margin: -8px 0 16px; max-width: 62ch; }
+
+.lp-cats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.lp-cat {
+  position: relative; display: block; aspect-ratio: 4 / 5; overflow: hidden;
+  border-radius: var(--r-card); background: var(--border); color: #fff;
+}
+.lp-cat img { object-fit: cover; transition: transform 0.45s ease; }
+.lp-cat:hover img { transform: scale(1.04); }
+.lp-cat::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(16, 26, 40, 0.78)); }
+.lp-cat-txt { position: absolute; left: 12px; right: 12px; bottom: 11px; z-index: 1; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.lp-cat-txt strong { font-size: 15.5px; font-weight: 600; }
+.lp-cat-txt span { font-size: 13px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.lp-cat:hover { color: #fff; }
+
+.lp-top { padding-bottom: 0; }
+
+.lp-map { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 22px; align-items: stretch; padding-bottom: 44px; }
+.lp-map .map-wrap { min-height: 420px; }
+.lp-regions { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 8px; }
+.lp-regions .region-item { color: var(--ink); min-height: 52px; padding: 0 12px; font-weight: 500; }
+.lp-regions .region-item:hover { background: var(--primary-tint); color: var(--primary-deep); }
+.lp-regions .region-item:last-child { border-bottom: 0; }
+.lp-regions .lp-all { margin-top: auto; color: var(--primary); font-weight: 600; }
+
+.soon { padding-top: 40px; padding-bottom: 60px; max-width: 640px; }
+
+@media (max-width: 900px) {
+  .lp-cats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lp-map { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .lp-hero { padding: 36px 0 32px; }
+  .lp-hero.has-photo { padding: 56px 0 40px; }
+  .lp-lead { font-size: 15.5px; margin-bottom: 20px; }
+  .lp-perks { gap: 4px 18px; font-size: 13.5px; }
+  .lp-sec { padding-top: 32px; }
+  .lp-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .lp-cat { aspect-ratio: 4 / 3; }
+  .lp-more { margin-left: 0; }
+  .lp-map .map-wrap { min-height: 320px; }
+}

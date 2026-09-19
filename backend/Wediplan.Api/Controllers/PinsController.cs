@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
@@ -13,6 +14,7 @@ namespace Wediplan.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/pins")]
+[EnableRateLimiting("lists")] // §8
 public class PinsController : ControllerBase
 {
     private const int MaxPins = 1000;

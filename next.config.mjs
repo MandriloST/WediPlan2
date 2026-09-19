@@ -5,14 +5,20 @@
 // i remotePattern se doda automatski.
 const imageBase = process.env.NEXT_PUBLIC_IMAGE_BASE;
 const remotePatterns = [];
-if (imageBase && imageBase.startsWith("http")) {
-  const u = new URL(imageBase);
-  remotePatterns.push({
-    protocol: u.protocol.replace(":", ""),
-    hostname: u.hostname,
-    pathname: `${u.pathname.replace(/\/$/, "")}/**`,
-  });
+function addRemote(base) {
+  if (base && base.startsWith("http")) {
+    const u = new URL(base);
+    remotePatterns.push({
+      protocol: u.protocol.replace(":", ""),
+      hostname: u.hostname,
+      pathname: `${u.pathname.replace(/\/$/, "")}/**`,
+    });
+  }
 }
+addRemote(imageBase);
+// Faza 5 — uploadane slike pružatelja: u produkciji s R2/CDN domene (NEXT_PUBLIC_UPLOADS_BASE,
+// npr. https://cdn.wediplan.hr). U dev-u se serviraju preko /uploads proxyja (rewrite niže).
+addRemote(process.env.NEXT_PUBLIC_UPLOADS_BASE);
 
 // Faza 2 — prekidač izvora podataka (server-only env, NIJE NEXT_PUBLIC_):
 //   API_URL=http://localhost:5080        → /api/* ide na .NET (lokalno)
@@ -31,7 +37,11 @@ const nextConfig = {
   async rewrites() {
     if (!apiUrl) return { beforeFiles: [], afterFiles: [], fallback: [] };
     return {
-      beforeFiles: [{ source: "/api/:path*", destination: `${apiUrl}/api/:path*` }],
+      beforeFiles: [
+        { source: "/api/:path*", destination: `${apiUrl}/api/:path*` },
+        // Lokalno uploadane slike (LocalPhotoStorage servira ih .NET na /uploads) → proxy same-origin.
+        { source: "/uploads/:path*", destination: `${apiUrl}/uploads/:path*` },
+      ],
       afterFiles: [],
       fallback: [],
     };

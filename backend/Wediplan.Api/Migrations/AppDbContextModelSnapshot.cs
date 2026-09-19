@@ -297,6 +297,63 @@ namespace Wediplan.Api.Migrations
                     b.ToTable("budget_plans", (string)null);
                 });
 
+            modelBuilder.Entity("Wediplan.Api.Domain.Claim", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<Guid?>("DecidedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by");
+
+                    b.Property<string>("Evidence")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("evidence");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("message");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VendorId");
+
+                    b.HasIndex("UserId", "VendorId")
+                        .IsUnique();
+
+                    b.ToTable("claims", (string)null);
+                });
+
             modelBuilder.Entity("Wediplan.Api.Domain.DailyStat", b =>
                 {
                     b.Property<DateOnly>("Day")
@@ -554,6 +611,91 @@ namespace Wediplan.Api.Migrations
                     b.ToTable("sponsorships", (string)null);
                 });
 
+            modelBuilder.Entity("Wediplan.Api.Domain.Subscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("ActiveFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("active_from");
+
+                    b.Property<DateTime?>("ActiveTo")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("active_to");
+
+                    b.Property<Guid?>("GrantedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("granted_by");
+
+                    b.Property<string>("Plan")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("plan");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VendorId");
+
+                    b.ToTable("subscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("Wediplan.Api.Domain.UserReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer")
+                        .HasColumnName("rating");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VendorId");
+
+                    b.HasIndex("UserId", "VendorId")
+                        .IsUnique();
+
+                    b.HasIndex("VendorId", "Status");
+
+                    b.ToTable("user_reviews", (string)null);
+                });
+
             modelBuilder.Entity("Wediplan.Api.Domain.Vendor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -763,6 +905,48 @@ namespace Wediplan.Api.Migrations
                     b.ToTable("vendor_categories", (string)null);
                 });
 
+            modelBuilder.Entity("Wediplan.Api.Domain.VendorDraft", b =>
+                {
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
+                    b.Property<string>("About")
+                        .HasColumnType("text")
+                        .HasColumnName("about");
+
+                    b.Property<int?>("PriceFrom")
+                        .HasColumnType("integer")
+                        .HasColumnName("price_from");
+
+                    b.Property<string>("PriceKind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("price_kind");
+
+                    b.Property<int?>("PriceTo")
+                        .HasColumnType("integer")
+                        .HasColumnName("price_to");
+
+                    b.Property<List<string>>("Services")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("services");
+
+                    b.Property<List<string>>("StyleTags")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("style_tags");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("VendorId");
+
+                    b.ToTable("vendor_drafts", (string)null);
+                });
+
             modelBuilder.Entity("Wediplan.Api.Domain.VendorPhoto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -854,6 +1038,21 @@ namespace Wediplan.Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Wediplan.Api.Domain.Claim", b =>
+                {
+                    b.HasOne("Wediplan.Api.Domain.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wediplan.Api.Domain.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Wediplan.Api.Domain.Favorite", b =>
                 {
                     b.HasOne("Wediplan.Api.Domain.AppUser", null)
@@ -874,6 +1073,21 @@ namespace Wediplan.Api.Migrations
                     b.Navigation("Vendor");
                 });
 
+            modelBuilder.Entity("Wediplan.Api.Domain.UserReview", b =>
+                {
+                    b.HasOne("Wediplan.Api.Domain.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wediplan.Api.Domain.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Wediplan.Api.Domain.VendorCategory", b =>
                 {
                     b.HasOne("Wediplan.Api.Domain.Vendor", "Vendor")
@@ -883,6 +1097,15 @@ namespace Wediplan.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Vendor");
+                });
+
+            modelBuilder.Entity("Wediplan.Api.Domain.VendorDraft", b =>
+                {
+                    b.HasOne("Wediplan.Api.Domain.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Wediplan.Api.Domain.VendorPhoto", b =>

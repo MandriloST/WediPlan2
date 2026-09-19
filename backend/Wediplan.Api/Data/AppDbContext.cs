@@ -30,6 +30,12 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
     public DbSet<Favorite> Favorites => Set<Favorite>();
     public DbSet<BudgetPlan> BudgetPlans => Set<BudgetPlan>();
 
+    // Faza 4 — claim, korisničke recenzije, draft uređivanja, pretplate
+    public DbSet<Claim> Claims => Set<Claim>();
+    public DbSet<UserReview> UserReviews => Set<UserReview>();
+    public DbSet<VendorDraft> VendorDrafts => Set<VendorDraft>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b); // OBAVEZNO prvo — konfigurira Identity tablice
@@ -144,6 +150,50 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.ToTable("budget_plans");
             e.HasKey(x => x.UserId); // 1:1 s korisnikom
             e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // --- Faza 4: claim / recenzije / draft / pretplate ---
+        b.Entity<Claim>(e =>
+        {
+            e.ToTable("claims");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Message).HasMaxLength(2000);
+            e.HasIndex(x => x.VendorId);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.Status);
+            // Jedan aktivan zahtjev po (korisnik, pružatelj): sprječava duple pending claimove.
+            e.HasIndex(x => new { x.UserId, x.VendorId }).IsUnique();
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Vendor>().WithMany().HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<UserReview>(e =>
+        {
+            e.ToTable("user_reviews");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Text).HasMaxLength(4000);
+            e.HasIndex(x => x.VendorId);
+            e.HasIndex(x => new { x.VendorId, x.Status }); // profil čita samo published
+            // Jedna recenzija po (korisnik, pružatelj).
+            e.HasIndex(x => new { x.UserId, x.VendorId }).IsUnique();
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Vendor>().WithMany().HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<VendorDraft>(e =>
+        {
+            e.ToTable("vendor_drafts");
+            e.HasKey(x => x.VendorId); // 1:1 s pružateljem
+            e.Property(x => x.Services).HasColumnType("text[]");
+            e.Property(x => x.StyleTags).HasColumnType("text[]");
+            e.HasOne<Vendor>().WithMany().HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Subscription>(e =>
+        {
+            e.ToTable("subscriptions");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.VendorId);
         });
 
         // Identity tablice u snake_case (default su AspNetUsers itd.). Radi konzistentnosti sa

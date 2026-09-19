@@ -103,6 +103,48 @@ else
     builder.Services.AddSingleton<Wediplan.Api.Auth.IEmailSender, Wediplan.Api.Auth.ConsoleEmailSender>();
 builder.Services.AddScoped<Wediplan.Api.Auth.AuthEmails>();
 
+// ---------------------------------------------------------------- Faza 5: slike + očvršćivanje
+// Pohrana slika: R2 (S3) ako je Storage:R2:Bucket postavljen, inače lokalno (dev/self-host).
+builder.Services.Configure<Wediplan.Api.Media.StorageOptions>(
+    builder.Configuration.GetSection(Wediplan.Api.Media.StorageOptions.Section));
+var storageOpts = builder.Configuration.GetSection(Wediplan.Api.Media.StorageOptions.Section)
+    .Get<Wediplan.Api.Media.StorageOptions>() ?? new Wediplan.Api.Media.StorageOptions();
+if (storageOpts.UseR2)
+    builder.Services.AddSingleton<Wediplan.Api.Media.IPhotoStorage, Wediplan.Api.Media.R2PhotoStorage>();
+else
+    builder.Services.AddSingleton<Wediplan.Api.Media.IPhotoStorage, Wediplan.Api.Media.LocalPhotoStorage>();
+builder.Services.AddSingleton<Wediplan.Api.Media.ImagePipeline>();
+
+// Rate limiting (§8): stroži limit na liste, blaži globalno; particija po IP-u (iza Cloudflarea
+// koristi X-Forwarded-For kad je Proxy:TrustForwardedFor=true — v. ForwardedHeaders niže).
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    static string Ip(HttpContext c) => c.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    o.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(Ip(ctx),
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            { PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+    // Stroža politika za liste (primjenjuje se atributom [EnableRateLimiting("lists")]).
+    o.AddPolicy("lists", ctx =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(Ip(ctx),
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
+
+// ForwardedHeaders (#17): vjeruj X-Forwarded-* SAMO kad je API dostupan isključivo preko
+// Cloudflarea/proxyja. Default false — inače bi se IP mogao lažirati i zaobići rate limit.
+var trustProxy = builder.Configuration.GetValue<bool>("Proxy:TrustForwardedFor");
+if (trustProxy)
+    builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+                           | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+        o.KnownNetworks.Clear(); o.KnownProxies.Clear(); // proxy je ispred (Cloudflare) — očekuj bilo koji
+    });
+
 var app = builder.Build();
 
 // --- CLI način: `dotnet run -- --import <xlsx> [--dry-run] [--no-geocode] [--geocode-retry]` ---
@@ -125,10 +167,48 @@ if (args.Contains("--rollup"))
     return;
 }
 
+// --- CLI način: `dotnet run -- --make-admin <email>` (jednokratna dodjela admin role) ---
+if (args.Contains("--make-admin"))
+{
+    var email = args.SkipWhile(a => a != "--make-admin").Skip(1).FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(email))
+    {
+        Console.Error.WriteLine("Upotreba: dotnet run -- --make-admin <email>");
+        Environment.ExitCode = 1; return;
+    }
+    using var scope = app.Services.CreateScope();
+    var sp = scope.ServiceProvider;
+    var mdb = sp.GetRequiredService<AppDbContext>();
+    if (!await EnsureDbAsync(mdb)) { Environment.ExitCode = 1; return; }
+    var roleMgr = sp.GetRequiredService<RoleManager<Wediplan.Api.Domain.AppRole>>();
+    foreach (var r in Wediplan.Api.Domain.Roles.All)
+        if (!await roleMgr.RoleExistsAsync(r)) await roleMgr.CreateAsync(new Wediplan.Api.Domain.AppRole(r));
+    var userMgr = sp.GetRequiredService<UserManager<Wediplan.Api.Domain.AppUser>>();
+    var user = await userMgr.FindByEmailAsync(email.Trim().ToLowerInvariant());
+    if (user == null) { Console.Error.WriteLine($"Nema korisnika s e-mailom {email}. Prvo se registriraj u aplikaciji."); Environment.ExitCode = 1; return; }
+    if (!await userMgr.IsInRoleAsync(user, Wediplan.Api.Domain.Roles.Admin))
+        await userMgr.AddToRoleAsync(user, Wediplan.Api.Domain.Roles.Admin);
+    Console.WriteLine($"OK — {email} je sada admin. Odjavi se i ponovno prijavi da rola uđe u sesiju.");
+    return;
+}
+
+// ForwardedHeaders mora biti PRVI (da ostali middleware vide stvarni IP/proto).
+if (trustProxy) app.UseForwardedHeaders();
+
 app.UseCors(CorsPolicy);
+app.UseStaticFiles();       // servira lokalno uploadane slike s /uploads (LocalPhotoStorage)
+app.UseRateLimiter();       // §8: rate limiting
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Health-check za monitoring/uptime (Faza 5): 200 kad je baza dostupna, inače 503.
+app.MapGet("/api/health", async (AppDbContext db, CancellationToken ct) =>
+{
+    try { return await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "ok" })
+                                                       : Results.Json(new { status = "db_down" }, statusCode: 503); }
+    catch { return Results.Json(new { status = "db_down" }, statusCode: 503); }
+}).AllowAnonymous();
 
 // Seed rola (couple/provider/admin) pri startu — idempotentno.
 using (var scope = app.Services.CreateScope())

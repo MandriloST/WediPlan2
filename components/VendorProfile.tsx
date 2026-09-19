@@ -14,6 +14,9 @@ import AvailabilityCalendar from "./AvailabilityCalendar";
 import { vendorImages } from "@/lib/images";
 import { vendorBadges } from "@/lib/badges";
 import VendorCard from "./VendorCard";
+import ReviewForm from "./ReviewForm";
+import ClaimPanel from "./ClaimPanel";
+import OptOutLink from "./OptOutLink";
 import { homeLabel } from "@/lib/data";
 import {
   canAddToCompare,
@@ -22,7 +25,7 @@ import {
 } from "@/lib/categories";
 
 export default function VendorProfile({ data, similar }: { data: VendorProfileData; similar: Vendor[] }) {
-  const { vendor, about, services, importedReviews } = data;
+  const { vendor, about, services, importedReviews, userReviews } = data;
   const { ids, meta, toggle } = useCompare();
   const cats = useMemo(() => catsOf(meta), [meta]);
   const compareDisabled = !ids.includes(vendor.id) && !canAddToCompare(vendor, ids, cats);
@@ -235,20 +238,42 @@ export default function VendorProfile({ data, similar }: { data: VendorProfileDa
               <p className="muted">Ovaj pružatelj još nema prenesenih recenzija.</p>
             )}
 
-            <div className="empty" style={{ marginTop: 14 }}>
-              <h3>Wediplan recenzije kreću s prvim korisnicima</h3>
-              <p>Recenziju mogu ostaviti registrirani korisnici nakon lansiranja.</p>
-              <div className="actions">
-                <button className="btn btn-sm" disabled title="Uskoro">
-                  Napiši recenziju (prijava uskoro)
-                </button>
-              </div>
+            <div className="user-reviews" style={{ marginTop: 18 }}>
+              <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 550, fontSize: 18, margin: "0 0 8px" }}>
+                Wediplan recenzije
+                {userReviews && userReviews.length > 0 && (
+                  <span className="muted" style={{ fontWeight: 400, fontSize: 14 }}>
+                    {" "}({userReviews.length})
+                  </span>
+                )}
+              </h3>
+              {userReviews && userReviews.length > 0 ? (
+                <div className="reviews">
+                  {userReviews.map((r) => (
+                    <article key={r.id} className="review">
+                      <div className="rev-head">
+                        <strong>{r.author}</strong>
+                        <span className="star">{"★".repeat(Math.round(r.rating))}</span>
+                      </div>
+                      <p>{r.text}</p>
+                      <p className="rev-src">
+                        Wediplan recenzija · {new Date(r.createdAt).toLocaleDateString("hr-HR")}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Još nema recenzija korisnika platforme. Budite prvi.</p>
+              )}
+              <ReviewForm vendorSlug={vendor.slug} />
             </div>
           </section>
         </div>
 
         <aside className="profile-aside">
           <AvailabilityCalendar vendor={vendor} />
+          <ClaimPanel vendor={vendor} />
+          <OptOutLink slug={vendor.slug} claimStatus={vendor.claimStatus} />
           {similar.length > 0 && (
             <div className="similar">
               <h3>Slično u kategoriji {cat.short ?? cat.name}</h3>

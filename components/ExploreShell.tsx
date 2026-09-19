@@ -13,7 +13,7 @@ import { CATEGORIES, CATEGORY_BY_SLUG, REGIONS } from "@/lib/data";
 import { api } from "@/lib/api/client";
 import type { CategoryWithCount, Paged, PinVendor, RegionId, Vendor } from "@/lib/types";
 import { useBudget } from "@/stores";
-import { pathFor, type ExploreFilters } from "@/lib/paths";
+import { browsePath, pathFor, type ExploreFilters } from "@/lib/paths";
 
 const CroatiaMap = dynamic(() => import("./CroatiaMap"), {
   ssr: false,
@@ -157,7 +157,13 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
         <div className="container">
           <section className="hero">
             <h1>
-              Pronađite <em>sve</em> za vjenčanje {regionName ? `— ${regionName}` : "u Hrvatskoj"}
+              {regionName ? (
+                <>
+                  Pronađite <em>sve</em> za vjenčanje — {regionName}
+                </>
+              ) : (
+                "Sve kategorije za vjenčanje"
+              )}
             </h1>
             <SearchBar key={`s-${region ?? ""}`} initialRegion={region} />
           </section>
@@ -166,14 +172,14 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
             <div className="browse-head">
               <h2 id="browse-title">Kategorije</h2>
               <div className="region-chips" role="group" aria-label="Regija">
-                <button className={`chip${!region ? " active" : ""}`} onClick={() => go({})}>
+                <button className={`chip${!region ? " active" : ""}`} onClick={() => router.push(browsePath())}>
                   Cijela Hrvatska
                 </button>
                 {(regionsQ.data ?? REGIONS).map((r) => (
                   <button
                     key={r.id}
                     className={`chip${region === r.id ? " active" : ""}`}
-                    onClick={() => go({ region: region === r.id ? undefined : r.id })}
+                    onClick={() => router.push(region === r.id ? browsePath() : pathFor({ region: r.id }))}
                   >
                     {r.name}
                     {"count" in r && typeof r.count === "number" && r.count > 0 ? (
@@ -222,7 +228,7 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
         </section>
 
         <nav className="catbar" aria-label="Kategorije">
-          <Link className="back" href={pathFor({ region })}>
+          <Link className="back" href={browsePath(region)}>
             ← Sve kategorije
           </Link>
           {cat ? (
@@ -310,7 +316,7 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
                       Očisti pretragu
                     </button>
                   )}
-                  <Link className="btn btn-sm" href={pathFor({ region })}>
+                  <Link className="btn btn-sm" href={browsePath(region)}>
                     Sve kategorije
                   </Link>
                 </div>

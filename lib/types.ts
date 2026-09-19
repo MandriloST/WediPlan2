@@ -114,6 +114,98 @@ export interface VendorProfileData {
   about: string;
   services: string[];
   importedReviews: ImportedReview[];
+  /** Faza 4 — objavljene recenzije korisnika platforme ("što korisnici kažu"). */
+  userReviews?: UserReview[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Faza 4 — claim (preuzimanje profila), korisničke recenzije, admin   */
+/* ------------------------------------------------------------------ */
+
+/** Objavljena korisnička recenzija (javno na profilu). */
+export interface UserReview {
+  id: string;
+  author: string;
+  rating: number;
+  text: string;
+  createdAt: string;
+}
+
+/** Zahtjev za preuzimanje profila iz perspektive korisnika. */
+export interface Claim {
+  id: string;
+  vendorSlug: string;
+  vendorName: string;
+  status: "pending" | "approved" | "rejected";
+  evidence: string; // "domain_match" | ""
+  createdAt: string;
+}
+
+/** Draft uređivanja (about/usluge/cijena/stil) — ulaz i izlaz nadzorne ploče. */
+export interface VendorDraft {
+  about?: string | null;
+  services: string[];
+  price: PriceModel;
+  styleTags: string[];
+}
+
+export interface ProviderStats {
+  views30: number;
+  compares30: number;
+  favorites30: number;
+}
+
+/** Fotografija pružatelja (Faza 5). */
+export interface ProviderPhoto {
+  id: string;
+  url: string;
+  thumbUrl: string;
+  isCover: boolean;
+  sortOrder: number;
+}
+
+/** Jedan pružatelj u nadzornoj ploči partnera. */
+export interface ProviderVendor {
+  slug: string;
+  name: string;
+  category: string;
+  myStatus: "pending" | "owner" | "rejected";
+  claimStatus: "unclaimed" | "claimed" | string;
+  canPublish: boolean;
+  draft: VendorDraft;
+  stats: ProviderStats;
+  photos: ProviderPhoto[];
+}
+
+export interface AdminClaim {
+  id: string;
+  vendorSlug: string;
+  vendorName: string;
+  userEmail: string;
+  userDisplayName?: string | null;
+  message: string;
+  evidence: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface AdminReview {
+  id: string;
+  vendorSlug: string;
+  vendorName: string;
+  userEmail: string;
+  rating: number;
+  text: string;
+  status: string;
+  createdAt: string;
+}
+
+/** Skriveni (GDPR opt-out) pružatelj u admin pregledu (Faza 6). */
+export interface AdminOptOut {
+  slug: string;
+  name: string;
+  category: string;
+  isPublished: boolean;
 }
 
 /* ------------------------------------------------------------------ */

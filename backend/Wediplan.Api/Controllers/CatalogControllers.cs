@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
@@ -157,6 +158,7 @@ public class SitemapController : ControllerBase
 /// </summary>
 [ApiController]
 [Route("api/suggest")]
+[EnableRateLimiting("lists")] // §8
 public class SuggestController : ControllerBase
 {
     private readonly AppDbContext _db;

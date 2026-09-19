@@ -14,7 +14,7 @@ Provjeri prije pusha: `git status` ne smije pokazivati `.next/` datoteke, a slik
 ## Prvi deploy (~10 min)
 
 1. **vercel.com** → Sign up with GitHub (besplatan Hobby plan je dovoljan za start).
-2. **Add New… → Project** → Import `MandriloST/wediplan`.
+2. **Add New… → Project** → Import `MandriloST/WediPlan2`.
 3. Vercel sam prepozna Next.js — **ništa ne mijenjaj** (build command, output, install su automatski). Env varijable za sada nisu potrebne.
 4. **Deploy.** Prvi build traje ~2 min. Dobivaš URL oblika `wediplan-xxxx.vercel.app`.
 
@@ -86,6 +86,39 @@ prijava Googleom je skrivena, ostala dva načina rade.
 **Cookie:** dev radi na localhost bez ičega. Produkcija: frontend i API na istoj baznoj domeni
 (`wediplan.hr` + `api.wediplan.hr`), postavi `Auth__CookieDomain=.wediplan.hr`, oboje preko HTTPS.
 
+## Faza 4 (claim + admin + korisničke recenzije) — konfiguracija i test
+
+**1. Migracija** (nove tablice: `claims`, `user_reviews`, `vendor_drafts`, `subscriptions`):
+```bash
+cd backend/Wediplan.Api
+dotnet ef migrations add Faza4     # generira se iz izmijenjenog modela (AppDbContext)
+dotnet ef database update
+```
+(Sandbox nema NuGet pa migracija nije generirana ondje — pokreće se ovdje, kao i za Faze 1/3.)
+
+**2. Admin** (jednokratno, nakon što se registriraš u aplikaciji tim e-mailom):
+```bash
+dotnet run -- --make-admin tvoj-email@primjer.hr
+```
+Zatim se **odjavi i ponovno prijavi** da rola `admin` uđe u sesiju (cookie). Admin panel: `/admin`.
+
+**3. Ručni test cijelog toka (DoD):**
+- Registriraj korisnika A (e-mail+lozinka), potvrdi e-mail (link u konzoli servera ako nema Resenda).
+- Otvori bilo koji profil `/pruzatelj/<slug>` → “Ovo je moj profil — preuzmi ga” → pošalji zahtjev.
+  Korisnik A dobiva rolu `provider` i pristup `/partner` (uređivanje **skice** — nije još javno).
+- U `/partner` uredi opis/cijenu/usluge → “Spremi skicu”.
+- Kao **admin** otvori `/admin` → “Zahtjevi za preuzimanje” → **Odobri**. Profil je sad `claimed`,
+  skica je objavljena, korisnik A je vlasnik (može “Spremi i objavi” izravno).
+- Registriraj korisnika B → na istom profilu “Napiši recenziju” (zvjezdice + tekst) → šalje se u moderaciju.
+- Kao admin `/admin` → “Recenzije za provjeru” → **Objavi**. Recenzija se pojavljuje na profilu
+  (“Wediplan recenzije”). Time je DoD Faze 4 ispunjen.
+
+**Napomena:** objavljene korisničke recenzije zasad **ne** mijenjaju ocjenu/broj recenzija na kartici
+(oni ostaju iz importa) — prikazuju se zasebno. Stapanje je zasebna odluka (PLAN §11 #19).
+
+**Bez backenda (mock):** claim/recenzije/admin traže .NET (kao i auth) — u čistom mock načinu
+korisnik nije prijavljen pa se te akcije ni ne nude; landing/karta/usporedba/budžet rade kao i dosad.
+
 ## Geokodiranje pri importu (koordinate gradova)
 
 Import geokodira grad → koordinate preko Nominatima (OpenStreetMap). Zahtijeva izlaz na
@@ -138,3 +171,58 @@ se keširaju pa su idući importi brzi.
 - Ne postavljaj `output: 'export'` — API rute i on-demand stranice trebaju server.
 - Ne dodavaj `vercel.json` — defaulti su ispravni za ovaj projekt.
 - Ne commitaj `.env` datoteke (za sada ih ni nemamo; tajne idu u Vercel env UI).
+
+---
+
+## Faza 5 — slike + produkcijsko očvršćivanje (2026-09-17)
+
+### 1. Pohrana slika (odluka #3 — Cloudflare R2)
+Backend bira pohranu prema konfiguraciji: ako je `Storage:R2:Bucket` postavljen → R2 (S3 API),
+inače lokalno (`wwwroot/uploads`, servira se na `/uploads`). Dev radi bez ikakve konfiguracije.
+
+Env / `appsettings` (produkcija):
+```
+Storage__PublicBaseUrl   = https://cdn.wediplan.hr      (javna R2/CDN domena, bez završnog /)
+Storage__R2__Bucket      = wediplan-media
+Storage__R2__AccountId   = <cloudflare-account-id>       (ili Storage__R2__ServiceUrl za pun endpoint)
+Storage__R2__AccessKey   = <r2-access-key>
+Storage__R2__SecretKey   = <r2-secret-key>
+# opcionalni žig na slikama:
+Storage__WatermarkText     = WediPlan
+Storage__WatermarkFontPath = /opt/wediplan/fonts/Inter-Bold.ttf   (ako nije zadano → bez žiga)
+```
+Frontend (Vercel): `NEXT_PUBLIC_UPLOADS_BASE=https://cdn.wediplan.hr` (da `next/image` dopusti domenu).
+
+R2 postavljanje: kreiraj bucket → poveži javnu domenu (R2 public bucket ili custom domenu
+`cdn.wediplan.hr` preko Cloudflarea) → generiraj S3 API token (Access/Secret). Objekti se pišu
+pod ključem `vendors/{vendorId}/{guid}.webp` (+ `_thumb.webp`).
+
+> **Licenca:** obrada slika koristi **SixLabors ImageSharp** (Six Labors Split License —
+> besplatno za OSS/male; komercijalna licenca iznad praga prihoda). Provjeriti prije
+> komercijalnog lansiranja; alternativa je Magick.NET (Apache 2.0) ako se poželi zamijeniti.
+
+### 2. Rate limiting (§8)
+Ugrađeni `Microsoft.AspNetCore.RateLimiting`: globalno 300/min po IP-u, liste (`/api/vendors`,
+`/api/pins`, `/api/suggest`) 60/min. Iza Cloudflarea/Vercela postavi `Proxy__TrustForwardedFor=true`
+(odluka #17) da limiter vidi stvarni IP iz `X-Forwarded-For`. **Ne uključuj** dok API nije dostupan
+isključivo preko proxyja — inače se IP može lažirati.
+
+### 3. Cloudflare ispred API-ja
+Usmjeri `api.wediplan.hr` preko Cloudflarea (proxy ON): bot fight mode, rate limiting pravila,
+opcionalno JS challenge na `/api/vendors`. Tek tada `Proxy__TrustForwardedFor=true`.
+
+### 4. Backup baze
+`ops/backup.sh` (pg_dump + gzip + rotacija). Cron primjer:
+```
+0 3 * * * /opt/wediplan/ops/backup.sh >> /var/log/wediplan-backup.log 2>&1
+```
+Povremeno kopirati backupe izvan servera (isti R2, odvojeni prefix, ili rclone drugdje).
+
+### 5. Monitoring
+Health endpoint: `GET /api/health` → `200 {status:ok}` kad je baza dostupna, `503` inače.
+Priključi vanjski uptime monitor (npr. UptimeRobot/BetterStack) na `https://api.wediplan.hr/api/health`
+i na frontend. Error log: pratiti stderr .NET procesa (systemd `journalctl -u wediplan-api`).
+
+### 6. Migracije
+Faza 5 **ne uvodi novu migraciju** (tablica `vendor_photos` postoji od Faze 1). Potrebno je samo
+`dotnet restore` (novi paketi ImageSharp + AWSSDK.S3) i `dotnet build`.

@@ -1,5 +1,8 @@
 # wediplan — Plan, arhitektura i upute za nastavak rada
 
+> 📍 **KANONSKI REPO: https://github.com/MandriloST/WediPlan2.git** (grana `develop`). Ovo je JEDINI ispravan repo — NE `WediPlan`/`wediplan` bez 2.
+
+
 > **Namjena dokumenta:** Ovo je glavni radni dokument za buduće razgovore u ovom projektu.
 > Model (Sonnet/Opus) koji nastavlja rad treba ga pročitati PRIJE pisanja koda, zajedno s
 > `README.md` i `API.md` u repou. Odluke označene **[ZA ODOBRENJE]** vlasnik mora potvrditi
@@ -9,11 +12,12 @@
 
 ## 1. Snimka postojećeg stanja (rujan 2026.)
 
-**Repo:** `https://github.com/MandriloST/wediplan.git` — radi se ISKLJUČIVO na grani `develop`.
+**Repo:** `https://github.com/MandriloST/WediPlan2.git` — radi se ISKLJUČIVO na grani `develop`.
+> ⚠️ **JEDINI ISPRAVAN REPO je `WediPlan2` (s brojem 2).** NIKAD `WediPlan`/`wediplan` bez 2 — to je stari, GDPR-zaraženi repo (ide na private). Ako model ode na krivi, STANI i prebaci se na WediPlan2.
 `main` je produkcija; vlasnik sam merga develop → main preko GitHub PR-a. Model nikad ne dira `main`.
 
 **Što postoji i radi (frontend, Next.js 14 App Router):**
-- Istraži/landing: search s typeaheadom, lista regija s brojačima, MapLibre karta Hrvatske
+- Istraži/landing: search s typeaheadom, lista regija s brojačima, MapLibre karta Hrvatske (od 2026-09-19 landing = 3a, grid na `/kategorije`)
   sa stvarnim GeoJSON granicama 5 regija, cijene na pinovima, klasteri, popup kartice
 - URL-driven filtri (`/dalmacija/foto-i-video` — shareable/SEO), sitemap, robots
 - Usporedba 2–4 pružatelja, budžet kalkulator (drawer/tab), "Vaš plan" s capovima
@@ -381,6 +385,11 @@ kategorije ili, bez nje, preko svih (noindex). Jitter: Vogelova spirala po hashu
 Napomena SEO: Google od 2019. ne koristi `rel=next/prev` kao signal — bitni su puzivi linkovi
 i SSR sadržaj, što je implementirano.
 
+**Redizajn naslovnice (3a, 2026-09-19, na zahtjev vlasnika):** `/` više nije grid kategorija nego
+landing (hero + tražilica → 6 pločica kategorija → najbolje ocijenjeni → karta s regijama); pravilo §L
+ostaje: naslovnica ne izlistava sve pružatelje (samo 3 kartice, `pageSize=1` po kategoriji) i karta
+nema pinova bez kategorije. Puni grid 29 kategorija živi na `/kategorije` (i `/regija`).
+
 **Geokodiranje (napomena za import):** u trenutnom Excelu 5 redova ima koordinate, 3172
 samo grad (→ Nominatim, precision=city, jitter na karti), 1 samo regiju (bez pina).
 Geokodiranje je jednokratni korak importa (1 req/s + cache); vlasnik NE popunjava
@@ -418,16 +427,27 @@ API-jem; eventi se tiho pune u bazu.
 **Faza 3 — auth.** §5 u cijelosti + migracija localStorage → account. DoD: prijava
 sva tri načina radi, favoriti/plan sinkronizirani, odjava/istek sesije uredni.
 
-**Faza 4 — claim + admin + recenzije korisnika.** §6, `POST /api/reviews`
+**Faza 4 — claim + admin + recenzije korisnika. ✅ IMPLEMENTIRANO 2026-09-17.** §6, `POST /api/reviews`
 (auth required, ide u moderaciju), minimalni admin. DoD: cijeli put od registracije
 pružatelja do odobrenog claima i objavljene korisničke recenzije prolazi ručni test.
+Implementirano: `claims`/`user_reviews`/`vendor_drafts`/`subscriptions` entiteti +
+Claims/Provider/Reviews/Admin kontroleri; frontend claim CTA + recenzije na profilu, `/partner`
+nadzorna ploča (draft/statistika/objava), `/admin` moderacija; `--make-admin` CLI. Migraciju
+`Faza4` generira vlasnik (`dotnet ef migrations add Faza4`). Otvoreno: #19 (stapanje ocjena).
 
-**Faza 5 — slike + produkcijsko očvršćivanje.** R2 storage + upload u provider
+**Faza 5 — slike + produkcijsko očvršćivanje. ✅ IMPLEMENTIRANO (2026-09-17).** R2 storage + upload u provider
 dashboardu + varijante/WebP + žig; rate limiting middleware; Cloudflare ispred svega;
 backup baze; monitoring (uptime + error log). DoD: checklista u §8 zadovoljena.
+Kod: `Media/*`, `PhotosController`, rate limiter + `/api/health` u `Program.cs`, `ops/backup.sh`.
+Preostalo za produkciju (ops, ne kod): R2 bucket + env, Cloudflare proxy, uptime monitor, backup cron.
 
-**Faza 6 — lansiranje.** Domena, `NEXT_PUBLIC_SITE_URL`, pravne stranice (§9),
+**Faza 6 — lansiranje. ⏳ KOD IMPLEMENTIRAN (2026-09-17); preostaju ops koraci.** Domena, `NEXT_PUBLIC_SITE_URL`, pravne stranice (§9),
 Google Search Console, finalna regresija, merge u `main`.
+Kod: pravne stranice (`/pravila-privatnosti`, `/uvjeti-koristenja`, `/impressum`), `Footer` + `CookieNotice`,
+GDPR opt-out (`OptOutController` + forma na neclaimanom profilu + admin pregled/vraćanje).
+Već postojalo: `robots.ts`, `sitemap.ts`, `lib/site.ts`, `.Published()` filtar (`!OptOut`).
+**Preostalo (ops, vlasnik):** kupiti domenu + `NEXT_PUBLIC_SITE_URL`, popuniti podatke tvrtke u pravnim
+stranicama + pravna provjera, Google Search Console (verifikacija), finalna regresija, **merge `develop` → `main`**.
 
 Redoslijed 0→2 je fiksan; 3 i 4 mogu zamijeniti mjesta ako vlasnik želi ranije claim.
 
@@ -483,27 +503,34 @@ Ugrađeno u arhitekturu od početka:
 
 ---
 
-## 11. Odluke koje čekaju odobrenje vlasnika (sažetak)
+## 11. Odluke — ✅ SVE ODOBRENE (evidencija)
+
+> ✅ **SVE ODLUKE #1–#19 ODOBRENE (preporučena opcija) — vlasnik, 2026-09-17.**
+> Nema više otvorenih odluka. Tablica ispod ostaje kao evidencija izbora.
 
 | # | Odluka | Preporuka / Status |
 |---|---|---|
-| 1 | Hosting backenda (§2.1) | Hetzner VPS + Docker (nije nužno za Fazu 1) |
+| 1 | Hosting backenda (§2.1) | ✅ ODOBRENO 2026-09-17 — Hetzner VPS + Docker |
 | 2 | Pretraga (§2.2) | ✅ ODOBRENO 2026-09-14 — Postgres pg_trgm + FTS, bez Typesensea |
-| 3 | Pohrana slika (§2.3) | Cloudflare R2 + WebP + žig (Faza 5) |
+| 3 | Pohrana slika (§2.3) | ✅ ODOBRENO 2026-09-17 — Cloudflare R2 + WebP + žig (Faza 5) |
 | 4 | Import alat (§4) | ✅ ODOBRENO 2026-09-14 — .NET konzolna komanda |
-| 5 | Email servis (§5) | Resend (Faza 3) |
-| 6 | Redoslijed faza 3↔4 (§7) | Auth prije claima |
-| 7 | Sjedište vs. pokrivanje + location_precision (§4.1) | Implementirano u Excel/Node pipelineu — potvrditi prije .NET modela |
+| 5 | Email servis (§5) | ✅ ODOBRENO 2026-09-17 — Resend |
+| 6 | Redoslijed faza 3↔4 (§7) | ✅ ODOBRENO 2026-09-17 — Auth prije claima |
+| 7 | Sjedište vs. pokrivanje + location_precision (§4.1) | ✅ ODOBRENO 2026-09-17 — implementirano u pipelineu |
 | 8 | Monetizacija (§M) | ✅ ODOBRENO s dopunama: freemium granica M.1, Founding partner, karta trajno organska |
-| 9 | Sustav oznaka: 2 slota, pragovi Top ocijenjen 4.8/20 (§4.2) | Implementirano v1; pragove potvrditi na stvarnim podacima |
+| 9 | Sustav oznaka: 2 slota, pragovi Top ocijenjen 4.8/20 (§4.2) | ✅ ODOBRENO 2026-09-17 — v1 (pragovi se fino ugađaju na stvarnim podacima) |
 | 10 | Više kategorija: M2M + primarna, limit 3 (§4.3) | ✅ ODOBRENO — Excel/import + UI (Zadatak A) implementirani |
 | 11 | Analitika: vlastiti first-party, agregatno bez PII (§A) | ✅ ODOBRENO — implementacija Faza 1-2 |
 | 12 | Category-first pregledavanje + paginacija (§L) | ✅ ODOBRENO 2026-09-14 (defaulti a-d) — v. §L |
 | 13 | GDPR kontakti pri importu: uvezi u bazu, NE izlaži javno (§8/§9) | ✅ ODOBRENO 2026-09-14 |
-| 14 | Dopune ugovora za Fazu 2: `/api/pins` (category obavezna, cap 1000), `/api/vendors?ids=` (≤50), `/api/regions?category=`, `/api/budget-matches` (klijent šalje capove), `/api/sitemap`; suggest vendor → profil | Implementirano 2026-09-16 po preporuci — **čeka potvrdu** |
-| 15 | Brojači regija po pravilu liste (sjedište ∪ pokrivanje) umjesto samo sjedišta | Implementirano po preporuci — **čeka potvrdu** |
-| 16 | Tekst-pretraga na stranici kategorije traži unutar kategorije (prazno stanje nudi "u svim kategorijama") | Implementirano po preporuci — **čeka potvrdu** |
-| 17 | Rate limit iza proxyja: `Proxy:TrustForwardedFor` (default false; true tek kad je API dostupan samo preko Cloudflarea/Vercela) | Implementirano — uključiti u Fazi 5 |
-| 18 | **GDPR incident:** repo je javan, a `data/vendors-live.xlsx` (2295 tel., 1748 email) je u povijesti gita | **HITNO** — repo privatan + `git rm --cached` (v. STANJE.md); čišćenje povijesti opcionalno |
+| 14 | Dopune ugovora za Fazu 2: `/api/pins` (category obavezna, cap 1000), `/api/vendors?ids=` (≤50), `/api/regions?category=`, `/api/budget-matches` (klijent šalje capove), `/api/sitemap`; suggest vendor → profil | ✅ ODOBRENO 2026-09-17 (implementirano 2026-09-16) |
+| 15 | Brojači regija po pravilu liste (sjedište ∪ pokrivanje) umjesto samo sjedišta | ✅ ODOBRENO 2026-09-17 |
+| 16 | Tekst-pretraga na stranici kategorije traži unutar kategorije (prazno stanje nudi "u svim kategorijama") | ✅ ODOBRENO 2026-09-17 |
+| 17 | Rate limit iza proxyja: `Proxy:TrustForwardedFor` (default false; true tek kad je API dostupan samo preko Cloudflarea/Vercela) | ✅ ODOBRENO 2026-09-17 — uključuje se u Fazi 5 |
+| 18 | **GDPR incident:** repo je javan, a `data/vendors-live.xlsx` (2295 tel., 1748 email) je u povijesti gita | ✅ RIJEŠENO — novi čisti repo WediPlan2 (`.gitignore` drži Excel izvan gita) |
+| 19 | **Stapanje korisničkih ocjena u `vendor.rating`/`reviewCount`** (Faza 4) | Implementirano ODVOJENO (profil prikazuje Wediplan recenzije zasebno); rating iz importa se ne dira. ✅ ODOBRENO 2026-09-17 — ostaje ODVOJENO (Wediplan recenzije zasebno) |
 
-Preostale otvorene: **#18 (hitno)**, #1 (blokira Vercel preview nad pravim API-jem), #14–#16 (potvrda), #3, #5, #7, #9.
+**Faza 4 (claim + admin + korisničke recenzije) — IMPLEMENTIRANA 2026-09-17** (v. STANJE.md).
+
+Preostale otvorene: **nema — sve odluke #1–#19 odobrene 2026-09-17.**
+#14–#16 (potvrda), #3 (R2, Faza 5), #5 (Resend ključ), #7, #9.

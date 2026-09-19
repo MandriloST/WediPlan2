@@ -29,11 +29,17 @@ export type Imaged = Pick<Vendor, "slug" | "category" | "photos">;
 export function vendorImages(vendor: Imaged): VendorImage[] {
   if (vendor.photos && vendor.photos.length > 0) {
     return vendor.photos.map((file) => ({
-      src: `${IMAGE_BASE}/vendors/${vendor.slug}/${file}`,
+      // Uploadane slike (Faza 5) dolaze kao apsolutan URL (http(s)://… ili /uploads/…) → koristi izravno.
+      // Seed slike iz importa su gola imena datoteka → primijeni konvenciju {BASE}/vendors/<slug>/<file>.
+      src: isAbsolute(file) ? file : `${IMAGE_BASE}/vendors/${vendor.slug}/${file}`,
       isDefault: false,
     }));
   }
   return [{ src: `${IMAGE_BASE}/defaults/${vendor.category}${DEFAULT_EXT}`, isDefault: true }];
+}
+
+function isAbsolute(src: string): boolean {
+  return /^https?:\/\//i.test(src) || src.startsWith("/uploads/");
 }
 
 export function coverImage(vendor: Imaged): VendorImage {

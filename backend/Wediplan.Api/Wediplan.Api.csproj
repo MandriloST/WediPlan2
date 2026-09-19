@@ -19,6 +19,11 @@
     <!-- Faza 3 — auth: ASP.NET Core Identity nad EF Core + Google OAuth -->
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.11" />
+    <!-- Faza 5 — obrada slika (resize/WebP/žig) + R2 (S3-kompatibilno) storage -->
+    <!-- Napomena: SixLabors ImageSharp koristi "Six Labors Split License" (besplatno za OSS/male;
+         komercijalna licenca iznad praga). Provjeriti prije komercijalnog lansiranja (v. DEPLOY.md). -->
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.5" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.416.4" />
   </ItemGroup>
 
 </Project>
