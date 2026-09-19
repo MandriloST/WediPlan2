@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import CategoryTile from "./CategoryTile";
 import { CATEGORIES } from "@/lib/data";
 import { GROUP_ORDER } from "@/lib/budget";
 import type { BudgetGroup, CategoryWithCount } from "@/lib/types";
@@ -14,39 +14,6 @@ const GROUP_TITLES: Record<BudgetGroup, string> = {
   ostalo: "Sve ostalo za vaš dan",
 };
 
-/** Ikone po slugu — samo prikaz; slugovi su ugovor (lib/data.ts). */
-const ICONS: Record<string, string> = {
-  "restorani-i-sale": "🏛️",
-  "konobe-i-prostori": "🍷",
-  "najam-kuce": "🏡",
-  "najam-satora": "⛺",
-  catering: "🍽️",
-  "torte-i-kolaci": "🎂",
-  "foto-i-video": "📷",
-  "foto-kabine": "🤳",
-  "glazba-bendovi": "🎸",
-  dj: "🎧",
-  "glazba-za-crkvu": "🎻",
-  harmonikasi: "🪗",
-  "cvijece-i-dekoracije": "💐",
-  vjencanice: "👰",
-  "muska-odijela": "🤵",
-  "nakit-i-prstenje": "💍",
-  "frizerski-saloni": "💇",
-  "sminka-nokti": "💄",
-  "najam-limuzina": "🚘",
-  "prijevoz-i-transferi": "🚐",
-  organizatori: "📋",
-  pozivnice: "✉️",
-  "rasvjeta-i-razglas": "💡",
-  "cuvanje-djece": "🧸",
-  "skole-plesa": "💃",
-  "bracna-putovanja": "✈️",
-  "dodaci-za-djevojacke": "🥂",
-  "reveri-i-dodaci": "🎀",
-  "simbolicni-maticar": "📜",
-};
-
 interface Props {
   /** brojači s API-ja; undefined = još se učitava (grid se odmah crta iz šifrarnika) */
   categories?: CategoryWithCount[];
@@ -55,8 +22,8 @@ interface Props {
 }
 
 /**
- * Category-first landing (§L, odluka a): 29 kategorija grupiranih po budžetskim
- * omotnicama. Kategorije bez pružatelja ostaju vidljive (prigušene) — stranice
+ * Grid svih kategorija (/kategorije, /regija — §L): 29 foto-pločica (iste kao na naslovnici)
+ * grupiranih po budžetskim omotnicama. Kategorije bez pružatelja ostaju vidljive (prigušene) — stranice
  * postoje zbog SEO-a i dijeljenja linkova, a prazno stanje tamo nudi širenje regije.
  */
 export default function CategoryGrid({ categories, hrefFor, regionName }: Props) {
@@ -71,29 +38,24 @@ export default function CategoryGrid({ categories, hrefFor, regionName }: Props)
         return (
           <section key={g} className={`cat-group g-${g}`} aria-labelledby={`cg-${g}`}>
             <h3 id={`cg-${g}`}>{GROUP_TITLES[g]}</h3>
-            <ul className="cat-grid">
+            <ul className="ctiles">
               {items.map((c) => {
                 const n = counts.get(c.slug);
                 const empty = !loading && !n;
                 return (
                   <li key={c.slug}>
-                    <Link
+                    <CategoryTile
+                      slug={c.slug}
+                      label={c.name}
                       href={hrefFor(c.slug)}
-                      className={`cat-tile${empty ? " empty-cat" : ""}`}
+                      count={loading ? undefined : n ?? 0}
+                      empty={empty}
                       title={
                         empty
                           ? `Još nema pružatelja${regionName ? ` u regiji ${regionName}` : ""}`
                           : c.name
                       }
-                    >
-                      <span className="ico" aria-hidden>
-                        {ICONS[c.slug] ?? "•"}
-                      </span>
-                      <span className="nm">{c.name}</span>
-                      <span className="n" aria-label={loading ? undefined : `${n ?? 0} pružatelja`}>
-                        {loading ? <span className="n-skel" /> : n ?? 0}
-                      </span>
-                    </Link>
+                    />
                   </li>
                 );
               })}

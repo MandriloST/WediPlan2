@@ -1,29 +1,23 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import SearchBar from "./SearchBar";
 import VendorCard from "./VendorCard";
-import { CATEGORIES, REGIONS } from "@/lib/data";
+import { REGIONS } from "@/lib/data";
 import { api } from "@/lib/api/client";
 import { track } from "@/lib/analytics";
 import { useBudget } from "@/stores";
-import { IMAGE_BASE, DEFAULT_EXT } from "@/lib/images";
-import { HERO_IMAGE, LANDING_CATEGORIES } from "@/lib/landing";
+import CategoryTile, { providersLabel } from "./CategoryTile";
+import { HERO_IMAGE, LANDING_CATEGORIES, LANDING_TEXT as T } from "@/lib/landing";
 import type { CategoryWithCount, RegionId, Vendor } from "@/lib/types";
 
 const CroatiaMap = dynamic(() => import("./CroatiaMap"), {
   ssr: false,
   loading: () => <div className="skel" style={{ position: "absolute", inset: 0, borderRadius: 0 }} />,
 });
-
-/** 1 pružatelj · 2 pružatelja · 5 pružatelja · 21 pružatelj */
-function providersLabel(n: number): string {
-  return n % 10 === 1 && n % 100 !== 11 ? `${n} pružatelj` : `${n} pružatelja`;
-}
 
 interface Props {
   /** SSR: brojači kategorija (za pločice) */
@@ -71,24 +65,21 @@ export default function LandingShell({ initialCategories, topRated }: Props) {
       {/* ---------------- hero ---------------- */}
       <section className={`lp-hero${HERO_IMAGE ? " has-photo" : ""}`} style={heroStyle}>
         <div className="container lp-hero-in">
-          <h1>Pronađite sve za vaše vjenčanje</h1>
-          <p className="lp-lead">
-            Od dvorane do fotografa — {CATEGORIES.length} kategorija u cijeloj Hrvatskoj, s cijenom
-            vidljivom odmah, bez slanja upita.
-          </p>
+          <h1>{T.heroTitle}</h1>
+          <p className="lp-lead">{T.heroLead}</p>
           <SearchBar />
           <ul className="lp-perks">
             <li>
-              <span aria-hidden>€</span> Cijena uvijek vidljiva
+              <span aria-hidden>€</span> {T.perkPrice}
             </li>
             <li>
               <Link href="/usporedba">
-                <span aria-hidden>⇄</span> Usporedite do 4 pružatelja
+                <span aria-hidden>⇄</span> {T.perkCompare}
               </Link>
             </li>
             <li>
               <button type="button" onClick={openDrawer}>
-                <span aria-hidden>🧮</span> Izračunajte budžet
+                <span aria-hidden>🧮</span> {T.perkBudget}
               </button>
             </li>
           </ul>
@@ -99,32 +90,23 @@ export default function LandingShell({ initialCategories, topRated }: Props) {
         {/* ---------------- kategorije ---------------- */}
         <section className="lp-sec" aria-labelledby="lp-cats-title">
           <div className="lp-head">
-            <h2 id="lp-cats-title">Istražite kategorije</h2>
+            <h2 id="lp-cats-title">{T.categoriesTitle}</h2>
             <Link href="/kategorije" className="lp-more">
-              Sve kategorije ({CATEGORIES.length})
+              {T.categoriesMore}
             </Link>
           </div>
-          <ul className="lp-cats">
-            {LANDING_CATEGORIES.map((c, i) => {
-              const n = counts.get(c.slug);
-              return (
-                <li key={c.slug}>
-                  <Link href={`/${c.slug}`} className="lp-cat">
-                    <Image
-                      src={`${IMAGE_BASE}/defaults/${c.slug}${DEFAULT_EXT}`}
-                      alt=""
-                      fill
-                      sizes="(max-width: 700px) 50vw, (max-width: 900px) 33vw, 180px"
-                      priority={i < 3}
-                    />
-                    <span className="lp-cat-txt">
-                      <strong>{c.label}</strong>
-                      {n !== undefined && <span>{providersLabel(n)}</span>}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
+          <ul className="ctiles">
+            {LANDING_CATEGORIES.map((c, i) => (
+              <li key={c.slug}>
+                <CategoryTile
+                  slug={c.slug}
+                  label={c.label}
+                  href={`/${c.slug}`}
+                  count={counts.get(c.slug)}
+                  priority={i < 3}
+                />
+              </li>
+            ))}
           </ul>
         </section>
 
@@ -132,8 +114,8 @@ export default function LandingShell({ initialCategories, topRated }: Props) {
         {topRated.length > 0 && (
           <section className="lp-sec" aria-labelledby="lp-top-title">
             <div className="lp-head">
-              <h2 id="lp-top-title">Najbolje ocijenjeni</h2>
-              <span className="muted lp-note">prvi po ocjeni među dvoranama, fotografima i bendovima</span>
+              <h2 id="lp-top-title">{T.topTitle}</h2>
+              <span className="muted lp-note">{T.topNote}</span>
             </div>
             <div className="results-grid lp-top">
               {topRated.map((v) => (
@@ -146,11 +128,10 @@ export default function LandingShell({ initialCategories, topRated }: Props) {
         {/* ---------------- karta ---------------- */}
         <section className="lp-sec lp-map-sec" aria-labelledby="lp-map-title">
           <div className="lp-head">
-            <h2 id="lp-map-title">Istražite Hrvatsku</h2>
+            <h2 id="lp-map-title">{T.mapTitle}</h2>
           </div>
           <p className="muted lp-sub">
-            Kliknite regiju na karti ili na popisu — vidjet ćete sve kategorije i koliko pružatelja
-            radi u toj regiji.
+            {T.mapLead}
           </p>
           <div className="lp-map">
             <div className="map-wrap browse-map">
@@ -167,7 +148,7 @@ export default function LandingShell({ initialCategories, topRated }: Props) {
                 </Link>
               ))}
               <Link href="/kategorije" className="region-item lp-all">
-                <span>Cijela Hrvatska</span>
+                <span>{T.mapAll}</span>
               </Link>
             </nav>
           </div>

@@ -10,6 +10,17 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 
+## Sesija 2026-09-19 (b) — Foto-pločice na /kategorije + odvojene slike kategorija i pružatelja
+- **`components/CategoryTile.tsx`** — zajednička foto-pločica (naslovnica i `/kategorije` + `/regija` su sad identične).
+  `CategoryGrid` više nema emoji ikone; prazne kategorije su sive (grayscale), i dalje klikabilne.
+- **Slike razdvojene** (`lib/images.ts`): `public/images/categories/<slug>.jpg` = slika KATEGORIJE (pločice);
+  `public/images/defaults/…` = default slika PRUŽATELJA bez vlastitih fotografija. `VENDOR_DEFAULT_MODE`:
+  `"per-category"` (defaults/<kategorija>.jpg, kao dosad) ili `"single"` (jedna defaults/pruzatelj.jpg za sve).
+  `sync:images` čita način iz `lib/images.ts`. Dodani nedostajući `simbolicni-maticar.jpg` (placeholder) i `pruzatelj.jpg`.
+- **Tekstovi naslovnice** premješteni u `lib/landing.ts` (`LANDING_TEXT`); hero slika: `HERO_IMAGE` u istoj datoteci,
+  fotografija u `public/images/hero/`.
+- Verifikacija: `tsc` + `next build` čisti; ručno pregledano `/`, `/kategorije` (desktop + mobitel).
+
 ## Sesija 2026-09-19 — Redizajn naslovnice prema wireframeu 3a (grana `claude/landing-3a` → develop)
 - **Naslovnica `/`** = `components/LandingShell.tsx` (3a bez sekcija: stil, brojke, inspiracija, newsletter — dolaze nakon MVP-a):
   hero (postojeći `SearchBar`, poveznice na usporedbu i budžet-drawer) → 6 foto-pločica kategorija s brojačima →
