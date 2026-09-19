@@ -18,3 +18,11 @@ export function pathFor(f: ExploreFilters): string {
   return qs ? `${path}?${qs}` : path;
 }
 
+
+/**
+ * "Sve kategorije" (grid svih 29) — od redizajna naslovnice (3a) živi na /kategorije,
+ * jer je "/" landing. Uz regiju ostaje /regija (isti grid, sužen na regiju).
+ */
+export function browsePath(region?: RegionId): string {
+  return region ? `/${region}` : "/kategorije";
+}

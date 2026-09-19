@@ -11,6 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const urls: MetadataRoute.Sitemap = [
     { url: SITE_URL, lastModified: now, priority: 1 },
+    { url: `${SITE_URL}/kategorije`, lastModified: now, priority: 0.9 },
     { url: `${SITE_URL}/budzet`, lastModified: now, priority: 0.6 },
   ];
   for (const r of REGIONS) urls.push({ url: `${SITE_URL}/${r.id}`, lastModified: now, priority: 0.8 });

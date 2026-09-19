@@ -15,7 +15,7 @@ npm run build && npm start   # produkcija (service worker aktivan samo u produkc
 
 ## Što je implementirano
 
-- **Istraži (`/`)** — naslov, search bar s typeaheadom (pružatelji, kategorije, gradovi), regija, opcionalni datum; lista regija s brojačima; chipovi kategorija; **MapLibre karta HR** s poligonima regija (klik = filter + zoom), **cijene na pinovima**, klasteri, popup kartica s „usporedi”.
+- **Naslovnica (`/`, redizajn 3a)** — hero s tražilicom, 6 foto-kategorija, najbolje ocijenjeni, karta s regijama. **Sve kategorije (`/kategorije`)** — naslov, search bar s typeaheadom (pružatelji, kategorije, gradovi), regija, opcionalni datum; lista regija s brojačima; chipovi kategorija; **MapLibre karta HR** s poligonima regija (klik = filter + zoom), **cijene na pinovima**, klasteri, popup kartica s „usporedi”.
 - **URL-driven stanje** — `/dalmacija/foto-i-video?q=…` (shareable/SEO); regija ⇄ karta sinkronizirano.
 - **Rezultati** — kartice s uvijek vidljivom cijenom, ocjenom, bedževima (`✓ provjereno`, `✓ kalendar uživo` / `na upit`), checkbox „usporedi”, favoriti ♡; skeleton loading; empty state s prijedlozima.
 - **Usporedba (`/usporedba`)** — tablica 2–4: cijena (istaknuta), recenzije, dostupnost za odabrani datum (mock dok ne stigne live kalendar), stil; horizontalni scroll na mobitelu; max 4 uz zamjenu najstarijeg + toast.
