@@ -542,27 +542,6 @@ select option:checked {
   color: var(--muted); margin: 0 0 8px;
 }
 .cat-group-note { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
-.cat-grid {
-  list-style: none; margin: 0; padding: 0;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px;
-}
-.cat-tile {
-  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 14px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card);
-  color: var(--ink); font-weight: 600; font-size: 14.5px; line-height: 1.25;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
-}
-.cat-tile:hover { color: var(--ink); border-color: var(--primary); box-shadow: var(--shadow-1); transform: translateY(-1px); }
-.cat-tile .ico { font-size: 20px; width: 26px; text-align: center; flex: none; }
-.cat-tile .nm { flex: 1; min-width: 0; }
-.cat-tile .n {
-  flex: none; font-size: 12.5px; font-weight: 700; color: var(--primary);
-  background: var(--primary-tint); border-radius: var(--r-pill); padding: 2px 9px;
-  font-variant-numeric: tabular-nums;
-}
-.cat-tile.empty-cat { color: var(--muted); background: var(--surface-2); }
-.cat-tile.empty-cat .ico { filter: grayscale(1); opacity: 0.6; }
-.cat-tile.empty-cat .n { color: var(--muted); background: transparent; }
 .n-skel { display: inline-block; width: 18px; height: 10px; border-radius: 4px; background: var(--border); vertical-align: middle; }
 
 /* landing: karta samo s regijama */
@@ -606,9 +585,6 @@ select option:checked {
 }
 
 @media (max-width: 700px) {
-  .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cat-tile { flex-direction: column; align-items: flex-start; gap: 4px; min-height: 92px; padding: 10px 12px; }
-  .cat-tile .n { align-self: flex-start; }
   .region-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
   .region-chips::-webkit-scrollbar { display: none; }
   .catbar .chips { flex-wrap: nowrap; max-width: 100%; }
@@ -858,18 +834,7 @@ select option:checked {
 .lp-note { font-size: 14px; }
 .lp-sub { margin: -8px 0 16px; max-width: 62ch; }
 
-.lp-cats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
-.lp-cat {
-  position: relative; display: block; aspect-ratio: 4 / 5; overflow: hidden;
-  border-radius: var(--r-card); background: var(--border); color: #fff;
-}
-.lp-cat img { object-fit: cover; transition: transform 0.45s ease; }
-.lp-cat:hover img { transform: scale(1.04); }
-.lp-cat::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(16, 26, 40, 0.78)); }
-.lp-cat-txt { position: absolute; left: 12px; right: 12px; bottom: 11px; z-index: 1; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
-.lp-cat-txt strong { font-size: 15.5px; font-weight: 600; }
-.lp-cat-txt span { font-size: 13px; opacity: 0.85; font-variant-numeric: tabular-nums; }
-.lp-cat:hover { color: #fff; }
+
 
 .lp-top { padding-bottom: 0; }
 
@@ -884,7 +849,6 @@ select option:checked {
 .soon { padding-top: 40px; padding-bottom: 60px; max-width: 640px; }
 
 @media (max-width: 900px) {
-  .lp-cats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .lp-map { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
@@ -893,8 +857,29 @@ select option:checked {
   .lp-lead { font-size: 15.5px; margin-bottom: 20px; }
   .lp-perks { gap: 4px 18px; font-size: 13.5px; }
   .lp-sec { padding-top: 32px; }
-  .lp-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .lp-cat { aspect-ratio: 4 / 3; }
   .lp-more { margin-left: 0; }
   .lp-map .map-wrap { min-height: 320px; }
+}
+
+/* ---------------- foto-pločice kategorija (naslovnica + /kategorije) ---------------- */
+.ctiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.ctile {
+  position: relative; display: block; aspect-ratio: 4 / 5; overflow: hidden;
+  border-radius: var(--r-card); background: var(--border); color: #fff;
+}
+.ctile img { object-fit: cover; transition: transform 0.45s ease, filter 0.2s; }
+.ctile:hover img { transform: scale(1.04); }
+.ctile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 38%, rgba(16, 26, 40, 0.8)); }
+.ctile-txt { position: absolute; left: 12px; right: 12px; bottom: 11px; z-index: 1; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.ctile-txt strong { font-size: 15px; font-weight: 600; text-wrap: balance; }
+.ctile-txt span { font-size: 13px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.ctile:hover { color: #fff; }
+.ctile.is-empty img { filter: grayscale(1); opacity: 0.55; }
+.ctile.is-empty:hover img { filter: grayscale(0.4); opacity: 0.8; }
+@media (max-width: 900px) {
+  .ctiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .ctiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ctile { aspect-ratio: 4 / 3; }
 }

@@ -1,0 +1,2 @@
+Hero fotografija naslovnice: spremi kao naslovnica.jpg (>= 2000 px širine, uz dozvolu autora),
+zatim u lib/landing.ts postavi HERO_IMAGE = HERO_IMAGE_EXAMPLE (ili svoj put). Ovu datoteku slobodno obriši.

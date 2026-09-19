@@ -1,8 +1,10 @@
 import { IMAGE_BASE } from "./images";
+import { CATEGORIES } from "./data";
 
 /**
  * Sadržaj naslovnice (redizajn 3a). Samo prikaz — slugovi su ugovor (lib/data.ts).
  *
+ * HERO SLIKA (jedino mjesto): HERO_IMAGE ispod.
  * HERO_IMAGE: dok nema prave fotografije (uz dozvolu autora), hero je jednobojna
  * jadranska pozadina. Kad fotografija stigne: spremi je kao
  * public/images/hero/naslovnica.jpg (≥ 2000 px širine, motiv lijevo/desno od sredine
@@ -27,3 +29,22 @@ export const LANDING_CATEGORIES: { slug: string; label: string }[] = [
  * mijenja se samo izvor podataka, ne komponenta, i naslov postaje "Izdvojeno".
  */
 export const TOP_RATED_CATEGORIES = ["restorani-i-sale", "foto-i-video", "glazba-bendovi"];
+
+/**
+ * SVI TEKSTOVI NASLOVNICE — mijenjaj ovdje, komponenta (components/LandingShell.tsx) ih samo prikazuje.
+ */
+export const LANDING_TEXT = {
+  heroTitle: "Pronađite sve za vaše vjenčanje",
+  heroLead: `Od dvorane do fotografa — ${CATEGORIES.length} kategorija u cijeloj Hrvatskoj, s cijenom vidljivom odmah, bez slanja upita.`,
+  perkPrice: "Cijena uvijek vidljiva",
+  perkCompare: "Usporedite do 4 pružatelja",
+  perkBudget: "Izračunajte budžet",
+  categoriesTitle: "Istražite kategorije",
+  categoriesMore: `Sve kategorije (${CATEGORIES.length})`,
+  topTitle: "Najbolje ocijenjeni",
+  topNote: "prvi po ocjeni među dvoranama, fotografima i bendovima",
+  mapTitle: "Istražite Hrvatsku",
+  mapLead:
+    "Kliknite regiju na karti ili na popisu — vidjet ćete sve kategorije i koliko pružatelja radi u toj regiji.",
+  mapAll: "Cijela Hrvatska",
+};

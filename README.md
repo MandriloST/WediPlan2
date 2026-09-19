@@ -54,7 +54,9 @@ Kolone `web/telefon/email` su interna evidencija — import ih **ne** objavljuje
 Konvencija (ista danas u repou i sutra na Bunny CDN-u):
 ```
 public/images/vendors/<slug>/01.jpg   ← stvarne slike, max 3 (02.jpg, 03.jpg), UZ IZRIČITU DOZVOLU
-public/images/defaults/<kategorija-slug>.jpg  ← default kategorije kad vendor nema slika (npr. foto-i-video.jpg; 29 kom, mora biti .jpg)
+public/images/defaults/<kategorija-slug>.jpg  ← default PRUŽATELJA kad nema slika (ili jedna defaults/pruzatelj.jpg — VENDOR_DEFAULT_MODE u lib/images.ts)
+public/images/categories/<kategorija-slug>.jpg ← slika KATEGORIJE (pločice na naslovnici i /kategorije; 29 kom, .jpg)
+public/images/hero/naslovnica.jpg             ← hero naslovnice (uključiti u lib/landing.ts → HERO_IMAGE)
 ```
 1. `npm run scaffold:images` — napravi folder za SVAKOG pružatelja iz data/vendors.json (ne dira postojeće). Svaki prazan folder sadrži `STAVI_SLIKE_OVDJE.txt` s podsjetnikom (slobodno obriši tu datoteku).
 2. Ubaci `01.jpg` (glavna slika), po želji `02.jpg`, `03.jpg` — jpg/png/webp, preporuka max ~1600 px širine.
