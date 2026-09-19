@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ExploreShell from "@/components/ExploreShell";
+import LandingShell from "@/components/LandingShell";
+import { TOP_RATED_CATEGORIES } from "@/lib/landing";
 import { pathFor, type ExploreFilters } from "@/lib/paths";
 import { CATEGORY_BY_SLUG, REGION_BY_ID } from "@/lib/data";
 import { getCategories, getVendors } from "@/lib/api/server";
@@ -58,9 +60,28 @@ export function generateMetadata({ params, searchParams }: Props): Metadata {
   };
 }
 
+/** Naslovnica (3a): kategorije za pločice + najbolji po ocjeni. Greške API-ja ne ruše stranicu. */
+async function renderLanding() {
+  const [cats, ...tops] = await Promise.allSettled([
+    getCategories(),
+    ...TOP_RATED_CATEGORIES.map((category) => getVendors({ category, pageSize: 1 })),
+  ]);
+  if (cats.status === "rejected") console.error("[landing] kategorije nisu dohvaćene:", cats.reason);
+  const topRated = tops.flatMap((r) => (r.status === "fulfilled" ? r.value.items.slice(0, 1) : []));
+  return (
+    <LandingShell
+      initialCategories={cats.status === "fulfilled" ? (cats.value as CategoryWithCount[]) : undefined}
+      topRated={topRated as Vendor[]}
+    />
+  );
+}
+
 export default async function ExplorePage({ params, searchParams }: Props) {
   const filters = parse(params, searchParams);
   if (!filters) notFound();
+
+  // "/" bez teksta i stranice = naslovnica; /regija ostaje grid kategorija (ExploreShell)
+  if (!filters.region && !filters.category && !filters.q && !filters.page) return renderLanding();
 
   const browsing = !filters.category && !filters.q;
   let initialCategories: CategoryWithCount[] | undefined;

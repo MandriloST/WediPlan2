@@ -17,7 +17,7 @@
 `main` je produkcija; vlasnik sam merga develop → main preko GitHub PR-a. Model nikad ne dira `main`.
 
 **Što postoji i radi (frontend, Next.js 14 App Router):**
-- Istraži/landing: search s typeaheadom, lista regija s brojačima, MapLibre karta Hrvatske
+- Istraži/landing: search s typeaheadom, lista regija s brojačima, MapLibre karta Hrvatske (od 2026-09-19 landing = 3a, grid na `/kategorije`)
   sa stvarnim GeoJSON granicama 5 regija, cijene na pinovima, klasteri, popup kartice
 - URL-driven filtri (`/dalmacija/foto-i-video` — shareable/SEO), sitemap, robots
 - Usporedba 2–4 pružatelja, budžet kalkulator (drawer/tab), "Vaš plan" s capovima
@@ -384,6 +384,11 @@ kategorije ili, bez nje, preko svih (noindex). Jitter: Vogelova spirala po hashu
 (`lib/jitter.ts`) — city 300 m razmak, identične exact koordinate 40 m; klasteri do z13.
 Napomena SEO: Google od 2019. ne koristi `rel=next/prev` kao signal — bitni su puzivi linkovi
 i SSR sadržaj, što je implementirano.
+
+**Redizajn naslovnice (3a, 2026-09-19, na zahtjev vlasnika):** `/` više nije grid kategorija nego
+landing (hero + tražilica → 6 pločica kategorija → najbolje ocijenjeni → karta s regijama); pravilo §L
+ostaje: naslovnica ne izlistava sve pružatelje (samo 3 kartice, `pageSize=1` po kategoriji) i karta
+nema pinova bez kategorije. Puni grid 29 kategorija živi na `/kategorije` (i `/regija`).
 
 **Geokodiranje (napomena za import):** u trenutnom Excelu 5 redova ima koordinate, 3172
 samo grad (→ Nominatim, precision=city, jitter na karti), 1 samo regiju (bez pina).

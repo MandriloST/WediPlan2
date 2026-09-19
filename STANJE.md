@@ -10,6 +10,19 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 
+## Sesija 2026-09-19 — Redizajn naslovnice prema wireframeu 3a (grana `claude/landing-3a` → develop)
+- **Naslovnica `/`** = `components/LandingShell.tsx` (3a bez sekcija: stil, brojke, inspiracija, newsletter — dolaze nakon MVP-a):
+  hero (postojeći `SearchBar`, poveznice na usporedbu i budžet-drawer) → 6 foto-pločica kategorija s brojačima →
+  „Najbolje ocijenjeni” (prvi po rangu iz dvorana/foto/bendova, postojeći `VendorCard`) → karta HR + popis regija s brojačima.
+  Konfiguracija u `lib/landing.ts` (pločice, kategorije za „najbolje ocijenjene”, `HERO_IMAGE` — zasad `null` → jednobojni hero).
+- **`/kategorije`** = bivši landing (grid 29 kategorija + regije + karta, `ExploreShell`), ISR 60 s. `/regija` ostaje isti grid sužen na regiju.
+  „Cijela Hrvatska” i „← Sve kategorije” sad vode na `/kategorije` (`browsePath()` u `lib/paths.ts`). Sitemap: + `/kategorije`.
+- **Header:** logo + Kategorije (`/kategorije`) · Lokacije (`/karta`) · Inspiracija (`/inspiracija`, rezervirano mjesto „Uskoro”, noindex) ·
+  Za pružatelje (`/partner`); uklonjen „Sve ▾” izbornik i zasebna poveznica „Za partnere”. Footer/metadata: „Za pružatelje”.
+- **Bez promjena** API-ja, backenda, slugova i migracija. Verifikacija: `tsc` + `next build` čisti; ručno pregledano (desktop 1280, mobitel 390).
+- **Za vlasnika:** kad stigne prava hero fotografija → `public/images/hero/naslovnica.jpg` + `HERO_IMAGE` u `lib/landing.ts`.
+  Kad dođe plaćeni „Izlog na naslovnici” (§M.2) → mijenja se samo izvor podataka za „Najbolje ocijenjeni” (+ naslov „Izdvojeno”).
+
 ## Sesija 2026-09-17 (c) — Faza 6: lansiranje (pravne stranice + GDPR opt-out)
 - **GDPR opt-out (§9):** `OptOutController` (`POST /api/optout`, javno+rate-limited) — postavlja `Vendor.OptOut=true` odmah (koristi postojeće polje → **bez migracije**); razlog/kontakt samo u log (minimizacija). Admin: `GET /api/admin/optouts` + `POST /api/admin/vendors/{slug}/restore-optout` (reverzibilno zbog moguće zloupotrebe anonimne forme). Frontend: `OptOutLink` na neclaimanom profilu (aside), admin sekcija "Skriveni profili".
 - **Pravne stranice (§9):** `/pravila-privatnosti`, `/uvjeti-koristenja` (s anti-scraping klauzulom), `/impressum` — HR predlošci s placeholderima za podatke tvrtke + oznaka „dati na pravnu provjeru". `Footer` (poveznice) + `CookieNotice` (minimalna, samo nužni kolačići, dismiss u localStorage), oboje u `layout.tsx`.

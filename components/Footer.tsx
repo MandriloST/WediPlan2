@@ -14,7 +14,7 @@ export default function Footer() {
           <Link href="/pravila-privatnosti">Pravila privatnosti</Link>
           <Link href="/uvjeti-koristenja">Uvjeti korištenja</Link>
           <Link href="/impressum">Impressum</Link>
-          <Link href="/partner">Za partnere</Link>
+          <Link href="/partner">Za pružatelje</Link>
         </nav>
       </div>
       <div className="footer-copy muted">© {year} Wediplan. Sva prava pridržana.</div>
