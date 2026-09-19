@@ -26,3 +26,6 @@ export function pathFor(f: ExploreFilters): string {
 export function browsePath(region?: RegionId): string {
   return region ? `/${region}` : "/kategorije";
 }
+
+/** Broj pružatelja po stranici rezultata — tvrdi limit, UI nikad ne prikazuje više (paginacija, bez "Učitaj još"). */
+export const PAGE_SIZE = 12;
