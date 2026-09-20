@@ -69,9 +69,9 @@ export default function LandingShell({ initialCategories, topRated }: Props) {
           <p className="lp-lead">{T.heroLead}</p>
           <SearchBar />
           <ul className="lp-perks">
-            <li>
+            {/* <li>
               <span aria-hidden>€</span> {T.perkPrice}
-            </li>
+            </li> */}
             <li>
               <Link href="/usporedba">
                 <span aria-hidden>⇄</span> {T.perkCompare}
