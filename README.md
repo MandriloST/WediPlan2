@@ -54,7 +54,9 @@ Kolone `web/telefon/email` su interna evidencija — import ih **ne** objavljuje
 Konvencija (ista danas u repou i sutra na Bunny CDN-u):
 ```
 public/images/vendors/<slug>/01.jpg   ← stvarne slike, max 3 (02.jpg, 03.jpg), UZ IZRIČITU DOZVOLU
-public/images/defaults/<kategorija-slug>.jpg  ← default PRUŽATELJA kad nema slika (ili jedna defaults/pruzatelj.jpg — VENDOR_DEFAULT_MODE u lib/images.ts)
+public/images/defaults/<kategorija-slug>.jpg  ← default PRUŽATELJA na KARTICI kad nema slika
+public/images/defaults-profile/<kategorija-slug>.jpg ← default PRUŽATELJA na PROFILU (/pruzatelj/[slug]) — odvojeno od kartice
+                                                 (oba: ili jedna defaults/…/pruzatelj.jpg — VENDOR_DEFAULT_MODE u lib/images.ts)
 public/images/categories/<kategorija-slug>.jpg ← slika KATEGORIJE (pločice na naslovnici i /kategorije; 29 kom, .jpg)
 public/images/hero/naslovnica.jpg             ← hero naslovnice (uključiti u lib/landing.ts → HERO_IMAGE)
 ```

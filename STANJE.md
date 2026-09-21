@@ -10,6 +10,21 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 
+## Sesija 2026-09-21 — Treći sloj default slika: kartica ≠ profil
+- **`lib/images.ts`**: `vendorDefaultImage(category, context)` i `vendorImages(vendor, context)` sad primaju
+  `context: "card" | "profile"` (zadano `"card"`, pa se `coverImage()` — rezultati/karta/usporedba — ne mijenja).
+  `"profile"` čita iz **novog** foldera `public/images/defaults-profile/` umjesto `public/images/defaults/`.
+  Isti `VENDOR_DEFAULT_MODE` ("per-category"/"single") vrijedi za oba sloja, datoteke su zasebne.
+- **`components/VendorProfile.tsx`** (`/pruzatelj/[slug]`) sad zove `vendorImages(vendor, "profile")`.
+  Kartica, karta i usporedba (`VendorCard`, `CroatiaMap`, `/usporedba`) i dalje idu preko `coverImage()` → `"card"`.
+- **`public/images/defaults-profile/`**: zasad kopija dosadašnjih `defaults/*.jpg` (isti prikaz kao prije za
+  pružatelje bez vlastitih fotografija) — zamijeni pojedinačne datoteke kad budeš imao prikladnije "veće" kadrove.
+- **`scripts/sync-images.mjs`**: `npm run sync:images` sad upozorava odvojeno na nedostajuću default sliku
+  kartice i profila.
+- Kad vendor ima svoje fotografije (`photos`), `context` nema utjecaja — posvuda su iste, stvarne slike.
+- Verifikacija: `tsc` + `next build` čisti; ručno potvrđeno da su kartica i profil vizualno neovisni (privremeno
+  tonirana jedna profil-slika radi provjere, pa vraćena).
+
 ## Sesija 2026-09-19 (c) — Paginacija 12 po stranici + ravni grid kategorija
 - **Rezultati:** `PAGE_SIZE = 12` (`lib/paths.ts`) — klijent i SSR uvijek traže 12, više se ne može prikazati.
   „Učitaj još” (infinite query) zamijenjen paginacijom (`components/Pagination.tsx`): `?page=N` pravi linkovi s

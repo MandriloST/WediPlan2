@@ -14,6 +14,7 @@ import path from "node:path";
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const IMG_DIR = path.join(ROOT, "public", "images", "vendors");
 const DEFAULTS_DIR = path.join(ROOT, "public", "images", "defaults");
+const DEFAULTS_PROFILE_DIR = path.join(ROOT, "public", "images", "defaults-profile");
 const DEFAULT_EXT = ".jpg"; // mora pratiti lib/images.ts
 const IMG_RE = /\.(jpe?g|png|webp|avif)$/i;
 const MAX_PHOTOS = 3;
@@ -55,7 +56,10 @@ export function applyImages(vendors) {
   if (single) needDefault.clear(), needDefault.add("pruzatelj");
   for (const cat of needDefault) {
     if (!existsSync(path.join(DEFAULTS_DIR, cat + DEFAULT_EXT))) {
-      warnings.push(`  NEDOSTAJE default slika: public/images/defaults/${cat}${DEFAULT_EXT} (vendori te kategorije bez slika prikazat će razbijenu sliku!)`);
+      warnings.push(`  NEDOSTAJE default slika (kartica): public/images/defaults/${cat}${DEFAULT_EXT} (vendori te kategorije bez slika prikazat će razbijenu sliku na kartici!)`);
+    }
+    if (!existsSync(path.join(DEFAULTS_PROFILE_DIR, cat + DEFAULT_EXT))) {
+      warnings.push(`  NEDOSTAJE default slika (profil): public/images/defaults-profile/${cat}${DEFAULT_EXT} (vendori te kategorije bez slika prikazat će razbijenu sliku na profilu!)`);
     }
   }
   const withPhotos = vendors.filter((v) => v.photos.length).length;
