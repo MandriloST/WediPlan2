@@ -12,8 +12,10 @@ interface Props {
   regionName?: string;
 }
 
+const ORDERED = CATEGORIES; // redoslijed = redoslijed u lib/data.ts, bez grupiranja
+
 /** Redoslijed pločica: po budžetskim omotnicama (prostor → hrana → foto → glazba → ostalo), bez naslova skupina. */
-const ORDERED = GROUP_ORDER.flatMap((g) => CATEGORIES.filter((c) => c.group === g));
+// const ORDERED = GROUP_ORDER.flatMap((g) => CATEGORIES.filter((c) => c.group === g));
 
 /**
  * Grid svih kategorija (/kategorije, /regija — §L): 29 foto-pločica (iste kao na naslovnici)
