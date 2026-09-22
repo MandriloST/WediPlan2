@@ -11,6 +11,9 @@
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 
+## Sesija 2026-09-22 (f) - analiza i sljedeći koraci
+Drugi val planiran — v. PLAN-PRIORITETI-LANSIRANJE-2.md (redoslijed 6→5→7→9→8)
+
 ## Sesija 2026-09-22 (e) — Potvrđeno: dotnet build + dotnet test prolaze (4/4)
 Nakon dva popravka iz prošle bilješke, vlasnik ponovno pokrenuo `dotnet test backend/Wediplan.sln`:
 ```
