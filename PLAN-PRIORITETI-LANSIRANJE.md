@@ -14,9 +14,12 @@
 > - [x] **Zadatak 3 — recenzije samo uz potvrđen email.** Gotovo (grana `feat/review-verified-email`,
 >   v. STANJE.md sesija 2026-09-21 (c) za detalje i točan diff). **Backend build nije provjeren u sandboxu
 >   (nema dotnet SDK) — vlasnik mora pokrenuti `dotnet build backend/Wediplan.sln` prije mergea.**
-> - [ ] **Zadatak 2 — brisanje računa.** ⬅ SLJEDEĆI KORAK. Odluka potvrđena: `UserReview` se **briše** (ne
->   anonimizira) — nema migracije sheme. Kreni od odjeljka "Zadatak 2" niže.
-> - [ ] Zadatak 1 (+1b) — CI i testovi.
+> - [x] **Zadatak 2 — brisanje računa.** Gotovo (grana `feat/account-deletion`, v. STANJE.md sesija
+>   2026-09-22 za detalje). **Otkriveno tijekom rada:** `Favorite`/`BudgetPlan`/`Claim`/`UserReview` već
+>   imaju pravi FK ON DELETE CASCADE prema korisniku (potvrđeno i u migracijama) — `UserManager.DeleteAsync`
+>   ih briše sam; ručno se brišu samo `EmailVerificationToken` i `MagicLink` (nemaju taj FK). Plan ispod je
+>   ažuriran da to odražava. **Backend build nije provjeren u sandboxu — isto upozorenje kao gore.**
+> - [ ] **Zadatak 1 (+1b) — CI i testovi.** ⬅ SLJEDEĆI KORAK. Kreni od odjeljka "Zadatak 1" niže.
 > - [x] Zadatak 4 — odluka zapisana (ostaje kako jest), nema koda.
 
 ---
@@ -121,36 +124,44 @@ endpoint ne postoji. Must prije javnog lansiranja.
   - `[ApiController] [Route("api/account")] [Authorize]`
   - `DELETE /api/account` :
     1. `uid = Uid()` (kao u drugim kontrolerima).
-    2. U jednoj transakciji (`_db.Database.BeginTransactionAsync`): obriši `Favorites`, `BudgetPlans`,
-       `EmailVerificationTokens`, `Claims`, `UserReviews` gdje `UserId == uid`; obriši `MagicLinks` gdje
-       `Email == user.Email`; `Vendors.Where(v => v.OwnerUserId == uid)` → `OwnerUserId = null`.
-    3. `await _users.DeleteAsync(user)` (briše AppUser + kaskadno Identity zavisne tablice).
+    2. U jednoj transakciji (`_db.Database.BeginTransactionAsync`):
+       - `Vendor.OwnerUserId → null` za sve profile tog korisnika (`ExecuteUpdateAsync`).
+       - **Eksplicitno obriši samo `EmailVerificationToken` (po `UserId`) i `MagicLink` (po emailu)**
+         — ta dva NEMAJU cascade FK prema korisniku (`EmailVerificationToken` ima samo indeks;
+         `MagicLink` je vezan uz email, ne uz `UserId`, nema tu kolonu uopće).
+       - `Favorite`, `BudgetPlan`, `Claim`, `UserReview` **NE brišu se ručno** — svi već imaju pravi FK
+         `ON DELETE CASCADE` prema `users` (potvrđeno u `AppDbContext.OnModelCreating` i u migracijama
+         `Faza3Couple`/`Faza4`), pa ih Postgres sam obriše kad nestane red u `users`.
+    3. `await _users.DeleteAsync(user)` (briše AppUser red → DB cascade obriše gornje četiri tablice +
+       Identity role/login/token/claim, isto po defaultnom cascade ponašanju `IdentityDbContext`).
     4. `await _signIn.SignOutAsync()` (poništi cookie).
     5. `Ok(new { ok = true })`.
   - **Potvrda namjere:** tijelo zahtjeva traži `{ confirm: "OBRISI" }` ili sličan sentinel; ako ne odgovara,
     `BadRequest(new { error = "confirmation_required" })`. (Sprječava slučajno brisanje.)
   - DI: `UserManager<AppUser>`, `SignInManager<AppUser>`, `AppDbContext`, `ILogger`. Uzor: `AuthController`.
   - Audit: `_log.LogWarning("account deleted: {UserId}", uid)` — **bez emaila u logu** (minimizacija).
-- **Provjeri kaskade:** u `AppDbContext.OnModelCreating` vidjeti brišu li se Identity ovisne tablice kaskadno
-  (kod `IdentityDbContext` default je kaskada). Ako `Favorite`/`BudgetPlan`/… nemaju FK na usera (nemaju — bez FK
-  po dizajnu), zato ih gore brišemo ručno.
 
 **API.md:** dodati redak u Fazu 6 / novi odjeljak "Račun":
 `DELETE /api/account` | sesija | `{ confirm:"OBRISI" }` | `200 {ok:true}` / `400 confirmation_required`.
 
-**Frontend — datoteke:**
-- `lib/api/auth.ts`: dodati `deleteAccount()` → `fetch("/api/account", { method:"DELETE", credentials:"include",
-  headers:{'content-type':'application/json'}, body: JSON.stringify({confirm:"OBRISI"}) })`.
-- `components/ProfileShell.tsx`: u dnu, sekcija "Opasna zona":
-  - gumb "Obriši račun" → otvara potvrdu (modal ili `window.confirm` + upis riječi `OBRISI`).
-  - na uspjeh: očisti lokalni auth store, preusmjeri na `/` s porukom.
-  - tekst uz gumb: što se briše, što ostaje (anonimizirano/odvezano), da je nepovratno.
-- Ako postoji auth store (provjeri `stores/`), pozvati njegov `logout()`/`clear()` nakon brisanja.
+**Frontend — implementirano:**
+- `lib/api/auth.ts`: `authApi.deleteAccount(confirm)` — koristi postojeći `call()` helper (`DELETE /api/account`,
+  `{confirm}`). `stores/auth.ts` (`authMessage`): poruka za `confirmation_required`.
+- `components/ProfileShell.tsx`: sekcija "Opasna zona" na dnu, samo za prijavljenog korisnika (`useAuth().user`):
+  gumb "Obriši račun" → inline potvrda s poljem za upis točno "OBRISI" (gumb onemogućen dok se ne poklapa) →
+  na uspjeh poziva postojeći `useAuth().logout()` (čisti store + best-effort `/api/auth/logout`, cookie je već
+  obrisan na serveru) i `router.push("/")`. Tekst objašnjava što se briše i da profil pružatelja ostaje javan.
+  **Usput ispravljeno** (zatečeno pri radu, izvan opsega zadatka): vrh `/profil` imao je zastarjeli tekst
+  "sinkronizacija — uskoro" i onemogućene gumbove za prijavu, iako `AccountSync.tsx` sinkronizaciju već stvarno
+  radi — tekst i gumbovi sad ispravno vode na `/prijava` i prikazuju se samo gostu.
+- `app/globals.css`: `.btn-danger`, `.danger-zone`, `.danger-confirm`, `.danger-input` (koriste postojeći
+  `--danger` token, isti kao `.auth-error`).
 
 **Kriterij gotovo:** prijavljen korisnik obriše račun; ponovna prijava s istim emailom nije moguća (nema računa);
-njegovi favoriti/plan/claimovi nestali; `Vendor.OwnerUserId` mu je `null` (profil pružatelja i dalje javan);
-build + `tsc` čisti; (ako postoji test iz 1b) dodati test koji obriše korisnika na EF-InMemory i provjeri da su
-zavisni zapisi počišćeni.
+njegovi favoriti/plan/claimovi/recenzije nestali (DB cascade); `Vendor.OwnerUserId` mu je `null` (profil
+pružatelja i dalje javan); build + `tsc` čisti — **potvrđeno**; UI tok vizualno potvrđen (route-mock `/api/me`
+u sandboxu, v. STANJE.md); (ako postoji test iz 1b) dodati test koji obriše korisnika na EF-InMemory i provjeri
+da su zavisni zapisi počišćeni.
 
 ---
 

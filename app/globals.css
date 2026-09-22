@@ -74,6 +74,9 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 .btn-sm { min-height: 36px; padding: 0 13px; font-size: 14px; }
 .btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
 .btn-ghost:hover { color: var(--ink); border-color: transparent; }
+.btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.btn-danger:hover { background: color-mix(in srgb, var(--danger) 8%, transparent); border-color: var(--danger); color: var(--danger); }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .chip {
   display: inline-flex; align-items: center; min-height: 34px; padding: 0 14px;
@@ -637,6 +640,19 @@ select option:checked {
 .auth-sent p { margin: 0; }
 .auth-foot { text-align: center; margin-top: 18px; font-size: 14px; color: var(--muted); }
 .auth-foot a { color: var(--primary); font-weight: 600; }
+
+/* ---------------- profil: opasna zona (brisanje računa, §9) ---------------- */
+.danger-zone {
+  margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--border);
+}
+.danger-zone .muted { max-width: 62ch; margin: 6px 0 14px; }
+.danger-confirm { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
+.danger-confirm .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.danger-input {
+  min-height: 44px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: var(--r-ctrl);
+  font-weight: 600; letter-spacing: 0.02em; min-width: 160px;
+}
+.danger-input:focus-visible { outline: 2px solid var(--danger); outline-offset: 1px; }
 
 .spinner {
   width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--primary);

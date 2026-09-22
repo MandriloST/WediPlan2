@@ -158,6 +158,15 @@ Favoriti NEMAJU FK na vendors: ako pružatelj nestane, zapis je bezopasan i filt
 `MeDto`: `{ id, email, displayName?, emailConfirmed, roles[] }` (role: couple|provider|admin).
 Kontakti/tokeni/hashevi se NIKAD ne vraćaju.
 
+### Brisanje računa (§9, Plan prioriteti #2)
+- `DELETE /api/account` `{confirm:"OBRISI"}` (sesija) → `200 {ok:true}` / `400 confirmation_required`
+  (confirm mora biti točno `"OBRISI"`) / `401` (nema sesije).
+  Briše `AppUser` (+ Identity role/login/token — kaskadno na razini baze) te `Favorite`, `BudgetPlan`,
+  `Claim`, `UserReview` (isto kaskadno — svi imaju pravi FK ON DELETE CASCADE prema korisniku).
+  Eksplicitno briše `EmailVerificationToken` (po `UserId`) i `MagicLink` (po emailu) — ta dva NEMAJU
+  cascade FK. `Vendor.OwnerUserId` se postavlja na `null` za sve profile tog korisnika — **profil
+  pružatelja ostaje javan** (poslovni, ne osobni podatak), samo gubi vlasnika. Odjavljuje sesiju.
+
 ## POST /api/events
 First-party analitika (§A). Batch max 20, whitelist `event_name`, tihi **204**.
 IP se koristi samo za rate limit (ne pohranjuje se); bez PII. Iza Vercel rewritea stvarni IP je
