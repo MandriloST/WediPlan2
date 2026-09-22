@@ -11,21 +11,24 @@
 > **Svaki zadatak = zasebna grana + zaseban PR/merge.** Ne miješati ih.
 >
 > ## Status
-> - [x] **Zadatak 3 — recenzije samo uz potvrđen email.** Gotovo (grana `feat/review-verified-email`,
->   v. STANJE.md sesija 2026-09-21 (c) za detalje i točan diff). **Backend build nije provjeren u sandboxu
->   (nema dotnet SDK) — vlasnik mora pokrenuti `dotnet build backend/Wediplan.sln` prije mergea.**
-> - [x] **Zadatak 2 — brisanje računa.** Gotovo (grana `feat/account-deletion`, v. STANJE.md sesija
->   2026-09-22 za detalje). **Otkriveno tijekom rada:** `Favorite`/`BudgetPlan`/`Claim`/`UserReview` već
->   imaju pravi FK ON DELETE CASCADE prema korisniku (potvrđeno i u migracijama) — `UserManager.DeleteAsync`
->   ih briše sam; ručno se brišu samo `EmailVerificationToken` i `MagicLink` (nemaju taj FK). Plan ispod je
->   ažuriran da to odražava. **Backend build nije provjeren u sandboxu — isto upozorenje kao gore.**
-> - [x] **Zadatak 1 (+1b) — CI i testovi.** Gotovo (grana `feat/ci-tests`, v. STANJE.md sesija 2026-09-22 (b)
->   za detalje). **Nije pokrenuto u sandboxu ni u pravom GitHub Actionsu** (nema dotnet SDK ovdje niti pristup
->   GitHubu) — vlasnik mora paziti na prvi pravi CI run nakon mergea i po potrebi javiti ako nešto padne.
+> - [x] **Zadatak 3 — recenzije samo uz potvrđen email.** Gotovo i **potvrđeno** (`dotnet build` + `dotnet test`
+>   prošli 2026-09-22, v. STANJE.md).
+> - [x] **Zadatak 2 — brisanje računa.** Gotovo i **potvrđeno**. **Otkriveno tijekom rada:**
+>   `Favorite`/`BudgetPlan`/`Claim`/`UserReview` već imaju pravi FK ON DELETE CASCADE prema korisniku
+>   (potvrđeno i u migracijama) — `UserManager.DeleteAsync` ih briše sam; ručno se brišu samo
+>   `EmailVerificationToken` i `MagicLink` (nemaju taj FK).
+> - [x] **Zadatak 1 (+1b) — CI i testovi.** Gotovo i **potvrđeno**: `dotnet build backend/Wediplan.sln -c
+>   Release` čist (1 bezazleno pred-postojeće upozorenje CS8603, ne blokira), `dotnet test` 4/4 zeleno —
+>   uključujući `HealthEndpointTests`, koji je stvarno digao cijelu app i dobio 200 s `/api/health`.
+>   Usput ispravljene dvije greške nađene tim prvim pravim buildom/testom (v. STANJE.md 2026-09-22 (c)+(d)):
+>   ambiguity `Claim` (`System.Security.Claims` vs `Wediplan.Api.Domain`) i `Vendor.Search`
+>   (`NpgsqlTsVector`) koji je trebalo eksplicitno `Ignore()`-ati pod ne-Npgsql providerom (EF InMemory).
+>   Kod je pushan na `develop` (2026-09-22). **Preostaje samo:** vlasnik provjeri da `ci.yml` prođe zeleno
+>   na GitHub Actions tabu za ovaj push (nisam u mogućnosti to vidjeti odavde).
 > - [x] Zadatak 4 — odluka zapisana (ostaje kako jest), nema koda.
 >
-> **Sva četiri zadatka iz analize slabosti su implementirana.** Preostaje: vlasnik potvrđuje da backend
-> stvarno kompajlira i da CI prolazi na pravom GitHubu (v. napomene gore), zatim merge `develop`→`main`.
+> **Sva četiri zadatka iz analize slabosti su implementirana I lokalno potvrđena** (build zelen, testovi
+> zeleni). Preostaje: vlasnik provjeri zeleni GitHub Actions run na `develop`, zatim merge `develop`→`main`.
 
 ---
 

@@ -9,7 +9,27 @@
 
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
-## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. Backend build/testovi nisu provjereni u sandboxu (nema dotnet SDK) — vlasnik mora potvrditi prije merga u `main`.
+## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
+
+## Sesija 2026-09-22 (e) — Potvrđeno: dotnet build + dotnet test prolaze (4/4)
+Nakon dva popravka iz prošle bilješke, vlasnik ponovno pokrenuo `dotnet test backend/Wediplan.sln`:
+```
+Wediplan.Api net8.0 succeeded with 1 warning(s)   ← CS8603, bezazleno, pred-postojeće, ne blokira
+Wediplan.Api.Tests net8.0 succeeded (0 errors)
+Test summary: total: 4; failed: 0; succeeded: 4; skipped: 0
+```
+`HealthEndpointTests` je stvarno digao cijelu aplikaciju (Program.cs — DI, middleware, Identity, rate limiter)
+i dobio pravi `200` na `/api/health` (vidljivo u logu: `Executed endpoint 'HTTP: GET /api/health'` →
+`200 - application/json`). Sva tri `ReviewsControllerTests` isto zelena.
+
+**Backend je sada stvarno kompajliran i testiran — prvi put otkad je pisan** (ranije sesije su radile bez
+dotnet SDK-a u okruženju pisanja i mogle su samo ručno pregledati kod). Oba popravka i ovaj rezultat su
+commitani i pushani na `develop` (`13f8aac claim`, `34dc9eb korekcija testa`).
+
+**Jedino što ostaje neprovjereno s ove strane:** pravi CI run na GitHub Actionsu za ovaj push (`ci.yml`,
+Zadatak 1) — vlasnik treba provjeriti Actions tab. Kad to bude zeleno, sva četiri zadatka iz analize slabosti
+(2026-09-21) su gotova i potvrđena, i ništa iz Faze 6 plana više ne čeka na kod — preostaju samo OPS koraci
+(domena, pravne stranice, Search Console, finalna ručna regresija, merge `develop`→`main`).
 
 ## Sesija 2026-09-22 (c/d) — Dva popravka nakon prvog dotnet build/test
 Vlasnik pokrenuo `dotnet build`/`dotnet test` (prvi put da je backend stvarno kompajliran i testiran). Dvije
