@@ -64,6 +64,13 @@ export const authApi = {
 
   /** URL za Google prijavu (redirect). returnTo = putanja natrag nakon prijave. */
   googleUrl: (returnTo = "/") => `/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`,
+
+  /**
+   * Trajno briše račun (§9). `confirm` mora biti točno "OBRISI" — backend to provjerava, ovdje se
+   * ne provjerava opet da poruka greške ("confirmation_required") uvijek dolazi s jednog mjesta.
+   */
+  deleteAccount: (confirm: string) =>
+    call<{ ok: true }>("/account", { confirm }, "DELETE"),
 };
 
 // ---------------------------------------------------------------- couple podaci (Faza 3 kraj)

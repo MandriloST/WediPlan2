@@ -24,6 +24,12 @@ public record ResetPasswordRequest(
     [property: Required] string Token,
     [property: Required, MinLength(8), MaxLength(128)] string Password);
 
+/// <summary>
+/// Brisanje računa (§9, Plan prioriteti #2). `Confirm` mora biti točno "OBRISI" — jednostavan
+/// sentinel da spriječi slučajan poziv (klijent ionako traži da korisnik utipka tu riječ).
+/// </summary>
+public record DeleteAccountRequest([property: Required] string Confirm);
+
 // Izlazni DTO — trenutni korisnik (/api/me i nakon prijave). NIKAD ne vraća hash/tokene.
 public record MeDto(
     string Id,

@@ -73,6 +73,8 @@ export function authMessage(e: unknown): string {
         return "Lozinka je preslaba (najmanje 8 znakova).";
       case "invalid_or_expired":
         return "Poveznica je istekla ili je već iskorištena.";
+      case "confirmation_required":
+        return "Upišite točno riječ OBRISI za potvrdu.";
       default:
         return "Nešto nije u redu. Pokušajte ponovno.";
     }

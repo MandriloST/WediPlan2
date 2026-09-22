@@ -10,6 +10,38 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 
+## Sesija 2026-09-22 — Zadatak 2 (Plan prioriteti): brisanje računa
+Implementiran **Zadatak 2** (v. `PLAN-PRIORITETI-LANSIRANJE.md`), grana `feat/account-deletion`.
+
+**Otkriće koje je pojednostavilo plan:** `Favorite`, `BudgetPlan`, `Claim`, `UserReview` već imaju pravi FK
+`ON DELETE CASCADE` prema korisniku (`AppDbContext.OnModelCreating`, potvrđeno i u migracijama
+`Faza3Couple`/`Faza4`) — nije ih trebalo ručno brisati. `UserManager.DeleteAsync(user)` ih briše sam na razini
+baze, zajedno s Identity role/login/token/claim (default `IdentityDbContext` ponašanje).
+
+- **`backend/Wediplan.Api/Controllers/AccountController.cs`** (novi) — `DELETE /api/account`, `[Authorize]`.
+  Traži `{confirm:"OBRISI"}` (inače 400 `confirmation_required`). U transakciji: `Vendor.OwnerUserId → null`
+  za sve profile korisnika (`ExecuteUpdateAsync`); eksplicitno briše `EmailVerificationToken` (po `UserId`) i
+  `MagicLink` (po emailu) — jedina dva zapisa BEZ cascade FK; zatim `_users.DeleteAsync(user)` (DB cascade za
+  ostalo); `_signIn.SignOutAsync()`; `LogWarning` bez emaila (minimizacija).
+- **`backend/Wediplan.Api/Contracts/AuthContracts.cs`** — novi `DeleteAccountRequest(string Confirm)`.
+- **`lib/api/auth.ts`** — `authApi.deleteAccount(confirm)`. **`stores/auth.ts`** — poruka za `confirmation_required`.
+- **`components/ProfileShell.tsx`** — sekcija "Opasna zona" (samo za prijavljenog korisnika): klik → inline
+  potvrda s poljem za upis "OBRISI" (gumb onemogućen dok se ne poklapa) → na uspjeh `useAuth().logout()` +
+  redirect na `/`. **Usput ispravljeno** (zatečeno, izvan opsega): vrh `/profil` je imao zastarjeli tekst
+  "sinkronizacija — uskoro" i onemogućene gumbove za prijavu, iako `AccountSync.tsx` sinkronizaciju već stvarno
+  radi u pozadini — sad ispravno vodi na `/prijava`, prikazuje se samo gostu.
+- **`app/globals.css`** — `.btn-danger`, `.danger-zone`, `.danger-confirm`, `.danger-input` (isti `--danger`
+  token kao `.auth-error`).
+- **`API.md`** — dodan `DELETE /api/account` u novi odjeljak "Brisanje računa".
+- **Verifikacija:** `tsc` + `next build` čisti. UI tok vizualno potvrđen — Playwright s mock-anim `/api/me`
+  (pravi backend nije dostupan u sandboxu): prijavljeno stanje → "Opasna zona" → prazno polje (gumb
+  onemogućen) → upisano "OBRISI" (gumb aktivan). Logged-out `/profil` bez regresije.
+  **Backend build NIJE proveden u sandboxu (nema dotnet SDK — isto upozorenje kao Zadatak 3) — vlasnik mora
+  pokrenuti `dotnet build backend/Wediplan.sln -c Release` prije mergea.**
+
+**Sljedeći korak: Zadatak 1 (+1b) — CI i testovi**, iz istog plan-dokumenta. Kreni od odjeljka "Zadatak 1" u
+`PLAN-PRIORITETI-LANSIRANJE.md`. Nakon ovoga, sva četiri zadatka iz analize slabosti su gotova.
+
 ## Sesija 2026-09-21 (c) — Zadatak 3 (Plan prioriteti): recenzije samo uz potvrđen email
 Odluke potvrđene s vlasnikom: `UserReview` se pri brisanju računa **briše** (ne anonimizira); redoslijed
 zadataka **3 → 2 → 1**. Implementiran **Zadatak 3** (v. `PLAN-PRIORITETI-LANSIRANJE.md`), grana
