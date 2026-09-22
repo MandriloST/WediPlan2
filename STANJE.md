@@ -10,6 +10,27 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 
+## Sesija 2026-09-21 (b) — Analiza slabosti pred lansiranje + plan (PLAN-PRIORITETI-LANSIRANJE.md)
+Napravljena analiza slabosti; **kod nije mijenjan**, samo je dodan plan `PLAN-PRIORITETI-LANSIRANJE.md` (spec za
+izvedbu kroz model). Četiri prioriteta prije/uz launch:
+1. **CI + testovi** — nema `.github/` ni test projekta. Plan: `ci.yml` (backend build+test, frontend tsc+build na
+   push/PR u develop) + minimalni xUnit projekt `Wediplan.Api.Tests` (health smoke test hvata baš greške tipa
+   ForwardedHeaders u `Program.cs`).
+2. **Brisanje računa (GDPR)** — obećано u Pravilima privatnosti, endpoint ne postoji. Plan: novi
+   `AccountController` `DELETE /api/account` (potvrda `{confirm:"OBRISI"}`), briše korisnikove osobne podatke
+   (Favorite, BudgetPlan, EmailVerificationToken, Claim, UserReview, MagicLink po emailu) + `UserManager.DeleteAsync`
+   (kaskada Identity), `Vendor.OwnerUserId → null` (profil pružatelja ostaje), odjava. Bez promjene sheme. FE:
+   „Opasna zona” u `ProfileShell` + `deleteAccount()` u `lib/api/auth.ts`. **Otvoreno pitanje za vlasnika:**
+   UserReview brisati (preporuka) ili anonimizirati (traži nullable UserId + migraciju).
+3. **Recenzije bez potvrđenog emaila** — `ReviewsController.Create` ne provjerava `EmailConfirmed`. Plan: dodati
+   provjeru (403 `email_not_confirmed`), ~3 retka + FE poruka. Bez promjene sheme.
+4. **Anonimni trenutni opt-out** — vektor zloupotrebe konkurenata. **Odluka: ostaje kako jest** (GDPR-first,
+   reverzibilno preko admina). Plan za prelazak na „admin odobrava” zapisan za slučaj zloupotrebe. **Prag:**
+   ako se pojavi zloupotreba (skidanje tuđih profila), prebaciti opt-out na pending+admin-approve. Do tada pratiti
+   `LogWarning("GDPR opt-out…")` u logovima.
+
+Preporučeni redoslijed izvedbe: 3 → 2 → 1 (+1b), a Zadatak 4 je zasad samo ova bilješka.
+
 ## Sesija 2026-09-21 — Treći sloj default slika: kartica ≠ profil
 - **`lib/images.ts`**: `vendorDefaultImage(category, context)` i `vendorImages(vendor, context)` sad primaju
   `context: "card" | "profile"` (zadano `"card"`, pa se `coverImage()` — rezultati/karta/usporedba — ne mijenja).
