@@ -66,7 +66,7 @@ export default function LandingShell({ initialCategories, topRated }: Props) {
       <section className={`lp-hero${HERO_IMAGE ? " has-photo" : ""}`} style={heroStyle}>
         <div className="container lp-hero-in">
           <h1>{T.heroTitle}</h1>
-          <p className="lp-lead">{T.heroLead}</p>
+          <p className="lp-lead"> <strong>{T.heroLeadBold}</strong>{T.heroLeadRest}</p>
           <SearchBar />
           <ul className="lp-perks">
             {/* <li>
