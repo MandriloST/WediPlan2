@@ -44,7 +44,7 @@ public class ReviewsControllerTests
     private static ReviewsController ControllerAs(AppDbContext db, UserManager<AppUser> users, Guid userId)
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
-            new[] { new Claim(ClaimTypes.NameIdentifier, userId.ToString()) }, "TestAuth"));
+            new[] { new System.Security.Claims.Claim(ClaimTypes.NameIdentifier, userId.ToString()) }, "TestAuth"));
         return new ReviewsController(db, users)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = principal } },
