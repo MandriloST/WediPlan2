@@ -275,3 +275,11 @@ static async Task<bool> EnsureDbAsync(AppDbContext db)
         return false;
     }
 }
+
+/// <summary>
+/// Program.cs koristi top-level statements (C# generira <c>internal partial class Program</c>
+/// automatski). Ovaj `partial` ga čini <c>public</c> SAMO radi testova — `Wediplan.Api.Tests`
+/// treba `WebApplicationFactory&lt;Program&gt;` da digne cijelu app u memoriji (§ Plan prioriteti #1b).
+/// Ne mijenja ponašanje aplikacije.
+/// </summary>
+public partial class Program { }
