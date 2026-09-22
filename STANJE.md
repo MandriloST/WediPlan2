@@ -11,6 +11,19 @@
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. Backend build/testovi nisu provjereni u sandboxu (nema dotnet SDK) — vlasnik mora potvrditi prije merga u `main`.
 
+## Sesija 2026-09-22 (c/d) — Dva popravka nakon prvog dotnet build/test
+Vlasnik pokrenuo `dotnet build`/`dotnet test` (prvi put da je backend stvarno kompajliran i testiran). Dvije
+greške, oba popravljena:
+1. **Build error CS0104** — `ReviewsControllerTests.cs` ima i `using System.Security.Claims;` i
+   `using Wediplan.Api.Domain;`, a `Wediplan.Api.Domain` ima svoj `Claim` (zahtjev za preuzimanje profila) →
+   ambiguity. Popravak: puno kvalificirano ime `System.Security.Claims.Claim` na jedinom mjestu korištenja.
+2. **Runtime error kod dotnet test** — sva 4 testa pucala s "No suitable constructor for entity type
+   'NpgsqlTsVector'". Uzrok: `Vendor.Search` (`NpgsqlTsVector?`) je i dalje bio dio EF modela pod InMemory
+   providerom — isključivanje FLUENT konfiguracije (`isNpgsql` guard iz prošle sesije) nije bilo dovoljno,
+   trebalo je isključiti i sâm CLR tip. Popravak: `e.Ignore(v => v.Search);` unutar `if (!isNpgsql)` grane u
+   `AppDbContext.OnModelCreating`. Provjereno (grep) da je `Search` jedino mjesto u modelu s Npgsql-specifičnim
+   CLR tipom — popravak je potpun.
+   
 ## Sesija 2026-09-22 (b) — Zadatak 1 (+1b) (Plan prioriteti): CI + minimalni testovi
 Implementiran **Zadatak 1** (v. `PLAN-PRIORITETI-LANSIRANJE.md`), grana `feat/ci-tests`. **Sva četiri zadatka
 iz analize slabosti (2026-09-21) su sada implementirana.**

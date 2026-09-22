@@ -57,7 +57,16 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.Property(v => v.StyleTags).HasColumnType("text[]");
             e.Property(v => v.Services).HasColumnType("text[]");
 
-            if (!isNpgsql) return; // ostatak (GIN/trgm/tsvector) je čisto Postgres — v. komentar gore
+            if (!isNpgsql)
+            {
+                // Search je NpgsqlTsVector? — CLR tip koji izvan Npgsqla EF ne zna mapirati kao
+                // skalar (pokušava ga "razviti" kao complex/owned tip i puca na traženju
+                // konstruktora: "No suitable constructor was found for entity type 'NpgsqlTsVector'").
+                // Samo isključivanje generated-column/GIN konfiguracije (v. gore) NIJE dovoljno —
+                // sam CLR tip stupca treba potpuno maknuti iz modela pod drugim providerom (testovi).
+                e.Ignore(v => v.Search);
+                return; // ostatak (GIN/trgm) je čisto Postgres — v. komentar gore
+            }
 
             // Generirani tsvector iz name/city/about (§2.2). FTS relevancija;
             // typeahead ide preko pg_trgm (v. indekse dolje).
