@@ -10,6 +10,23 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 
+## Sesija 2026-09-21 (c) — Zadatak 3 (Plan prioriteti): recenzije samo uz potvrđen email
+Odluke potvrđene s vlasnikom: `UserReview` se pri brisanju računa **briše** (ne anonimizira); redoslijed
+zadataka **3 → 2 → 1**. Implementiran **Zadatak 3** (v. `PLAN-PRIORITETI-LANSIRANJE.md`), grana
+`feat/review-verified-email`:
+- **`backend/Wediplan.Api/Controllers/ReviewsController.cs`** — `Create` sad prvo dohvati korisnika
+  (`_users.FindByIdAsync`) i vrati **403 `email_not_confirmed`** ako `!EmailConfirmed`, prije provjere postoji
+  li vendor. Bez promjene sheme/migracije.
+- **`lib/api/provider.ts`** (`providerMessage`) — hrvatska poruka za `email_not_confirmed`.
+- **`components/ReviewForm.tsx`** — proaktivna provjera: prijavljen korisnik s nepotvrđenim emailom vidi objašnjenje
+  (s adresom na koju je poslana potvrda) **umjesto** forme, ne tek nakon pokušaja slanja.
+- **`API.md`** — dodan `403 email_not_confirmed` u opis `POST /api/reviews`.
+- Verifikacija: `tsc` + `next build` čisti. **Backend NIJE build-an u sandboxu (nema dotnet SDK ovdje — baš to
+  je Zadatak 1) — vlasnik mora pokrenuti `dotnet build backend/Wediplan.sln -c Release` prije mergea.**
+
+**Sljedeći korak: Zadatak 2 (brisanje računa)**, iz istog plan-dokumenta. Kreni od odjeljka "Zadatak 2" u
+`PLAN-PRIORITETI-LANSIRANJE.md` — tablica entiteta, novi `AccountController`, FE "Opasna zona" u `ProfileShell`.
+
 ## Sesija 2026-09-21 (b) — Analiza slabosti pred lansiranje + plan (PLAN-PRIORITETI-LANSIRANJE.md)
 Napravljena analiza slabosti; **kod nije mijenjan**, samo je dodan plan `PLAN-PRIORITETI-LANSIRANJE.md` (spec za
 izvedbu kroz model). Četiri prioriteta prije/uz launch:

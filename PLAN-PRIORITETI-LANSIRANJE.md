@@ -4,11 +4,20 @@
 > samostalan, ima točne datoteke, uzorke iz postojećeg koda kojih se treba držati, i kriterij "gotovo".
 > Izvor istine je repo `WediPlan2` grana `develop`. Prije koda pročitati `STANJE.md`, `PLAN-ARHITEKTURA.md`, `API.md`.
 >
-> **Redoslijed rada (preporuka):** Zadatak 3 (recenzije) → Zadatak 2 (brisanje računa) → Zadatak 1 (CI) →
-> Zadatak 4 (samo dokumentiranje/praćenje). Zadatak 1 (CI) neka bude **zadnji koji se mergea** jer tek kad
-> testovi postoje ima ih smisla vrtjeti u CI-ju; ali kostur CI-ja može nastati bilo kad.
+> **Redoslijed rada (odlučeno):** Zadatak 3 (recenzije) → Zadatak 2 (brisanje računa) → Zadatak 1 (CI) →
+> Zadatak 4 (samo dokumentiranje/praćenje, već gotovo — v. STANJE.md). Zadatak 1 (CI) neka bude **zadnji koji
+> se mergea** jer tek kad testovi postoje ima ih smisla vrtjeti u CI-ju.
 >
 > **Svaki zadatak = zasebna grana + zaseban PR/merge.** Ne miješati ih.
+>
+> ## Status
+> - [x] **Zadatak 3 — recenzije samo uz potvrđen email.** Gotovo (grana `feat/review-verified-email`,
+>   v. STANJE.md sesija 2026-09-21 (c) za detalje i točan diff). **Backend build nije provjeren u sandboxu
+>   (nema dotnet SDK) — vlasnik mora pokrenuti `dotnet build backend/Wediplan.sln` prije mergea.**
+> - [ ] **Zadatak 2 — brisanje računa.** ⬅ SLJEDEĆI KORAK. Odluka potvrđena: `UserReview` se **briše** (ne
+>   anonimizira) — nema migracije sheme. Kreni od odjeljka "Zadatak 2" niže.
+> - [ ] Zadatak 1 (+1b) — CI i testovi.
+> - [x] Zadatak 4 — odluka zapisana (ostaje kako jest), nema koda.
 
 ---
 
@@ -91,7 +100,7 @@ Bez ijednog testa CI ne donosi puno. Napravi mali projekt s nekoliko smislenih t
 **Problem:** Pravila privatnosti (`app/pravila-privatnosti/page.tsx`, t. 6 i 8) obećavaju brisanje računa, a
 endpoint ne postoji. Must prije javnog lansiranja.
 
-**Odluka o modelu (potvrdi s vlasnikom, default niže):** *hard delete korisnikovih osobnih podataka* uz
+**Odluka o modelu (potvrđeno s vlasnikom, 2026-09-21):** *hard delete korisnikovih osobnih podataka* uz
 *anonimizaciju sadržaja koji mora ostati*. Konkretno:
 
 | Podatak | Postupak pri brisanju | Zašto |
@@ -100,13 +109,12 @@ endpoint ne postoji. Must prije javnog lansiranja.
 | `Favorite`, `BudgetPlan` | **obriši** | privatni korisnikovi podaci |
 | `EmailVerificationToken`, `MagicLink` (po emailu) | **obriši** | vezani uz osobu |
 | `Claim` (zahtjevi za preuzimanje) | **obriši** | osobni zahtjev |
-| `UserReview` | **anonimiziraj**: `UserId = null`-ekvivalent *ILI* zadrži tekst bez veze na korisnika | objavljene recenzije su dio integriteta platforme; ali veza na osobu se miče. **Ako se odabere brisanje umjesto anonimizacije — dogovoriti s vlasnikom.** |
+| `UserReview` | **obriši** (odlučeno) | i objavljene recenzije korisnika nestaju s brisanjem računa — jednostavnije od anonimizacije, nema migracije |
 | `Vendor.OwnerUserId` | **postavi na `null`** (profil ostaje, gubi vlasnika) | pružatelj je poslovni podatak, ne osobni; profil ne smije nestati jer je korisnik obrisao svoj račun |
 
-> Napomena: `UserReview` trenutno ima `UserId` kao ne-nullable. Za anonimizaciju treba ili učiniti stupac
-> nullable (migracija) ili obrisati recenzije. **Preporuka: obrisati `UserReview` korisnika** (jednostavnije,
-> nema šeme za mijenjati, a recenzija bez autora ionako gubi vrijednost za povjerenje). Time se izbjegava
-> migracija sheme. Potvrdi s vlasnikom; ovaj plan dalje pretpostavlja **brisanje** `UserReview`.
+> Napomena: `UserReview` trenutno ima `UserId` kao ne-nullable. **Odlučeno: brišu se** (ne anonimiziraju) —
+> jednostavnije, nema šeme za mijenjati, a recenzija bez autora ionako gubi vrijednost za povjerenje. Ovaj plan
+> dalje **pretpostavlja brisanje** `UserReview`; tablica u koraku "Backend — datoteke" dolje je već ažurirana.
 
 **Backend — datoteke:**
 - **Novi:** `backend/Wediplan.Api/Controllers/AccountController.cs`
