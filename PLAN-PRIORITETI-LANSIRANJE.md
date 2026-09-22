@@ -19,8 +19,13 @@
 >   imaju pravi FK ON DELETE CASCADE prema korisniku (potvrđeno i u migracijama) — `UserManager.DeleteAsync`
 >   ih briše sam; ručno se brišu samo `EmailVerificationToken` i `MagicLink` (nemaju taj FK). Plan ispod je
 >   ažuriran da to odražava. **Backend build nije provjeren u sandboxu — isto upozorenje kao gore.**
-> - [ ] **Zadatak 1 (+1b) — CI i testovi.** ⬅ SLJEDEĆI KORAK. Kreni od odjeljka "Zadatak 1" niže.
+> - [x] **Zadatak 1 (+1b) — CI i testovi.** Gotovo (grana `feat/ci-tests`, v. STANJE.md sesija 2026-09-22 (b)
+>   za detalje). **Nije pokrenuto u sandboxu ni u pravom GitHub Actionsu** (nema dotnet SDK ovdje niti pristup
+>   GitHubu) — vlasnik mora paziti na prvi pravi CI run nakon mergea i po potrebi javiti ako nešto padne.
 > - [x] Zadatak 4 — odluka zapisana (ostaje kako jest), nema koda.
+>
+> **Sva četiri zadatka iz analize slabosti su implementirana.** Preostaje: vlasnik potvrđuje da backend
+> stvarno kompajlira i da CI prolazi na pravom GitHubu (v. napomene gore), zatim merge `develop`→`main`.
 
 ---
 
@@ -55,44 +60,41 @@ tipa `ForwardedHeadersOptions` koje se lokalno lako promaše.
 **Datoteke (nove):**
 - `.github/workflows/ci.yml`
 
-**Sadržaj workflowa — dva job-a:**
+**Sadržaj workflowa — dva job-a (implementirano točno ovako):**
 
-1. **backend**
-   - `runs-on: ubuntu-latest`
-   - `actions/setup-dotnet@v4` s verzijom iz `global.json` ako postoji, inače `8.0.x` (provjeri TargetFramework
-     u `Wediplan.Api.csproj` i uskladi).
-   - Koraci: `dotnet restore backend/Wediplan.sln` → `dotnet build backend/Wediplan.sln -c Release --no-restore`
-     → `dotnet test backend/Wediplan.sln -c Release --no-build` (dok test projekt ne postoji, test korak
-     preskoči ili neka bude uvjetovan — vidi Zadatak 1b).
-2. **frontend**
-   - `actions/setup-node@v4`, Node 20, `cache: npm`.
-   - `npm ci` → `npx tsc --noEmit` → `npm run build`.
-   - Build backenda i frontenda ne smiju ovisiti jedan o drugom (frontend build radi s mock rutama kad
-     `API_URL` nije postavljen — vidi `.env.example`; u CI-ju **ne** postavljati `API_URL`).
+1. **backend** — `dotnet restore` → `dotnet build -c Release --no-restore` → `dotnet test -c Release --no-build`.
+   Bez Postgresa u CI-ju (namjerno — v. Zadatak 1b, testovi su hermetični/InMemory).
+2. **frontend** — `npm ci` → `npx tsc --noEmit` → `npm run build` (bez `API_URL` — mock rute).
 
-**Trigger:** `on: { push: { branches: [develop] }, pull_request: { branches: [develop] } }`.
+**Trigger:** push/PR na `develop`.
 
 **Kriterij gotovo:** workflow prolazi zeleno na test-push u granu; namjerno ubačena sintaktička greška u backendu
-obori CI.
+obori CI. **Nije pokrenuto ni na pravom GitHubu ni u sandboxu** (nema mrežnog pristupa/dotneta u okruženju u
+kojem je pisano) — vlasnik prati prvi pravi run nakon mergea.
 
-### Zadatak 1b — minimalni test projekt (da `dotnet test` ima što vrtjeti)
+### Zadatak 1b — minimalni test projekt — implementirano
 
-Bez ijednog testa CI ne donosi puno. Napravi mali projekt s nekoliko smislenih testova.
+**Datoteke (nove):** `backend/Wediplan.Api.Tests/` (`Wediplan.Api.Tests.csproj`, `HealthEndpointTests.cs`,
+`ReviewsControllerTests.cs`), dodan u `backend/Wediplan.sln`.
 
-**Datoteke (nove):**
-- `backend/Wediplan.Api.Tests/Wediplan.Api.Tests.csproj` (xUnit; referencira `Wediplan.Api`)
-- `backend/Wediplan.Api.Tests/…` test datoteke
-- dodati projekt u `backend/Wediplan.sln` (`dotnet sln backend/Wediplan.sln add …`)
+- **Smoke (`HealthEndpointTests`):** `WebApplicationFactory<Program>` diže cijeli `Program.cs` (DI, middleware,
+  rate limiter, Identity/cookie, ForwardedHeaders grana, seed rola), `GET /api/health` → 200. `Program.cs` dobio
+  `public partial class Program {}` na dnu (WebApplicationFactory treba javno vidljivu klasu).
+- **`ReviewsControllerTests`** (EF InMemory, veže se uz Zadatak 3): triput poziva `ReviewsController.Create`
+  izravno (ne preko HTTP-a) — `email_not_confirmed` (403), `already_reviewed` (409), i sretni put (200 + red u
+  bazi). `UserManager<AppUser>` se gradi preko `AddIdentityCore` (isti obrazac kao Program.cs), ne ručno.
+- **Otkriveno/riješeno tijekom rada:** oba testa dijele `AppDbContext`, čiji `OnModelCreating` ima Postgres-only
+  konfiguraciju (`HasPostgresExtension`, GIN indeksi na `Vendor`, generirani tsvector stupac) — pod EF InMemory
+  to je neprovjereno ponašanje. Dodan standardni EF Core idiom: `AppDbContext.OnModelCreating` sad provjerava
+  `Database.IsNpgsql()` i taj blok primjenjuje SAMO pod pravim Postgresom; pod bilo kojim drugim providerom
+  (testovi) se preskače. Produkcija (uvijek Npgsql) — bez promjene ponašanja.
+- **Namjerno izostavljeno (za sada):** testovi čistih helpera (`Tokens.Hash`, `ClientIp`) — nisu bili nužni za
+  dvije stvarne, vrijedne provjere gore; dodati po potrebi. Postgres servis-container u CI-ju (za testiranje
+  pravih migracija) — svjesno izostavljen radi jednostavnosti i brzine prvog CI-ja; razuman budući dodatak.
 
-**Što testirati prvo (jeftino, a vrijedno) — bez baze:**
-- **Smoke:** aplikacija se digne s `WebApplicationFactory<Program>` i `GET /api/health` vrati 200
-  (postoji `HealthController`). Ovo hvata greške konfiguracije u `Program.cs` (npr. forwarded headers) — točno onu
-  klasu bugova zbog koje je CI potreban. Napomena: možda treba `public partial class Program {}` na dnu
-  `Program.cs` da bi `WebApplicationFactory` vidio `Program`.
-- **Čiste funkcije:** ako ima helpera bez ovisnosti (npr. `Tokens.Hash` determinističan, `ClientIp`,
-  normalizacija emaila) — po jedan test.
-- **EF InMemory** (`Microsoft.EntityFrameworkCore.InMemory`): jedan test da `ReviewsController.Create` odbije
-  duplu recenziju (`already_reviewed`) — vezuje se uz Zadatak 3.
+**Kriterij gotovo:** `dotnet test` prolazi (3 testa u `ReviewsControllerTests` + 1 u `HealthEndpointTests`);
+health smoke test stvarno diže app. **Nije pokrenuto u sandboxu — vlasnik pokreće prvi `dotnet test` lokalno
+prije oslanjanja na CI.**
 
 **Kriterij gotovo:** `dotnet test` lokalno i u CI-ju prolazi; health smoke test stvarno diže app.
 

@@ -1,0 +1,54 @@
+name: CI
+
+# § Plan prioriteti #1 — build + testovi na svaki push/PR u develop. Hvata greške konfiguracije
+# (npr. loš ForwardedHeadersOptions) i regresije koje ručni `dotnet build` lokalno lako promaši.
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  backend:
+    name: Backend (.NET) — build + testovi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Postavi .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Vrati pakete
+        run: dotnet restore backend/Wediplan.sln
+
+      - name: Build (Release)
+        run: dotnet build backend/Wediplan.sln -c Release --no-restore
+
+      - name: Testovi (Wediplan.Api.Tests — bez potrebe za Postgresom, v. §1b)
+        run: dotnet test backend/Wediplan.sln -c Release --no-build --verbosity normal
+
+  frontend:
+    name: Frontend (Next.js) — tipovi + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Postavi Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Instaliraj pakete
+        run: npm ci
+
+      - name: Provjera tipova (tsc)
+        run: npx tsc --noEmit
+
+      - name: Build
+        # API_URL namjerno NIJE postavljen — build ide nad mock rutama (app/api/*), isto kao
+        # kad razvijaš bez pokrenutog backenda. Ne miješati s backend jobom iznad (neovisni su).
+        run: npm run build

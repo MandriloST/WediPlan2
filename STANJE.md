@@ -9,6 +9,44 @@
 
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
+## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. Backend build/testovi nisu provjereni u sandboxu (nema dotnet SDK) — vlasnik mora potvrditi prije merga u `main`.
+
+## Sesija 2026-09-22 (b) — Zadatak 1 (+1b) (Plan prioriteti): CI + minimalni testovi
+Implementiran **Zadatak 1** (v. `PLAN-PRIORITETI-LANSIRANJE.md`), grana `feat/ci-tests`. **Sva četiri zadatka
+iz analize slabosti (2026-09-21) su sada implementirana.**
+
+- **`.github/workflows/ci.yml`** (novo) — dva joba na push/PR u `develop`: `backend` (`dotnet restore` →
+  `build -c Release` → `test -c Release --no-build`) i `frontend` (`npm ci` → `tsc --noEmit` → `npm run build`,
+  bez `API_URL` — mock rute). Bez Postgresa u CI-ju (testovi su namjerno hermetični, EF InMemory).
+- **`backend/Wediplan.Api.Tests/`** (novi projekt, dodan u `Wediplan.sln`):
+  - `HealthEndpointTests.cs` — `WebApplicationFactory<Program>` diže CIJELI `Program.cs` (DI, middleware,
+    rate limiter, Identity/cookie, ForwardedHeaders grana, seed rola), zamijeni `AppDbContext` s EF InMemory,
+    `GET /api/health` → 200. Ovo je smoke test koji hvata točno onu klasu grešaka (npr. loš
+    `ForwardedHeadersOptions`) zbog koje je CI tražen.
+  - `ReviewsControllerTests.cs` — 3 testa nad `ReviewsController.Create` (EF InMemory, `UserManager` preko
+    `AddIdentityCore`, ne ručno): `email_not_confirmed` (403, Zadatak 3), `already_reviewed` (409), sretni put.
+- **`backend/Wediplan.Api/Program.cs`** — dodan `public partial class Program {}` na dnu (potrebno da
+  `WebApplicationFactory<Program>` vidi klasu; top-level statements je inače generiraju kao `internal`).
+- **`backend/Wediplan.Api/Data/AppDbContext.cs`** — **otkriveno tijekom pisanja testova:** `OnModelCreating` ima
+  Postgres-only konfiguraciju (`HasPostgresExtension`, GIN indeksi, generirani tsvector stupac na `Vendor`) koja
+  je pod EF InMemory bila neprovjereno ponašanje (oba nova testa dijele taj model čim se `AppDbContext`
+  ikako upotrijebi). Dodan standardni EF Core idiom: taj blok se primjenjuje samo kad `Database.IsNpgsql()`;
+  pod bilo kojim drugim providerom (testovi) se preskače. Produkcija (uvijek Npgsql) — bez promjene ponašanja.
+- **`backend/Wediplan.sln`** — dodan `Wediplan.Api.Tests` (Debug/Release, Any CPU).
+- **Namjerno izostavljeno u ovoj iteraciji** (v. plan, razlozi ondje): Postgres servis-container + `dotnet ef
+  database update` u CI-ju (validacija pravih migracija) i testovi čistih helper-funkcija — razumni budući
+  dodaci, ne blokiraju lansiranje.
+- **Verifikacija:** frontend `tsc` + `next build` čisti (nepromijenjen ovom sesijom, samo potvrđeno da backend
+  izmjene ne diraju frontend). **Backend NIJE build-an ni testiran u sandboxu** (nema dotnet SDK, ni pristup
+  GitHubu za pravi CI run) — sav C# kod je pažljivo ručno pregledan, uključujući namjerno de-riziranje
+  Npgsql/InMemory sukoba prije nego što je postao problem, ali **vlasnik mora**: (1) pokrenuti
+  `dotnet build backend/Wediplan.sln -c Release` i `dotnet test backend/Wediplan.sln`, (2) nakon push-a na
+  GitHub, provjeriti da `ci.yml` prođe zeleno, i javiti ako nešto padne (najvjerojatnije mjesto: točne verzije
+  NuGet paketa u `Wediplan.Api.Tests.csproj`, ili nešto specifično za Npgsql/InMemory interakciju koje nisam
+  mogao izvršiti da provjerim).
+
+**Time su sve stavke iz analize slabosti (2026-09-21) pokrivene.** Preostaje: vlasnik potvrđuje da backend
+stvarno kompajlira, da testovi prolaze i da CI radi na pravom GitHubu, zatim `develop` → `main`.
 
 ## Sesija 2026-09-22 — Zadatak 2 (Plan prioriteti): brisanje računa
 Implementiran **Zadatak 2** (v. `PLAN-PRIORITETI-LANSIRANJE.md`), grana `feat/account-deletion`.

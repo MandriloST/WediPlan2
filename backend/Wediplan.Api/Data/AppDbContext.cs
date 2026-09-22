@@ -40,8 +40,11 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
     {
         base.OnModelCreating(b); // OBAVEZNO prvo — konfigurira Identity tablice
 
-        // pg_trgm za typeahead (tolerancija tipfelera) — §2.2
-        b.HasPostgresExtension("pg_trgm");
+        // pg_trgm za typeahead (tolerancija tipfelera) — §2.2. Postgres-specifično: pod drugim
+        // providerom (npr. EF InMemory u testovima, § Plan prioriteti #1b) ovo se preskače, jer
+        // te Npgsql-fluent-API pozive nema smisla (ni jamstvo da rade) izvan pravog Postgresa.
+        var isNpgsql = Database.IsNpgsql();
+        if (isNpgsql) b.HasPostgresExtension("pg_trgm");
 
         b.Entity<Vendor>(e =>
         {
@@ -53,6 +56,8 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.Property(v => v.CoverageRegions).HasColumnType("text[]");
             e.Property(v => v.StyleTags).HasColumnType("text[]");
             e.Property(v => v.Services).HasColumnType("text[]");
+
+            if (!isNpgsql) return; // ostatak (GIN/trgm/tsvector) je čisto Postgres — v. komentar gore
 
             // Generirani tsvector iz name/city/about (§2.2). FTS relevancija;
             // typeahead ide preko pg_trgm (v. indekse dolje).
