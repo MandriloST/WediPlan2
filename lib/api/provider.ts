@@ -108,6 +108,8 @@ export function providerMessage(e: unknown): string {
         return "Već ste ostavili recenziju za ovog pružatelja.";
       case "own_vendor":
         return "Ne možete recenzirati vlastiti profil.";
+      case "email_not_confirmed":
+        return "Za pisanje recenzije prvo potvrdite svoju e-mail adresu (poveznica u e-mailu koji smo poslali pri registraciji).";
       case "vendor_not_found":
         return "Pružatelj nije pronađen.";
       case "invalid_price":

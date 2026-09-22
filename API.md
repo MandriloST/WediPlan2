@@ -222,7 +222,9 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
 ### Korisničke recenzije
 - `POST /api/reviews` `{vendorSlug, rating (1–5), text}` → `{status:"pending", message}`.
   Ide u moderaciju; jedna recenzija po (korisnik, pružatelj) — 409 `already_reviewed`;
-  400 `own_vendor` (vlasnik ne recenzira sebe); 404 `vendor_not_found`.
+  400 `own_vendor` (vlasnik ne recenzira sebe); 404 `vendor_not_found`;
+  **403 `email_not_confirmed`** (2026-09 · Plan prioriteti #3 — recenzirati smije samo korisnik s
+  potvrđenim emailom; throwaway/nepotvrđeni računi su blokirani i prije provjere postoji li vendor).
 
 ### Admin (rola admin)
 - `GET /api/admin/claims?status=pending` → `AdminClaimDto[]`.
