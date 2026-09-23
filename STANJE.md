@@ -10,6 +10,34 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
+## Drugi val prioriteta (2026-09-23) — plan zapisan u `PLAN-PRIORITETI-LANSIRANJE-2.md`: SEO (JSON-LD+OG), claim e-mail verifikacija (auto-approve), partner mailovi, rate-limit writes, Sentry. Redoslijed: 6→5→7→9→8. **Zadatak 6 gotov** (v. sesija ispod).
+
+## Sesija 2026-09-23 — Zadatak 6 (Plan prioriteti 2): SEO — JSON-LD + OG slike ✅ (grana `feat/seo-jsonld-og`)
+
+Implementiran **Zadatak 6** (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) u cijelosti: JSON-LD (`LocalBusiness`+`BreadcrumbList`) na profilu, `openGraph`/`twitter` metapodaci (naslovnica + profil), dinamička OG slika po pružatelju i branded default OG slika za sve ostale rute.
+
+**Novo:**
+- `lib/jsonld.ts` — `vendorJsonLd()`: `LocalBusiness` (name/url/image/address/geo/priceRange/aggregateRating/sameAs) + `BreadcrumbList` (proširuje postojeći `breadcrumb()` iz `lib/profile.ts` pružateljem). Isti etos kao karta/import: geo/priceRange/aggregateRating izostaju kad podataka nema — nikad se ne izmišljaju. `formatPrice()` (postojeći, `lib/format.ts`) se reusa za `priceRange` umjesto izmišljanja €/€€/€€€ ljestvice.
+- `app/pruzatelj/[slug]/opengraph-image.tsx` i `app/opengraph-image.tsx` (root default, primjenjuje se na sve rute bez vlastite datoteke — naslovnica, /kategorije, /karta, /budzet, /usporedba…) — dinamičke OG slike (`next/og` `ImageResponse`, 1200×630).
+- `lib/og-image.ts`, `lib/og-fonts.ts`, `lib/og-icons.tsx` — pomoćnici dijeljeni između oba OG fajla (čitanje slike u data URI, učitavanje fontova, SVG ikone).
+- `public/fonts/InstrumentSans-{Regular,Bold}.ttf` + `InstrumentSans-OFL.txt` — v. "Nalaz 2" ispod za zašto.
+- `app/layout.tsx`, `app/pruzatelj/[slug]/page.tsx` — `openGraph`/`twitter` blokovi u `generateMetadata`; JSON-LD `<script>` ubačen u tijelo stranice profila.
+- `lib/site.ts` — dodan `absoluteUrl()` helper (relativna putanja → apsolutni URL na `SITE_URL`; već-apsolutne, npr. s Bunny CDN-a, prolaze nepromijenjene).
+
+**Tri nalaza tijekom rada, vrijedna zapisati (nisu bili očiti unaprijed):**
+
+1. **`inset: 0` CSS shorthand nije podržan** u Satori-ju (motor iza `next/og`) — element se sruši na intrinsic veličinu/poziciju umjesto da se rastegne. Popravak: posvuda eksplicitno `top: 0, left: 0, right: 0, bottom: 0`. Otkriveno i potvrđeno izoliranim A/B testom prije primjene na prave datoteke.
+
+2. **Hrvatski dijakritici (č ć š ž đ) se ne prikazuju u OG slikama bez vlastitog fonta** — Satori-jev ugrađeni default (Noto Sans) ih pokriva, ALI Google Fonts CDN dijeli fontove na "latin" (osnovna slova) i "latin-ext" (dijakritici) u ODVOJENE fajlove — učitavanje samo jednog daje pola alfabeta kao "tofu" kvadratiće. Rješenje: iz službenog `google/fonts` GitHub repozitorija (ne CDN-a) izvučen je PUNI varijabilni font Instrument Sans (OFL-1.1) i preko `fonttools varLib.instancer` instanciran u dvije statične `.ttf` težine (400, 700) sa svim potrebnim znakovima — provjereno na stvarnim mock pružateljima ("Aria sala za vjenčanja", "Galerija Meštrović Split"). **Usput otkriveno:** Satori u ovoj (bundled @vercel/og) verziji (a) ne podržava `.woff2`, samo `.ttf/.otf/.woff`, i (b) NE radi per-glyph fallback kroz `fontFamily` listu niti kroz više fontova s istim imenom — prvi/jedini font koji se poklapa s traženim name+weight+style se koristi u cijelosti, bez posezanja za drugim za znakove koje ne pokriva. Posljedica: simboli "★"/"✓" (nisu u Instrument Sansu) su nakon uvođenja fonta postali tofu — riješeno crtanjem kao inline SVG (`lib/og-icons.tsx`) umjesto oslanjanja na font glyph.
+
+3. **Generirane placeholder ilustracije pružatelja** (`public/images/defaults*/<kategorija>.jpg` — ikona+naziv kategorije, "privremeno generirani defaulti" iz ranije sesije) se u `next/og`/Satori NE renderiraju ispravno s `objectFit:"cover"` (prikazuju se neskalirano/obrezano umjesto da prekriju cijeli kadar), dok STVARNE fotografije (npr. `public/images/hero/naslovnica.jpg`) rade besprijekorno. Isključeno kao uzrok, provjereno eksperimentom: DPI/JFIF metapodaci (300 DPI u originalu) i potpuno re-enkodiranje slike — nijedno nije riješilo problem, pravi uzrok ostaje nerazjašnjen (vjerojatno rubni slučaj u resvg/image-rs dekoderu specifičan za tu vrstu linijske grafike, izvan dosega ovog zadatka za dalje istraživati). **Odluka:** OG slika pružatelja koristi fotografiju u pozadini SAMO kad pružatelj ima stvarnu fotografiju (`!vendorImages(vendor,"profile")[0].isDefault`); bez nje ide brand gradijent (isti stil kao 404/fallback slučaj) — ionako bolji rezultat za social-share karticu nego razvučena sitna ilustracija, pa je ovo ostalo kao trajno rješenje, ne privremena zakrpa.
+
+**Verifikacija:** `npx tsc --noEmit` i `npm run build` čisti (uključujući čisti `rm -rf .next` prije zadnje provjere). Vizualno potvrđeno (`next start`, stvarni PNG izlazi pregledani): OG slika s recenzijama+"✓ Provjereno", bez recenzija ("cijena na upit"), s hrvatskim dijakriticima u imenu (č; š+ć), root default (hero foto + "vjenčanje"/"budžeta" s ispravnim dijakriticima), 404 fallback. JSON-LD i `og:title` na stranici profila provjereni da nose ispravan UTF-8 ("Meštrović"). `AggregateRating` potvrđeno izostaje za pružatelja s `reviewCount:0`. Bez promjene API-ja/sheme/migracija — `API.md` se ne mijenja za ovaj zadatak.
+
+**Napomena za vlasnika:** placeholder ilustracije kategorija (nalaz 3) i dalje rade ispravno posvuda drugdje na stranici (kartice, karta — normalan `next/image` u pregledniku, nepovezano sa Satori bugom) — utječe samo na OG generiranje, i to je zaobiđeno kako je opisano. Kad providers dobiju stvarne fotografije (Faza 5 upload/ImageSharp pipeline), OG slike će ih automatski koristiti bez daljnjih izmjena koda.
+
+**Sljedeći korak: Zadatak 5 (claim e-mail verifikacija)**, iz `PLAN-PRIORITETI-LANSIRANJE-2.md`.
+
 
 ## Sesija 2026-09-22 (f) - analiza i sljedeći koraci
 Drugi val planiran — v. PLAN-PRIORITETI-LANSIRANJE-2.md (redoslijed 6→5→7→9→8)

@@ -15,13 +15,29 @@ import Analytics from "@/components/Analytics";
 import AuthBootstrap from "@/components/AuthBootstrap";
 import AccountSync from "@/components/AccountSync";
 
+const DESCRIPTION =
+  "Pronađite restorane, fotografe, bendove i sve za vjenčanje u Hrvatskoj. Transparentne cijene, usporedba i kalkulator budžeta.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "Wediplan — sve za vjenčanje u Hrvatskoj",
-  description:
-    "Pronađite restorane, fotografe, bendove i sve za vjenčanje u Hrvatskoj. Transparentne cijene, usporedba i kalkulator budžeta.",
+  description: DESCRIPTION,
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
+  // Slika (og:image) NIJE ovdje — Next je automatski uzima iz app/opengraph-image.tsx
+  // (ili iz app/pruzatelj/[slug]/opengraph-image.tsx za profile, koji ima prednost na toj ruti).
+  openGraph: {
+    siteName: "Wediplan",
+    title: "Wediplan — sve za vjenčanje u Hrvatskoj",
+    description: DESCRIPTION,
+    locale: "hr_HR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Wediplan — sve za vjenčanje u Hrvatskoj",
+    description: DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {

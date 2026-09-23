@@ -6,6 +6,7 @@ import { getProfile, getSimilar } from "@/lib/api/server";
 import { withProfileDefaults } from "@/lib/profile";
 import { CATEGORY_BY_SLUG, homeLabel } from "@/lib/data";
 import { formatPrice } from "@/lib/format";
+import { jsonLdScript, vendorJsonLd } from "@/lib/jsonld";
 
 interface Props {
   params: { slug: string };
@@ -31,12 +32,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { vendor } = data;
   const catName = CATEGORY_BY_SLUG[vendor.category]?.name ?? "";
   const place = homeLabel(vendor);
+  const title = `${vendor.name} — ${[catName, vendor.city].filter(Boolean).join(", ")} | Wediplan`;
+  const description = `${vendor.name} (${[catName, place].filter(Boolean).join(", ")}) — ${formatPrice(vendor.price)}${
+    vendor.reviewCount > 0 ? `, ocjena ${vendor.rating}` : ""
+  }. Usporedite cijene i dostupnost na Wediplanu.`;
   return {
-    title: `${vendor.name} — ${[catName, vendor.city].filter(Boolean).join(", ")} | Wediplan`,
-    description: `${vendor.name} (${[catName, place].filter(Boolean).join(", ")}) — ${formatPrice(vendor.price)}${
-      vendor.reviewCount > 0 ? `, ocjena ${vendor.rating}` : ""
-    }. Usporedite cijene i dostupnost na Wediplanu.`,
+    title,
+    description,
     alternates: { canonical: `/pruzatelj/${vendor.slug}` },
+    // og:image/twitter:image se automatski uzimaju iz opengraph-image.tsx u ovom folderu.
+    openGraph: {
+      title,
+      description,
+      url: `/pruzatelj/${vendor.slug}`,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
@@ -44,5 +59,14 @@ export default async function VendorPage({ params }: Props) {
   const data = await load(params.slug);
   if (!data) notFound();
   const similar = await getSimilar(data.vendor);
-  return <VendorProfile data={data} similar={similar} />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(vendorJsonLd(data)) }}
+      />
+      <VendorProfile data={data} similar={similar} />
+    </>
+  );
 }
