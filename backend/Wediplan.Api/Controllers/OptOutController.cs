@@ -18,7 +18,7 @@ namespace Wediplan.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/optout")]
-[EnableRateLimiting("lists")]
+[EnableRateLimiting("writes")] // §Zadatak 9 — ovo je pisanje, ne lista; bilo pogrešno "lists" prije
 public class OptOutController : ControllerBase
 {
     private readonly AppDbContext _db;

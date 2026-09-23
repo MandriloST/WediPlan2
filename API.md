@@ -219,7 +219,8 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
   vlasništva jer profil javno ne izlaže tu adresu). 404 ako claim nije korisnikov ili ne
   postoji; 409 `already_decided` ako claim više nije pending; 400 `no_email_on_file` ako
   pružatelj nema email na profilu (fallback ostaje `domain_match`/admin); 429
-  `too_many_requests` (anti-zloupotreba: max 3 tokena/24h, min. 2 min razmak).
+  `too_many_requests` (anti-zloupotreba: max 3 tokena/24h, min. 2 min razmak — vlastita provjera,
+  neovisna o i strožija od opće "writes" rate-limit politike, §Zadatak 9, ispod).
 - **`POST /api/claims/verify`** `{token}` (2026-09 · Zadatak 5) → `{status: "approved"|"verified"}`.
   Potvrđuje token; postavlja `evidence="email_verified"`. Ako je claim još pending **i**
   `Claims:AutoApproveOnEmailVerify` nije eksplicitno `false` (default `true`) → auto-odobrava
@@ -292,8 +293,12 @@ WebP → opcionalni tekstualni žig. `GET /api/provider/vendors` sada vraća i `
 
 **Health:** `GET /api/health` (bez autentikacije) → `200 {status:"ok"}` / `503 {status:"db_down"}`.
 
-**Rate limiting:** globalno 300/min po IP-u; liste (`/api/vendors`, `/api/pins`, `/api/suggest`)
-60/min. Prekoračenje → `429`.
+**Rate limiting** (2026-09 · Plan prioriteti 2, Zadatak 9 — očvršćeno): globalno 300/min po IP-u;
+liste (`/api/vendors`, `/api/pins`, `/api/suggest`) 60/min; **pisanja** (`POST /api/reviews`,
+`/api/claims`, `/api/claims/{id}/send-verification`, `/api/claims/verify`, `/api/optout`) 20/min,
+sliding-window, particija po **korisniku** ako je prijavljen (inače po IP-u); **auth**
+(`/api/auth/*` osim `logout`) 10/min, sliding-window, particija po IP-u — komplementarno Identity
+lockoutu (8 promašaja/15 min). Svaki `429` nosi `Retry-After` zaglavlje.
 
 ---
 

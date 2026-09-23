@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Data;
 using Wediplan.Api.Import;
@@ -117,23 +118,58 @@ else
     builder.Services.AddSingleton<Wediplan.Api.Media.IPhotoStorage, Wediplan.Api.Media.LocalPhotoStorage>();
 builder.Services.AddSingleton<Wediplan.Api.Media.ImagePipeline>();
 
-// Rate limiting (§8): stroži limit na liste, blaži globalno; particija po IP-u (iza Cloudflarea
-// koristi X-Forwarded-For kad je Proxy:TrustForwardedFor=true — v. ForwardedHeaders niže).
+// Rate limiting (§8, očvršćeno §Zadatak 9): stroži limit na liste, blaži globalno, još stroži
+// (sliding-window) na pisanja i auth rute. Particija: prijavljeni korisnici po Id-u (rješava
+// CGNAT lažne pozitive — više ljudi iza istog javnog IP-a), inače po IP-u (Cloudflare X-Forwarded-For
+// kad je Proxy:TrustForwardedFor=true — v. ForwardedHeaders niže, koji ide PRIJE ovoga u pipelineu).
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    static string Ip(HttpContext c) => c.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    // 429 uvijek nosi Retry-After — klijenti (i mail-skeneri/botovi) znaju koliko čekati.
+    o.OnRejected = (ctx, _) =>
+    {
+        ctx.HttpContext.Response.Headers.RetryAfter = "60";
+        return ValueTask.CompletedTask;
+    };
 
-    o.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(Ip(ctx),
-            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+    static string Ip(HttpContext c) => c.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    // Prijavljen korisnik → particija po Id-u (dijeljeni IP iza CGNAT-a više ne pogađa jedan drugog);
+    // gost (najčešće baš na "auth" rutama, prije prijave) → particija po IP-u.
+    static string PartitionKey(HttpContext c)
+    {
+        var uid = c.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        return !string.IsNullOrEmpty(uid) ? $"u:{uid}" : $"ip:{Ip(c)}";
+    }
+
+    o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(Ip(ctx),
+            _ => new FixedWindowRateLimiterOptions
             { PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 
     // Stroža politika za liste (primjenjuje se atributom [EnableRateLimiting("lists")]).
     o.AddPolicy("lists", ctx =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(Ip(ctx),
-            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+        RateLimitPartition.GetFixedWindowLimiter(Ip(ctx),
+            _ => new FixedWindowRateLimiterOptions
             { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+    // Pisanja (recenzije, claim, send-verification, opt-out): sliding-window — fixed-window ima
+    // 2× burst mogućnost točno na granici prozora, sliding to izbjegava segmentacijom.
+    o.AddPolicy("writes", ctx =>
+        RateLimitPartition.GetSlidingWindowLimiter(PartitionKey(ctx),
+            _ => new SlidingWindowRateLimiterOptions
+            { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), SegmentsPerWindow = 6, QueueLimit = 0 }));
+
+    // Auth rute (login/register/magic/reset/verify): najstroža, komplementarna Identity
+    // lockoutu (8 pokušaja/15 min — v. AddIdentityCore niže). Gost je čest slučaj ovdje
+    // (pre-login), pa particija po IP-u, ne po korisniku.
+    o.AddPolicy("auth", ctx =>
+        RateLimitPartition.GetSlidingWindowLimiter(Ip(ctx),
+            _ => new SlidingWindowRateLimiterOptions
+            { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), SegmentsPerWindow = 4, QueueLimit = 0 }));
+
+    // NAPOMENA (budući korak, ne sad): limiter je in-memory PO INSTANCI — dovoljno dok radi jedna
+    // instanca API-ja. Kad se skalira na više instanci, particije se ne dijele među njima (svaka
+    // broji zasebno) → prijeći na distribuirani limiter (npr. Redis-backed) da limit ostane stvaran.
 });
 
 // ForwardedHeaders (#17): vjeruj X-Forwarded-* SAMO kad je API dostupan isključivo preko
