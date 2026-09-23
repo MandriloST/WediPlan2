@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { AuthError } from "@/lib/api/auth";
 import { claimApi, providerMessage } from "@/lib/api/provider";
 import { useAuth } from "@/stores/auth";
-import type { Vendor } from "@/lib/types";
+import type { Claim, Vendor } from "@/lib/types";
 
 /**
  * Preuzimanje profila (§6). Prikazuje se na neclaimanom profilu:
  *  - gost → poziv na prijavu,
  *  - prijavljen → gumb "Ovo je moj profil" → forma (poruka) → zahtjev u moderaciju.
- * Nakon slanja: potvrda + link na nadzornu ploču partnera (uređivanje drafta odmah).
+ * Nakon slanja: potvrda + link na nadzornu ploču partnera (uređivanje drafta odmah), plus
+ * (§Zadatak 5) mogućnost odmah potvrditi vlasništvo e-mailom umjesto čekanja ručnog pregleda.
  */
 export default function ClaimPanel({ vendor }: { vendor: Vendor }) {
   const { user, loading } = useAuth();
@@ -20,12 +22,31 @@ export default function ClaimPanel({ vendor }: { vendor: Vendor }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  const [claim, setClaim] = useState<Claim | null>(null);
+
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [noEmailOnFile, setNoEmailOnFile] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   if (vendor.claimStatus === "claimed") return null; // već preuzet — bez CTA
   if (loading) return null;
 
-  if (sent) {
+  async function sendVerification() {
+    if (!claim) return;
+    setVerifyBusy(true); setVerifyError(null);
+    try {
+      const res = await claimApi.sendVerification(claim.id);
+      setSentTo(res.sentTo);
+    } catch (err) {
+      if (err instanceof AuthError && err.code === "no_email_on_file") setNoEmailOnFile(true);
+      else setVerifyError(providerMessage(err));
+    } finally {
+      setVerifyBusy(false);
+    }
+  }
+
+  if (claim) {
     return (
       <div className="claim-box">
         <p className="fit good" style={{ margin: 0 }}>
@@ -35,6 +56,33 @@ export default function ClaimPanel({ vendor }: { vendor: Vendor }) {
         <Link href="/partner" className="btn btn-primary btn-sm" style={{ marginTop: 10 }}>
           Otvori nadzornu ploču
         </Link>
+
+        {claim.evidence !== "email_verified" && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border, #e5e5e5)" }}>
+            {noEmailOnFile ? (
+              <p className="muted" style={{ fontSize: 13.5, margin: 0 }}>
+                Za ovaj profil nemamo e-mail adresu na koju bismo poslali potvrdu — preuzimanje
+                odobrava naš tim ručno, obično u roku nekoliko dana.
+              </p>
+            ) : sentTo ? (
+              <p className="muted" style={{ fontSize: 13.5, margin: 0 }}>
+                Poslali smo poveznicu za potvrdu na <strong>{sentTo}</strong>. Provjerite taj inbox
+                (i mapu neželjene pošte) — klikom na poveznicu profil se odmah preuzima.
+              </p>
+            ) : (
+              <>
+                <p className="muted" style={{ fontSize: 13.5, margin: "0 0 8px" }}>
+                  Imate brži put: potvrdite vlasništvo e-mailom koji imamo za ovaj profil i
+                  preuzimanje je odmah odobreno, bez čekanja ručnog pregleda.
+                </p>
+                {verifyError && <p className="auth-error" role="alert" style={{ fontSize: 13 }}>{verifyError}</p>}
+                <button className="btn btn-sm" disabled={verifyBusy} onClick={sendVerification}>
+                  {verifyBusy ? "Šaljem…" : "Potvrdi vlasništvo e-mailom"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -58,8 +106,8 @@ export default function ClaimPanel({ vendor }: { vendor: Vendor }) {
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      await claimApi.create(vendor.slug, message.trim() || undefined);
-      setSent(true);
+      const created = await claimApi.create(vendor.slug, message.trim() || undefined);
+      setClaim(created);
     } catch (err) {
       setError(providerMessage(err));
     } finally {

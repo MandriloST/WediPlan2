@@ -33,6 +33,12 @@ export const claimApi = {
   create: (vendorSlug: string, message?: string) =>
     call<Claim>("/claims", "POST", { vendorSlug, message }),
   mine: () => call<Claim[]>("/claims/mine", "GET"),
+  /** §Zadatak 5 — pošalji token na Vendor.Email; vraća maskiranu adresu za prikaz korisniku. */
+  sendVerification: (claimId: string) =>
+    call<{ sentTo: string }>(`/claims/${encodeURIComponent(claimId)}/send-verification`, "POST"),
+  /** §Zadatak 5 — potvrdi token iz maila. "approved" (auto-odobreno) ili "verified" (čeka admina). */
+  verify: (token: string) =>
+    call<{ status: "approved" | "verified" }>("/claims/verify", "POST", { token }),
 };
 
 // ---------------------------------------------------------------- provider dashboard
@@ -112,6 +118,16 @@ export function providerMessage(e: unknown): string {
         return "Za pisanje recenzije prvo potvrdite svoju e-mail adresu (poveznica u e-mailu koji smo poslali pri registraciji).";
       case "vendor_not_found":
         return "Pružatelj nije pronađen.";
+      case "no_email_on_file":
+        return "Za ovaj profil nemamo e-mail adresu na koju bismo poslali potvrdu — preuzimanje odobrava naš tim ručno.";
+      case "too_many_requests":
+        return "Poslali smo već nekoliko poveznica — pričekajte koju minutu prije novog zahtjeva.";
+      case "invalid_token":
+        return "Poveznica je nevažeća ili je istekla. Zatražite novu potvrdu iz nadzorne ploče.";
+      case "not_your_claim":
+        return "Ova poveznica pripada drugom zahtjevu za preuzimanje.";
+      case "already_decided":
+        return "Ovaj zahtjev je već obrađen.";
       case "invalid_price":
       case "invalid_price_kind":
         return "Cijena nije ispravna. Provjerite unos.";

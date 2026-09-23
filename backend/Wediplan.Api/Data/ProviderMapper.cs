@@ -101,4 +101,16 @@ public static class ProviderMapper
         var host = uri.Host.ToLowerInvariant();
         return host.StartsWith("www.") ? host[4..] : host;
     }
+
+    /// <summary>
+    /// Maskira e-mail za prikaz korisniku bez odavanja pune interne adrese (§Zadatak 5) —
+    /// "test@domena.hr" → "t***@domena.hr". Prvo slovo + zvjezdice + puna domena (dovoljno da
+    /// korisnik prepozna koji inbox provjeriti).
+    /// </summary>
+    public static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 0) return "***";
+        return $"{email[0]}***{email[at..]}";
+    }
 }

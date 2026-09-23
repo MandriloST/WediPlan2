@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
 using Wediplan.Api.Domain;
+using Wediplan.Api.Services;
 
 namespace Wediplan.Api.Controllers;
 
@@ -20,7 +21,9 @@ public class AdminController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly UserManager<AppUser> _users;
-    public AdminController(AppDbContext db, UserManager<AppUser> users) { _db = db; _users = users; }
+    private readonly ClaimApprovalService _approval;
+    public AdminController(AppDbContext db, UserManager<AppUser> users, ClaimApprovalService approval)
+    { _db = db; _users = users; _approval = approval; }
 
     private Guid Uid() => Guid.Parse(_users.GetUserId(User)!);
 
@@ -55,23 +58,7 @@ public class AdminController : ControllerBase
         var vendor = await _db.Vendors.FirstOrDefaultAsync(v => v.Id == claim.VendorId, ct);
         if (vendor == null) return NotFound(new { error = "vendor_not_found" });
 
-        // Objavi draft (ako postoji) u živu verziju.
-        var draft = await _db.VendorDrafts.FirstOrDefaultAsync(d => d.VendorId == vendor.Id, ct);
-        if (draft != null) ProviderMapper.ApplyToVendor(draft, vendor);
-
-        vendor.ClaimStatus = "claimed";
-        vendor.OwnerUserId = claim.UserId;
-        vendor.UpdatedAt = DateTime.UtcNow;
-
-        claim.Status = "approved"; claim.DecidedBy = Uid(); claim.DecidedAt = DateTime.UtcNow;
-
-        // Ostali pending zahtjevi za istog pružatelja → odbijeni.
-        var others = await _db.Claims
-            .Where(c => c.VendorId == vendor.Id && c.Id != claim.Id && c.Status == "pending")
-            .ToListAsync(ct);
-        foreach (var o in others) { o.Status = "rejected"; o.DecidedBy = Uid(); o.DecidedAt = DateTime.UtcNow; }
-
-        await _db.SaveChangesAsync(ct);
+        await _approval.ApproveAsync(claim, vendor, decidedBy: Uid(), ct);
         return Ok(new { status = "approved" });
     }
 

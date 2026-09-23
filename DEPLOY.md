@@ -226,3 +226,34 @@ i na frontend. Error log: pratiti stderr .NET procesa (systemd `journalctl -u we
 ### 6. Migracije
 Faza 5 **ne uvodi novu migraciju** (tablica `vendor_photos` postoji od Faze 1). Potrebno je samo
 `dotnet restore` (novi paketi ImageSharp + AWSSDK.S3) i `dotnet build`.
+
+## Plan prioriteti 2, Zadatak 5 — claim e-mail verifikacija (2026-09-23)
+
+**1. Migracija** (nova tablica `claim_verification_tokens`):
+```bash
+cd backend/Wediplan.Api
+dotnet ef migrations add ClaimVerification
+dotnet ef database update
+```
+(Sandbox u kojem je kod pisan nema pristup NuGet-u — isto ograničenje kao Faze 1/3/4 — pa
+migracija NIJE generirana ondje. Kod je pažljivo ručno pregledan, ali **`dotnet build` i
+`dotnet test` je potrebno pokrenuti ovdje, PRIJE mergea**, v. napomenu u STANJE.md ove sesije.)
+
+**2. Nova konfiguracija** (appsettings ili env; opcionalna — bez nje default je `true`):
+```
+Claims__AutoApproveOnEmailVerify = true    (default true; postavi na false da vratiš na "jak
+                                             dokaz + admin klik" bez ikakve izmjene koda)
+```
+
+**3. Ručni test toka:**
+- Kao korisnik A zatraži claim na nekom profilu (kao dosad).
+- Na `ClaimPanel`-u klikni "Potvrdi vlasništvo e-mailom" → ako profil ima `Vendor.Email`
+  (interni, iz importa), mail (konzola ako nema Resenda) sadrži poveznicu na
+  `/partner/potvrda-vlasnistva?token=…`.
+- Otvori tu poveznicu (prijavljen kao isti korisnik A) → gumb/auto-potvrda → uz
+  `Claims:AutoApproveOnEmailVerify=true` (default) profil je ODMAH `claimed`, korisnik A vlasnik.
+- Postavi `Claims__AutoApproveOnEmailVerify=false`, ponovi s drugim profilom → nakon potvrde
+  status ostaje `pending`, ali `/admin` prikazuje bedž "✓ e-mail potvrđen" — admin i dalje klikne
+  Odobri.
+- Profil bez `Vendor.Email` → gumb za e-mail potvrdu prikazuje objašnjenje da odobrava admin
+  (fallback na dosadašnji `domain_match`/ručni pregled).

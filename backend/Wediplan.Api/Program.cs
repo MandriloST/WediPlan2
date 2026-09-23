@@ -102,6 +102,7 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["Email:ResendApiKey"]))
 else
     builder.Services.AddSingleton<Wediplan.Api.Auth.IEmailSender, Wediplan.Api.Auth.ConsoleEmailSender>();
 builder.Services.AddScoped<Wediplan.Api.Auth.AuthEmails>();
+builder.Services.AddScoped<Wediplan.Api.Services.ClaimApprovalService>();
 
 // ---------------------------------------------------------------- Faza 5: slike + očvršćivanje
 // Pohrana slika: R2 (S3) ako je Storage:R2:Bucket postavljen, inače lokalno (dev/self-host).

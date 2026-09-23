@@ -2,25 +2,41 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Wediplan.Api.Auth;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
 using Wediplan.Api.Domain;
+using Wediplan.Api.Services;
 
 namespace Wediplan.Api.Controllers;
 
 /// <summary>
 /// Preuzimanje profila (§6). Prijavljeni korisnik traži claim nad pružateljem; claim ide u
 /// <c>pending</c>, korisnik dobiva rolu <c>provider</c> i pristup uređivanju DRAFTA (javni profil
-/// se ne mijenja do odobrenja admina). Evidence <c>domain_match</c> izvodi se iz e-mail domene.
+/// se ne mijenja do odobrenja admina). Evidence <c>domain_match</c> izvodi se iz e-mail domene;
+/// <c>email_verified</c> (§Zadatak 5) potvrdom poveznice poslane na Vendor.Email.
 /// </summary>
 [ApiController]
 [Route("api/claims")]
 [Authorize]
 public class ClaimsController : ControllerBase
 {
+    // Anti-zloupotreba slanja verifikacijskog maila (§Zadatak 5): max ovoliko nepotrošenih
+    // tokena po claimu unutar 24h, i minimalni razmak između dva slanja.
+    private const int MaxTokensPer24h = 3;
+    private static readonly TimeSpan ResendCooldown = TimeSpan.FromMinutes(2);
+
     private readonly AppDbContext _db;
     private readonly UserManager<AppUser> _users;
-    public ClaimsController(AppDbContext db, UserManager<AppUser> users) { _db = db; _users = users; }
+    private readonly AuthEmails _emails;
+    private readonly ClaimApprovalService _approval;
+    private readonly IConfiguration _cfg;
+
+    public ClaimsController(AppDbContext db, UserManager<AppUser> users, AuthEmails emails,
+        ClaimApprovalService approval, IConfiguration cfg)
+    {
+        _db = db; _users = users; _emails = emails; _approval = approval; _cfg = cfg;
+    }
 
     private Guid Uid() => Guid.Parse(_users.GetUserId(User)!);
 
@@ -89,6 +105,77 @@ public class ClaimsController : ControllerBase
             select new ClaimDto(c.Id.ToString(), v.Slug, v.Name, c.Status, c.Evidence, c.CreatedAt)
         ).ToListAsync(ct);
         return Ok(rows);
+    }
+
+    /// <summary>
+    /// POST /api/claims/{id}/send-verification — pošalji jednokratni token na Vendor.Email (§Zadatak 5).
+    /// Vraća maskiranu adresu (npr. "t***@domena.hr") — puna interna adresa se nikad ne izlaže korisniku.
+    /// </summary>
+    [HttpPost("{id:guid}/send-verification")]
+    public async Task<IActionResult> SendVerification(Guid id, CancellationToken ct)
+    {
+        var uid = Uid();
+        var claim = await _db.Claims.FirstOrDefaultAsync(c => c.Id == id && c.UserId == uid, ct);
+        if (claim == null) return NotFound();
+        if (claim.Status != "pending") return Conflict(new { error = "already_decided" });
+
+        var vendor = await _db.Vendors.FirstOrDefaultAsync(v => v.Id == claim.VendorId, ct);
+        if (vendor == null) return NotFound(new { error = "vendor_not_found" });
+        if (string.IsNullOrWhiteSpace(vendor.Email)) return BadRequest(new { error = "no_email_on_file" });
+
+        var recent = await _db.ClaimVerificationTokens
+            .Where(t => t.ClaimId == claim.Id && t.CreatedAt > DateTime.UtcNow.AddHours(-24))
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync(ct);
+        if (recent.Count >= MaxTokensPer24h || (recent.Count > 0 && recent[0].CreatedAt > DateTime.UtcNow - ResendCooldown))
+            return StatusCode(StatusCodes.Status429TooManyRequests, new { error = "too_many_requests" });
+
+        var raw = Tokens.NewRaw();
+        _db.ClaimVerificationTokens.Add(new ClaimVerificationToken
+        {
+            ClaimId = claim.Id,
+            TokenHash = Tokens.Hash(raw),
+            ExpiresAt = DateTime.UtcNow.AddHours(24),
+        });
+        await _db.SaveChangesAsync(ct);
+
+        await _emails.SendClaimVerification(vendor.Email!, vendor.Name, raw, ct);
+        return Ok(new { sentTo = ProviderMapper.MaskEmail(vendor.Email!) });
+    }
+
+    /// <summary>
+    /// POST /api/claims/verify — potvrdi token iz maila. Auto-odobri kad je claim pending i
+    /// <c>Claims:AutoApproveOnEmailVerify</c> nije eksplicitno isključen (default true) — jednom
+    /// izmjenom te postavke se ponašanje vraća na "jak dokaz + admin klik".
+    /// </summary>
+    [HttpPost("verify")]
+    public async Task<IActionResult> Verify([FromBody] VerifyClaimRequest req, CancellationToken ct)
+    {
+        var uid = Uid();
+        var hash = Tokens.Hash(req.Token);
+        var token = await _db.ClaimVerificationTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
+        if (token == null || token.ConsumedAt != null || token.ExpiresAt < DateTime.UtcNow)
+            return BadRequest(new { error = "invalid_token" });
+
+        var claim = await _db.Claims.FirstOrDefaultAsync(c => c.Id == token.ClaimId, ct);
+        if (claim == null) return BadRequest(new { error = "invalid_token" });
+        if (claim.UserId != uid) return StatusCode(StatusCodes.Status403Forbidden, new { error = "not_your_claim" });
+
+        token.ConsumedAt = DateTime.UtcNow;
+        claim.Evidence = "email_verified";
+
+        if (claim.Status == "pending" && _cfg.GetValue("Claims:AutoApproveOnEmailVerify", true))
+        {
+            var vendor = await _db.Vendors.FirstOrDefaultAsync(v => v.Id == claim.VendorId, ct);
+            if (vendor != null)
+            {
+                await _approval.ApproveAsync(claim, vendor, decidedBy: null, ct);
+                return Ok(new { status = "approved" });
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { status = "verified" });
     }
 
     private async Task<ClaimDto> ToDto(Claim c, Vendor v) =>

@@ -10,6 +10,74 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
+## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`): SEO (Zadatak 6) gotov na grani `feat/seo-jsonld-og` (2026-09-23, v. sesiju u toj grani ako još nije mergean u develop). Zadatak 5 (ova bilješka) na grani `feat/claim-email-verify`. Redoslijed: 6→5→7→9→8.
+
+## Sesija 2026-09-23 — Zadatak 5 (claim e-mail verifikacija, auto-approve) — kod gotov, **backend build/test NEPOTVRĐEN** (grana `feat/claim-email-verify`)
+
+Implementiran Zadatak 5 (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) u cijelosti: token na `Vendor.Email`,
+auto-approve sa sklopkom, admin bedž, frontend tok. **VAŽNO — pročitaj prije mergea:** sandbox u
+kojem je ovo pisano nema pristup `api.nuget.org` (`x-deny-reason: host_not_allowed`, potvrđeno
+`curl`-om) — isto ograničenje kao Faze 1/3/4 (v. postojeće napomene u `DEPLOY.md`), pa **`dotnet
+build`, `dotnet test` i `dotnet ef migrations add` NISU pokrenuti ovdje**. Backend kod je umjesto
+toga pažljivo ručno pregledan red-po-red (namespace/using provjere, potencijalne dvosmislenosti
+tipova) — ali to NIJE zamjena za stvarnu kompilaciju. **Prije mergea u develop, vlasnik MORA:**
+```bash
+cd backend/Wediplan.Api && dotnet ef migrations add ClaimVerification && cd ..
+dotnet build Wediplan.sln -c Release   # mora proći
+dotnet test                             # mora biti zeleno (9 novih testova + postojeći)
+```
+
+**Backend — novo/izmijenjeno:**
+- `Domain/ProviderEntities.cs` — `ClaimVerificationToken` (Id, ClaimId, TokenHash, CreatedAt,
+  ExpiresAt, ConsumedAt), isti obrazac kao `EmailVerificationToken`. `Claim.Evidence` komentar
+  proširen (`email_verified`).
+- `Data/AppDbContext.cs` — `DbSet` + mapiranje (unique index na `TokenHash`, FK cascade na `Claim`).
+  *Napomena iz procesa:* prvi pokušaj ovog editna je slučajno pokidao susjedni `VendorDraft` blok
+  (str_replace je uklonio pogrešan raspon teksta) — odmah uočeno vizualnim pregledom i ispravljeno
+  u istoj sesiji; finalno stanje fajla je provjereno cjelovito.
+- `Services/ClaimApprovalService.cs` (novo) — `ApproveAsync(claim, vendor, decidedBy, ct)`:
+  izvučena zajednička logika iz `AdminController.ApproveClaim` (objava drafta, `claimed`+owner,
+  odbijanje ostalih pending). `decidedBy: null` = sustavno (auto) odobrenje. Koriste je i
+  `AdminController` (ručni klik, `decidedBy=Uid()`) i `ClaimsController.Verify` (auto-approve).
+- `Data/ProviderMapper.cs` — `MaskEmail()` (`"test@x.hr"` → `"t***@x.hr"`).
+- `Auth/AuthEmails.cs` — `SendClaimVerification(vendorEmail, vendorName, rawToken, ct)`; link ide
+  na `/partner/potvrda-vlasnistva?token=` (frontend, isti obrazac kao `/prijava/potvrda`).
+- `Contracts/ProviderContracts.cs` — `VerifyClaimRequest(string Token)`.
+- `Controllers/ClaimsController.cs` — `POST /{id}/send-verification` (max 3 tokena/24h + 2min
+  cooldown protiv zloupotrebe; 400 `no_email_on_file` ako `vendor.Email` nedostaje; vraća
+  maskiranu adresu, NIKAD punu) i `POST /verify` (provjera hasha+isteka+potrošenosti; `Evidence
+  = "email_verified"`; auto-approve preko `Claims:AutoApproveOnEmailVerify` config ključa, default
+  `true`; 403 `not_your_claim` ako token pripada tuđem claimu).
+- `Controllers/AdminController.cs` — `ApproveClaim` sad tanki wrapper oko `ClaimApprovalService`.
+- `Program.cs` — registriran `ClaimApprovalService` (scoped).
+- `Wediplan.Api.Tests/ClaimVerificationTests.cs` (novo, 9 testova) — happy path (auto-approve
+  on/off), istekao token, potrošen token, nepoznat token, token tuđeg korisnika (403), rate limit
+  na send-verification, no-email fallback. **Napomena:** `Claim` je dvosmisleno ime naspram
+  `System.Security.Claims.Claim` kad su oba namespacea uvezena (`using Wediplan.Api.Domain;` +
+  `using System.Security.Claims;`, potonji treba za `ClaimsPrincipal`/`ClaimTypes` u testu) —
+  riješeno alias-om `using DomainClaim = Wediplan.Api.Domain.Claim;`. Vrijedi zapamtiti za buduće
+  testove koji dodiruju i domenski `Claim` i auth claims.
+
+**Frontend — potvrđeno (`tsc --noEmit` + `npm run build` čisti, `next start` vizualno provjeren):**
+- `lib/api/provider.ts` — `claimApi.sendVerification/verify` + HR poruke (`no_email_on_file`,
+  `too_many_requests`, `invalid_token`, `not_your_claim`, `already_decided`).
+- `components/ClaimPanel.tsx` — nakon poslanog zahtjeva nudi "Potvrdi vlasništvo e-mailom"
+  (osim ako je evidence već `email_verified` ili nema email na profilu). Prošao kroz dvije runde
+  čišćenja unutar iste sesije: prvi pokušaj je ostavio mrtvi/pogrešan kod (usporedba ishoda greške
+  preko `providerMessage()` koja nikad ne bi radila ispravno, plus dupliciran blok JSX-a na kraju
+  fajla od jednog neurednog str_replace-a) — oboje uočeno pri `tsc`/vizualnom pregledu i ispravljeno
+  prije predaje; finalna verzija koristi `AuthError.code` izravno za `no_email_on_file` grananje.
+- `app/partner/potvrda-vlasnistva/page.tsx` + `components/ClaimVerifyClient.tsx` (novo) — auto-fire
+  na mount (isti obrazac kao postojeći `TokenAction`/`/prijava/potvrda`, NE ručni gumb kako je
+  prvotni plan naveo — usklađeno s već postojećom konvencijom u repou radi dosljednosti).
+- `components/AdminPanel.tsx` — bedž "✓ e-mail potvrđen" za `evidence === "email_verified"`
+  (relevantno uglavnom kad je auto-approve isključen, jer inače takvi claimovi ne stignu u pending).
+
+**Dokumentacija:** `API.md` (dva nova endpointa, `ClaimDto.evidence` prošireno), `DEPLOY.md` (nova
+sekcija s migracijom, config ključem, ručnim testom toka — v. gore za točne komande).
+
+**Sljedeći korak:** nakon što vlasnik potvrdi `dotnet build`/`dotnet test`/migraciju lokalno →
+Zadatak 7 (partner mailovi) iz `PLAN-PRIORITETI-LANSIRANJE-2.md`.
 
 ## Sesija 2026-09-22 (e) — Potvrđeno: dotnet build + dotnet test prolaze (4/4)
 Nakon dva popravka iz prošle bilješke, vlasnik ponovno pokrenuo `dotnet test backend/Wediplan.sln`:

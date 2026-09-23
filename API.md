@@ -213,8 +213,22 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
   (idempotentno); odbijeni se može ponovno zatražiti.
   `evidence`: `"domain_match"` kad se domena e-maila korisnika poklapa s web-domenom profila.
 - `GET /api/claims/mine` → `ClaimDto[]` (svi zahtjevi korisnika).
+- **`POST /api/claims/{id}/send-verification`** (2026-09 · Plan prioriteti 2, Zadatak 5) →
+  `{ sentTo }` (maskirana adresa, npr. `"t***@domena.hr"` — puna `vendor.Email` se nikad ne
+  vraća). Šalje jednokratni token (24h) na `vendor.Email` (interni, iz importa — jak dokaz
+  vlasništva jer profil javno ne izlaže tu adresu). 404 ako claim nije korisnikov ili ne
+  postoji; 409 `already_decided` ako claim više nije pending; 400 `no_email_on_file` ako
+  pružatelj nema email na profilu (fallback ostaje `domain_match`/admin); 429
+  `too_many_requests` (anti-zloupotreba: max 3 tokena/24h, min. 2 min razmak).
+- **`POST /api/claims/verify`** `{token}` (2026-09 · Zadatak 5) → `{status: "approved"|"verified"}`.
+  Potvrđuje token; postavlja `evidence="email_verified"`. Ako je claim još pending **i**
+  `Claims:AutoApproveOnEmailVerify` nije eksplicitno `false` (default `true`) → auto-odobrava
+  (ista logika kao admin approve, `decidedBy=null`) i vraća `"approved"`; inače samo bilježi
+  dokaz i vraća `"verified"` (čeka admina). 400 `invalid_token` (nepostojeći/istekao/potrošen);
+  403 `not_your_claim` (token pripada tuđem claimu).
 
 `ClaimDto`: `{ id, vendorSlug, vendorName, status: pending|approved|rejected, evidence, createdAt }`.
+`evidence`: `"domain_match" | "email_verified" | ""`.
 
 ### Nadzorna ploča partnera
 - `GET /api/provider/vendors` → `ProviderVendorDto[]` — pružatelji koje korisnik posjeduje ili
