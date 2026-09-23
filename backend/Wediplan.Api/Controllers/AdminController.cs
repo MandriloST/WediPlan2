@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Wediplan.Api.Auth;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
 using Wediplan.Api.Domain;
@@ -22,8 +23,14 @@ public class AdminController : ControllerBase
     private readonly AppDbContext _db;
     private readonly UserManager<AppUser> _users;
     private readonly ClaimApprovalService _approval;
-    public AdminController(AppDbContext db, UserManager<AppUser> users, ClaimApprovalService approval)
-    { _db = db; _users = users; _approval = approval; }
+    private readonly PartnerEmails _emails;
+    private readonly ILogger<AdminController> _log;
+
+    public AdminController(AppDbContext db, UserManager<AppUser> users, ClaimApprovalService approval,
+        PartnerEmails emails, ILogger<AdminController> log)
+    {
+        _db = db; _users = users; _approval = approval; _emails = emails; _log = log;
+    }
 
     private Guid Uid() => Guid.Parse(_users.GetUserId(User)!);
 
@@ -71,6 +78,19 @@ public class AdminController : ControllerBase
         if (claim.Status != "pending") return Conflict(new { error = "already_decided" });
         claim.Status = "rejected"; claim.DecidedBy = Uid(); claim.DecidedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        // §Zadatak 7 — best-effort obavijest; pad slanja ne obara odluku (već spremljena).
+        try
+        {
+            var vendor = await _db.Vendors.AsNoTracking().FirstOrDefaultAsync(v => v.Id == claim.VendorId, ct);
+            var user = await _users.FindByIdAsync(claim.UserId.ToString());
+            if (vendor != null && user?.Email != null) await _emails.SendClaimRejected(user.Email, vendor.Name, ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Slanje obavijesti o odbijenom claimu {ClaimId} nije uspjelo.", claim.Id);
+        }
+
         return Ok(new { status = "rejected" });
     }
 
@@ -99,6 +119,22 @@ public class AdminController : ControllerBase
         if (r.Status != "pending") return Conflict(new { error = "already_decided" });
         r.Status = "published"; r.DecidedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        // §Zadatak 7 — best-effort obavijest, SAMO ako je profil claiman (ima vlasnika koga obavijestiti).
+        try
+        {
+            var vendor = await _db.Vendors.AsNoTracking().FirstOrDefaultAsync(v => v.Id == r.VendorId, ct);
+            if (vendor?.OwnerUserId != null)
+            {
+                var owner = await _users.FindByIdAsync(vendor.OwnerUserId.Value.ToString());
+                if (owner?.Email != null) await _emails.SendReviewPublished(owner.Email, vendor.Name, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Slanje obavijesti o objavljenoj recenziji {ReviewId} nije uspjelo.", r.Id);
+        }
+
         return Ok(new { status = "published" });
     }
 

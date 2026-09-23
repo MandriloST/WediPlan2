@@ -257,3 +257,18 @@ Claims__AutoApproveOnEmailVerify = true    (default true; postavi na false da vr
   Odobri.
 - Profil bez `Vendor.Email` → gumb za e-mail potvrdu prikazuje objašnjenje da odobrava admin
   (fallback na dosadašnji `domain_match`/ručni pregled).
+
+## Plan prioriteti 2, Zadatak 7 — obavijesti partnerima (2026-09-23)
+
+Bez nove migracije i bez nove konfiguracije — koristi isti `IEmailSender`/`App:PublicUrl` kao
+auth mailovi (v. gore). Nova klasa `PartnerEmails` (`Auth/PartnerEmails.cs`) šalje:
+- claim odobren (i ručno preko admina i auto-approve iz Zadatka 5) → vlasniku, link na `/partner`;
+- claim odbijen → korisniku, neutralan tekst;
+- recenzija objavljena → vlasniku profila (**samo ako je profil claiman** — neclaimani profili
+  nemaju koga obavijestiti).
+
+Slanje je best-effort (try/catch oko `IEmailSender.SendAsync`, greška se samo logira) — admin
+akcija (approve/reject claim, approve review) uvijek vraća 200 bez obzira je li mail uspio.
+
+**Ručni test:** bez Resend ključa, odobri/odbij claim ili objavi recenziju u `/admin` → mail (s
+ispravnim imenom pružatelja i poveznicom na `/partner`) se ispisuje u konzolu servera.
