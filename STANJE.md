@@ -10,7 +10,36 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
-## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`): Zadaci 6, 5, 7, 9 **mergeani u develop i POTVRĐENI**. Zadatak 8 (ova bilješka, ZADNJI u drugom valu) na grani `feat/sentry`. Redoslijed 6→5→7→9→8 GOTOV nakon ovoga.
+## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
+
+## Sesija 2026-09-23 (e) — Drugi val prioriteta ZATVOREN: build+test potvrđeni za sve
+
+Vlasnik potvrdio da Zadaci 5, 7, 9 i 8 (claim e-mail verifikacija, partner mailovi, rate-limit,
+Sentry) prolaze `dotnet build` + `dotnet test` na njegovom stroju, uz Zadatak 6 (SEO) koji je
+frontend-only i već ranije potvrđen. Svih 5 grana mergeano u `develop`:
+`feat/seo-jsonld-og` → `feat/claim-email-verify` → `feat/partner-emails` →
+`feat/rate-limit-writes` → `feat/sentry`. `git log --oneline` na `develop` potvrđuje sve merge
+commitove uzastopno.
+
+Usput zabilježeno (nije dio ovog plana, postojalo je od Faze 6/prije): `npm install` javlja
+Node engine upozorenja za `@sentry/*` paketi (traže Node ≥20.19, vlasnikov stroj imao 20.10 —
+riješeno nadogradnjom Node-a) i "5 vulnerabilities (3 high, 2 critical)" na `npm audit` — potonje
+su poznate Next.js 14.2.15 CVE, nepovezano s ovom sesijom; vrijedi pregledati prije javnog
+lansiranja, ali ne blokira merge ovog plana.
+
+**Stanje po zadatku (svi ✅ dotnet build+test / tsc+build potvrđeni, na `develop`):**
+- **Zadatak 6 (SEO):** JSON-LD + OG slike. Frontend-only.
+- **Zadatak 5 (claim e-mail verifikacija):** migracija `ClaimVerification` primijenjena.
+- **Zadatak 7 (partner mailovi):** bez migracije.
+- **Zadatak 9 (rate-limit writes/auth):** bez migracije.
+- **Zadatak 8 (Sentry monitoring):** bez migracije. Aktivan tek kad se postavi `Sentry:Dsn`
+  (backend) / `NEXT_PUBLIC_SENTRY_DSN` (frontend) — do tada nula promjene ponašanja.
+
+**Sljedeći koraci (vlasnik odlučuje prioritet, nije više dio ovog plana):**
+1. Merge `develop` → `main` (Faza 6/lansiranje čeka na ovo — v. "Trenutna faza" red iznad).
+2. Postaviti stvarne Sentry DSN-ove (backend+frontend) kad se odluči krenuti u monitoring uživo.
+3. `npm audit` pregled prije javnog lansiranja (postojeće, nepovezano s ovim planom).
+4. Nakon merge u `main`: OPS koraci iz "Trenutna faza" reda (domena, pravne stranice, GSC).
 
 ## Sesija 2026-09-23 (d) — Zadatak 8 (monitoring: Sentry) — backend NEPOTVRĐEN, **frontend POTVRĐEN** (grana `feat/sentry`)
 

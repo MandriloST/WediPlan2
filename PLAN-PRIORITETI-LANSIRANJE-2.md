@@ -1,5 +1,9 @@
 # Plan: 5 stavki drugog vala (SEO, claim-verifikacija, obavijesti, rate-limit, monitoring)
 
+> ✅ **PLAN PROVEDEN U CIJELOSTI (2026-09-23).** Svih 5 zadataka mergeano u `develop`,
+> `dotnet build`+`dotnet test` i `npm run build` potvrđeni zeleno na vlasnikovom stroju.
+> Detalji po zadatku i sljedeći koraci: v. `STANJE.md`, sesija "Drugi val prioriteta ZATVOREN".
+
 > **Namjena:** ovaj dokument daješ Claude Sonnetu (ili drugom modelu) kao specifikaciju. Svaki zadatak je
 > samostalan, ima točne datoteke, provjerene uzorke iz postojećeg koda kojih se treba držati, i kriterij
 > „gotovo". Izvor istine je repo `WediPlan2` grana `develop`. **Prije koda pročitati** `STANJE.md`,
@@ -19,11 +23,11 @@
 > `feat/seo-jsonld-og`, `feat/claim-email-verify`, `feat/partner-emails`, `feat/rate-limit-writes`, `feat/sentry`.
 
 ## Status
-- [ ] **Zadatak 6 — SEO: JSON-LD + OG slike.** (frontend, bez sheme)
-- [ ] **Zadatak 5 — Claim e-mail verifikacija (auto-approve, prekidač za admin).** (backend+frontend, +migracija)
-- [ ] **Zadatak 7 — E-mail obavijesti partnerima.** (backend, bez sheme)
-- [ ] **Zadatak 9 — Očvršćivanje rate-limitinga (writes/auth politike).** (backend, bez sheme)
-- [ ] **Zadatak 8 — Monitoring: Sentry (backend + frontend).** (backend+frontend+ops, bez sheme)
+- [x] **Zadatak 6 — SEO: JSON-LD + OG slike.** (frontend, bez sheme)
+- [x] **Zadatak 5 — Claim e-mail verifikacija (auto-approve, prekidač za admin).** (backend+frontend, +migracija)
+- [x] **Zadatak 7 — E-mail obavijesti partnerima.** (backend, bez sheme)
+- [x] **Zadatak 9 — Očvršćivanje rate-limitinga (writes/auth politike).** (backend, bez sheme)
+- [x] **Zadatak 8 — Monitoring: Sentry (backend + frontend).** (backend+frontend+ops, bez sheme)
 
 ## Odluke potvrđene s vlasnikom (2026-09-23) — obvezujuće za izvedbu
 1. **#5 auto-approve:** na `email_verified` claim se **automatski odobrava**. Zadržati **jednu konfiguracijsku
