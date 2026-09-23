@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
@@ -16,6 +17,7 @@ namespace Wediplan.Api.Controllers;
 [ApiController]
 [Route("api/reviews")]
 [Authorize]
+[EnableRateLimiting("writes")] // §Zadatak 9 — pisanje, stroža sliding-window politika
 public class ReviewsController : ControllerBase
 {
     private readonly AppDbContext _db;

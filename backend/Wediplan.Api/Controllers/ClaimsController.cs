@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Auth;
 using Wediplan.Api.Contracts;
@@ -42,6 +43,7 @@ public class ClaimsController : ControllerBase
 
     /// <summary>POST /api/claims — zatraži preuzimanje profila.</summary>
     [HttpPost]
+    [EnableRateLimiting("writes")] // §Zadatak 9
     public async Task<ActionResult<ClaimDto>> Create([FromBody] ClaimRequest req, CancellationToken ct)
     {
         var uid = Uid();
@@ -112,6 +114,7 @@ public class ClaimsController : ControllerBase
     /// Vraća maskiranu adresu (npr. "t***@domena.hr") — puna interna adresa se nikad ne izlaže korisniku.
     /// </summary>
     [HttpPost("{id:guid}/send-verification")]
+    [EnableRateLimiting("writes")] // §Zadatak 9 — uz vlastiti (finiji) anti-abuse iznad
     public async Task<IActionResult> SendVerification(Guid id, CancellationToken ct)
     {
         var uid = Uid();
@@ -149,6 +152,7 @@ public class ClaimsController : ControllerBase
     /// izmjenom te postavke se ponašanje vraća na "jak dokaz + admin klik".
     /// </summary>
     [HttpPost("verify")]
+    [EnableRateLimiting("writes")] // §Zadatak 9
     public async Task<IActionResult> Verify([FromBody] VerifyClaimRequest req, CancellationToken ct)
     {
         var uid = Uid();

@@ -10,7 +10,46 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
-## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`): Zadaci 6 i 5 **mergeani u develop i POTVRĐENI** (dotnet build+test zeleno, migracija `ClaimVerification` primijenjena — vlasnik potvrdio 2026-09-23). Zadatak 7 (ova bilješka) na grani `feat/partner-emails`. Redoslijed: 6→5→7→9→8.
+## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`): Zadaci 6, 5, 7 **mergeani u develop i POTVRĐENI**. Zadatak 9 (ova bilješka) na grani `feat/rate-limit-writes`. Redoslijed: 6→5→7→9→8.
+
+## Sesija 2026-09-23 (c) — Zadatak 9 (rate-limit writes/auth politike) — kod gotov, **backend build/test NEPOTVRĐEN** (grana `feat/rate-limit-writes`)
+
+Implementiran Zadatak 9 (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) u cijelosti. **Isto ograničenje kao
+Zadaci 5/7:** sandbox nema pristup `api.nuget.org` pa `dotnet build`/`dotnet test` NISU pokrenuti
+ovdje — kod je ručno pregledan (uklj. provjeru balansa zagrada po fajlu). **Bez migracije.**
+```bash
+dotnet build backend/Wediplan.sln -c Release   # mora proći
+dotnet test                                     # mora biti zeleno — 2 nova testa u RateLimitingTests
+```
+
+**Backend — novo/izmijenjeno:**
+- `Program.cs` — dodan `using System.Threading.RateLimiting;` (skraćeni nazivi, umjesto punih
+  fully-qualified poziva svugdje u bloku). Nove politike: `"writes"` (sliding-window, 20/min,
+  particija po korisniku-ili-IP-u preko novog `PartitionKey()` helpera) i `"auth"` (sliding-window,
+  10/min, particija po IP-u — komplementarno Identity lockoutu 8/15min). `OnRejected` sad uvijek
+  postavlja `Retry-After: 60`. Postojeće `GlobalLimiter` (300/min) i `"lists"` (60/min) NEDIRANI.
+- `Controllers/ReviewsController.cs` — class-level `[EnableRateLimiting("writes")]`.
+- `Controllers/ClaimsController.cs` — `[EnableRateLimiting("writes")]` na `Create`,
+  `SendVerification`, `Verify` (NE na `Mine`, koji ostaje GET pod globalnim limitom).
+- `Controllers/OptOutController.cs` — promijenjeno s `"lists"` na `"writes"` (bilo pogrešno prije —
+  ovo je pisanje, ne lista).
+- `Controllers/AuthController.cs` — class-level `[EnableRateLimiting("auth")]`;
+  **`[DisableRateLimiting]`** na `Logout` (traži već aktivnu sesiju, nema smisla za spam/enumeraciju).
+  Napomena: plan je eksplicitno naveo "login/register/magic/reset"; class-level pristup znači da je
+  i `verify-email` (strukturno identičan `magic/consume` — token-consuming endpoint) obuhvaćen —
+  namjerna, dokumentirana odluka, ne previd.
+- `Wediplan.Api.Tests/RateLimitingTests.cs` (novo, 2 testa) — puna app preko
+  `WebApplicationFactory<Program>` (isti obrazac kao `HealthEndpointTests`): 15 brzih POST-ova na
+  `/api/auth/login` mora proizvesti barem jedan `429` s `Retry-After` zaglavljem (limit 10/min);
+  kontrolni test da `/api/vendors` i dalje radi pod nedirаnom `"lists"` politikom. Ovo je bio jedini
+  način da se NOVO ponašanje stvarno provjeri ovdje bez pokretanja prave baze — plan je predlagao
+  ručnu provjeru, koju vlasnik može ponoviti, ali automatizirani test daje jače jamstvo unaprijed.
+
+**Bez frontend izmjena.** `API.md` ažuriran (rate-limit paragraf prošireno s writes/auth
+politikama, cross-referenca kod send-verification). `DEPLOY.md` nije trebalo mijenjati (nema nove
+konfiguracije — sve je hardkodirano u Program.cs kao i prije).
+
+**Sljedeći korak:** nakon potvrde build/test → Zadatak 8 (Sentry monitoring, zadnji u drugom valu).
 
 ## Sesija 2026-09-23 (b) — Zadatak 7 (obavijesti partnerima) — kod gotov, **backend build/test NEPOTVRĐEN** (grana `feat/partner-emails`)
 
