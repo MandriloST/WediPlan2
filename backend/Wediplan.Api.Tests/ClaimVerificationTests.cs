@@ -38,8 +38,16 @@ public class ClaimVerificationTests
         }
     }
 
+    /// <summary>§Zadatak 7 — simulira pad slanja (npr. neispravan Resend ključ) da provjeri da
+    /// odobrenje claima NIKAD ne padne zbog toga (best-effort, try/catch u ClaimApprovalService).</summary>
+    private class ThrowingEmailSender : IEmailSender
+    {
+        public Task SendAsync(string toEmail, string subject, string htmlBody, string textBody, CancellationToken ct = default)
+            => throw new InvalidOperationException("Simulirani pad slanja e-maila (test).");
+    }
+
     private static (AppDbContext Db, UserManager<AppUser> Users, FakeEmailSender Emails, ClaimsController Controller)
-        Build(bool autoApprove = true)
+        Build(bool autoApprove = true, IEmailSender? emailSenderOverride = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -61,7 +69,9 @@ public class ClaimVerificationTests
             .Build();
         var emails = new FakeEmailSender();
         var authEmails = new AuthEmails(emails, cfg);
-        var approval = new ClaimApprovalService(db);
+        var partnerEmails = new PartnerEmails(emailSenderOverride ?? emails, cfg);
+        var approvalLog = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ClaimApprovalService>>();
+        var approval = new ClaimApprovalService(db, users, partnerEmails, approvalLog);
 
         // Principal se postavlja tek preko SetUser() nakon što je pravi korisnik seedan.
         var controller = new ClaimsController(db, users, authEmails, approval, cfg);
@@ -176,6 +186,29 @@ public class ClaimVerificationTests
         var reloadedVendor = await db.Vendors.FirstAsync(v => v.Id == vendor.Id);
         Assert.Equal("claimed", reloadedVendor.ClaimStatus);
         Assert.Equal(user.Id, reloadedVendor.OwnerUserId);
+    }
+
+    [Fact]
+    public async Task Verify_StillApproves_WhenPartnerNotificationEmailFails()
+    {
+        // §Zadatak 7 — pad slanja obavijesti (npr. neispravan Resend ključ) NIKAD ne smije
+        // srušiti odobrenje koje je već spremljeno u bazu (best-effort, try/catch).
+        var (db, users, _, controller) = Build(autoApprove: true, emailSenderOverride: new ThrowingEmailSender());
+        var user = await SeedUserAsync(users);
+        var vendor = SeedVendor(db);
+        var claim = SeedPendingClaim(db, user.Id, vendor.Id);
+        SetUser(controller, user.Id);
+        var raw = Tokens.NewRaw();
+        db.ClaimVerificationTokens.Add(new ClaimVerificationToken
+        { ClaimId = claim.Id, TokenHash = Tokens.Hash(raw), ExpiresAt = DateTime.UtcNow.AddHours(24) });
+        await db.SaveChangesAsync();
+
+        var result = await controller.Verify(new VerifyClaimRequest(raw), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal("approved", GetStatus(ok.Value));
+        var reloadedVendor = await db.Vendors.FirstAsync(v => v.Id == vendor.Id);
+        Assert.Equal("claimed", reloadedVendor.ClaimStatus); // odobrenje je prošlo unatoč padu maila
     }
 
     [Fact]

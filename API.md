@@ -257,6 +257,12 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
 - `POST /api/admin/reviews/{id}/approve` (→ `published`) · `POST …/reject`.
 - `POST /api/admin/vendors/{slug}/unpublish` · `POST …/publish` → toggla `is_published` (§9).
 
+**Obavijesti partnerima** (2026-09 · Plan prioriteti 2, Zadatak 7): `approve claim`, `reject claim`
+i `approve review` (samo ako je profil claiman, tj. `vendor.OwnerUserId` postoji) šalju vlasniku
+HR mail nakon uspješnog spremanja (`PartnerEmails`, isti `IEmailSender` kao auth mailovi — dev
+konzola bez Resend ključa). Slanje je **best-effort**: pad (npr. neispravan Resend ključ) se samo
+logira, admin akcija i dalje vraća 200 — odgovor korisniku ovih endpointa se ne mijenja.
+
 Napomena: objavljene korisničke recenzije zasad NE mijenjaju `vendor.rating`/`reviewCount`
 (oni ostaju iz importa). Stapanje ocjena je zasebna odluka (v. PLAN §11 #19).
 

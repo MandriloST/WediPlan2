@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Wediplan.Api.Auth;
 using Wediplan.Api.Data;
 using Wediplan.Api.Domain;
 
@@ -8,18 +10,28 @@ namespace Wediplan.Api.Services;
 /// Zajednička logika odobrenja claima (§Zadatak 5, PLAN-PRIORITETI-LANSIRANJE-2.md) — dijele je
 /// <see cref="Wediplan.Api.Controllers.AdminController.ApproveClaim"/> (ručni klik) i auto-approve put u
 /// <see cref="Wediplan.Api.Controllers.ClaimsController.Verify"/> (nakon potvrde e-maila). Jedan izvor
-/// istine za nuspojave odobrenja (objava drafta, owner, odbijanje ostalih pending zahtjeva).
+/// istine za nuspojave odobrenja (objava drafta, owner, odbijanje ostalih pending zahtjeva, i od
+/// §Zadatak 7 — obavijest vlasniku mailom).
 /// </summary>
 public class ClaimApprovalService
 {
     private readonly AppDbContext _db;
-    public ClaimApprovalService(AppDbContext db) { _db = db; }
+    private readonly UserManager<AppUser> _users;
+    private readonly PartnerEmails _emails;
+    private readonly ILogger<ClaimApprovalService> _log;
+
+    public ClaimApprovalService(AppDbContext db, UserManager<AppUser> users, PartnerEmails emails,
+        ILogger<ClaimApprovalService> log)
+    {
+        _db = db; _users = users; _emails = emails; _log = log;
+    }
 
     /// <summary>
     /// Odobri claim: objavi draft (ako postoji) u živu verziju, postavi vendor.ClaimStatus/OwnerUserId,
     /// označi claim odobrenim i odbij ostale pending zahtjeve za istog pružatelja (jedan vlasnik).
     /// <paramref name="decidedBy"/> je <c>null</c> za sustavno (auto) odobrenje — admin klik prosljeđuje
-    /// svoj Id.
+    /// svoj Id. Nakon uspješnog spremanja, BEST-EFFORT šalje vlasniku obavijest mailom (§Zadatak 7) —
+    /// pad slanja se samo logira, NIKAD ne baca dalje (odobrenje je već spremljeno u bazu).
     /// </summary>
     public async Task ApproveAsync(Claim claim, Vendor vendor, Guid? decidedBy, CancellationToken ct)
     {
@@ -41,5 +53,16 @@ public class ClaimApprovalService
         foreach (var o in others) { o.Status = "rejected"; o.DecidedBy = decidedBy; o.DecidedAt = DateTime.UtcNow; }
 
         await _db.SaveChangesAsync(ct);
+
+        // §Zadatak 7 — best-effort obavijest. NIKAD ne obara odobrenje koje je već spremljeno.
+        try
+        {
+            var owner = await _users.FindByIdAsync(claim.UserId.ToString());
+            if (owner?.Email != null) await _emails.SendClaimApproved(owner.Email, vendor.Name, ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Slanje obavijesti o odobrenom claimu {ClaimId} nije uspjelo.", claim.Id);
+        }
     }
 }

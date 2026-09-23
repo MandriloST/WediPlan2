@@ -10,7 +10,40 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
-## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`): SEO (Zadatak 6) gotov na grani `feat/seo-jsonld-og` (2026-09-23, v. sesiju u toj grani ako još nije mergean u develop). Zadatak 5 (ova bilješka) na grani `feat/claim-email-verify`. Redoslijed: 6→5→7→9→8.
+## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`): Zadaci 6 i 5 **mergeani u develop i POTVRĐENI** (dotnet build+test zeleno, migracija `ClaimVerification` primijenjena — vlasnik potvrdio 2026-09-23). Zadatak 7 (ova bilješka) na grani `feat/partner-emails`. Redoslijed: 6→5→7→9→8.
+
+## Sesija 2026-09-23 (b) — Zadatak 7 (obavijesti partnerima) — kod gotov, **backend build/test NEPOTVRĐEN** (grana `feat/partner-emails`)
+
+Implementiran Zadatak 7 (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) u cijelosti. **Isto ograničenje kao
+Zadatak 5:** sandbox nema pristup `api.nuget.org` pa `dotnet build`/`dotnet test` NISU pokrenuti
+ovdje — kod je ručno pregledan. **Bez nove migracije** (ovaj zadatak ne dira shemu). Prije mergea:
+```bash
+dotnet build backend/Wediplan.sln -c Release   # mora proći
+dotnet test                                     # mora biti zeleno — 10 testova u ClaimVerificationTests
+```
+
+**Backend — novo/izmijenjeno:**
+- `Auth/PartnerEmails.cs` (novo) — `SendClaimApproved`/`SendClaimRejected`/`SendReviewPublished`,
+  isti obrazac kao `AuthEmails` (DI `IEmailSender`, link na `/partner`).
+- `Services/ClaimApprovalService.cs` — sad prima i `UserManager<AppUser>`, `PartnerEmails`,
+  `ILogger<ClaimApprovalService>`; nakon `SaveChanges` best-effort šalje `SendClaimApproved`
+  (try/catch, log na pad, nikad ne baca dalje) — pokriva i ručni admin approve i auto-approve
+  (Zadatak 5) jednim mjestom.
+- `Controllers/AdminController.cs` — `RejectClaim` šalje `SendClaimRejected`; `ApproveReview`
+  šalje `SendReviewPublished` SAMO ako je profil claiman (`vendor.OwnerUserId != null`) — oba
+  best-effort (try/catch + `ILogger`).
+- `Program.cs` — registriran `PartnerEmails` (scoped).
+- `Wediplan.Api.Tests/ClaimVerificationTests.cs` — dopunjen: `ThrowingEmailSender` (simulira pad
+  slanja) + novi test `Verify_StillApproves_WhenPartnerNotificationEmailFails` koji potvrđuje
+  ključni zahtjev zadatka (pad maila ne obara odobrenje). `Build()` helper sad prima opcionalni
+  `emailSenderOverride` za ovakve testove. Ukupno 10 testova u fajlu (bilo 9).
+
+**Bez frontend izmjena** (zadatak je čisto backend — nuspojava postojećih admin akcija).
+
+**Dokumentacija:** `API.md` (napomena o mail-nuspojavama uz admin claim/review rute), `DEPLOY.md`
+(nova sekcija — bez nove konfiguracije, reuse `IEmailSender`/`App:PublicUrl`).
+
+**Sljedeći korak:** nakon potvrde build/test → Zadatak 9 (rate-limit writes/auth politike).
 
 ## Sesija 2026-09-23 — Zadatak 5 (claim e-mail verifikacija, auto-approve) — kod gotov, **backend build/test NEPOTVRĐEN** (grana `feat/claim-email-verify`)
 
