@@ -32,6 +32,7 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
 
     // Faza 4 — claim, korisničke recenzije, draft uređivanja, pretplate
     public DbSet<Claim> Claims => Set<Claim>();
+    public DbSet<ClaimVerificationToken> ClaimVerificationTokens => Set<ClaimVerificationToken>();
     public DbSet<UserReview> UserReviews => Set<UserReview>();
     public DbSet<VendorDraft> VendorDrafts => Set<VendorDraft>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
@@ -192,6 +193,17 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.HasIndex(x => new { x.UserId, x.VendorId }).IsUnique();
             e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Vendor>().WithMany().HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Dokaz vlasništva claima e-mailom (§Zadatak 5). FK cascade na Claim — briše li se
+        // claim (npr. korisnik obriše račun → kaskadno preko AppUser), token nestaje s njim.
+        b.Entity<ClaimVerificationToken>(e =>
+        {
+            e.ToTable("claim_verification_tokens");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.ClaimId);
+            e.HasOne<Claim>().WithMany().HasForeignKey(x => x.ClaimId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<VendorDraft>(e =>

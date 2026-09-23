@@ -10,37 +10,74 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
-## Drugi val prioriteta (2026-09-23) — plan zapisan u `PLAN-PRIORITETI-LANSIRANJE-2.md`: SEO (JSON-LD+OG), claim e-mail verifikacija (auto-approve), partner mailovi, rate-limit writes, Sentry. Redoslijed: 6→5→7→9→8. **Zadatak 6 gotov** (v. sesija ispod).
+## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`): SEO (Zadatak 6) gotov na grani `feat/seo-jsonld-og` (2026-09-23, v. sesiju u toj grani ako još nije mergean u develop). Zadatak 5 (ova bilješka) na grani `feat/claim-email-verify`. Redoslijed: 6→5→7→9→8.
 
-## Sesija 2026-09-23 — Zadatak 6 (Plan prioriteti 2): SEO — JSON-LD + OG slike ✅ (grana `feat/seo-jsonld-og`)
+## Sesija 2026-09-23 — Zadatak 5 (claim e-mail verifikacija, auto-approve) — kod gotov, **backend build/test NEPOTVRĐEN** (grana `feat/claim-email-verify`)
 
-Implementiran **Zadatak 6** (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) u cijelosti: JSON-LD (`LocalBusiness`+`BreadcrumbList`) na profilu, `openGraph`/`twitter` metapodaci (naslovnica + profil), dinamička OG slika po pružatelju i branded default OG slika za sve ostale rute.
+Implementiran Zadatak 5 (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) u cijelosti: token na `Vendor.Email`,
+auto-approve sa sklopkom, admin bedž, frontend tok. **VAŽNO — pročitaj prije mergea:** sandbox u
+kojem je ovo pisano nema pristup `api.nuget.org` (`x-deny-reason: host_not_allowed`, potvrđeno
+`curl`-om) — isto ograničenje kao Faze 1/3/4 (v. postojeće napomene u `DEPLOY.md`), pa **`dotnet
+build`, `dotnet test` i `dotnet ef migrations add` NISU pokrenuti ovdje**. Backend kod je umjesto
+toga pažljivo ručno pregledan red-po-red (namespace/using provjere, potencijalne dvosmislenosti
+tipova) — ali to NIJE zamjena za stvarnu kompilaciju. **Prije mergea u develop, vlasnik MORA:**
+```bash
+cd backend/Wediplan.Api && dotnet ef migrations add ClaimVerification && cd ..
+dotnet build Wediplan.sln -c Release   # mora proći
+dotnet test                             # mora biti zeleno (9 novih testova + postojeći)
+```
 
-**Novo:**
-- `lib/jsonld.ts` — `vendorJsonLd()`: `LocalBusiness` (name/url/image/address/geo/priceRange/aggregateRating/sameAs) + `BreadcrumbList` (proširuje postojeći `breadcrumb()` iz `lib/profile.ts` pružateljem). Isti etos kao karta/import: geo/priceRange/aggregateRating izostaju kad podataka nema — nikad se ne izmišljaju. `formatPrice()` (postojeći, `lib/format.ts`) se reusa za `priceRange` umjesto izmišljanja €/€€/€€€ ljestvice.
-- `app/pruzatelj/[slug]/opengraph-image.tsx` i `app/opengraph-image.tsx` (root default, primjenjuje se na sve rute bez vlastite datoteke — naslovnica, /kategorije, /karta, /budzet, /usporedba…) — dinamičke OG slike (`next/og` `ImageResponse`, 1200×630).
-- `lib/og-image.ts`, `lib/og-fonts.ts`, `lib/og-icons.tsx` — pomoćnici dijeljeni između oba OG fajla (čitanje slike u data URI, učitavanje fontova, SVG ikone).
-- `public/fonts/InstrumentSans-{Regular,Bold}.ttf` + `InstrumentSans-OFL.txt` — v. "Nalaz 2" ispod za zašto.
-- `app/layout.tsx`, `app/pruzatelj/[slug]/page.tsx` — `openGraph`/`twitter` blokovi u `generateMetadata`; JSON-LD `<script>` ubačen u tijelo stranice profila.
-- `lib/site.ts` — dodan `absoluteUrl()` helper (relativna putanja → apsolutni URL na `SITE_URL`; već-apsolutne, npr. s Bunny CDN-a, prolaze nepromijenjene).
+**Backend — novo/izmijenjeno:**
+- `Domain/ProviderEntities.cs` — `ClaimVerificationToken` (Id, ClaimId, TokenHash, CreatedAt,
+  ExpiresAt, ConsumedAt), isti obrazac kao `EmailVerificationToken`. `Claim.Evidence` komentar
+  proširen (`email_verified`).
+- `Data/AppDbContext.cs` — `DbSet` + mapiranje (unique index na `TokenHash`, FK cascade na `Claim`).
+  *Napomena iz procesa:* prvi pokušaj ovog editna je slučajno pokidao susjedni `VendorDraft` blok
+  (str_replace je uklonio pogrešan raspon teksta) — odmah uočeno vizualnim pregledom i ispravljeno
+  u istoj sesiji; finalno stanje fajla je provjereno cjelovito.
+- `Services/ClaimApprovalService.cs` (novo) — `ApproveAsync(claim, vendor, decidedBy, ct)`:
+  izvučena zajednička logika iz `AdminController.ApproveClaim` (objava drafta, `claimed`+owner,
+  odbijanje ostalih pending). `decidedBy: null` = sustavno (auto) odobrenje. Koriste je i
+  `AdminController` (ručni klik, `decidedBy=Uid()`) i `ClaimsController.Verify` (auto-approve).
+- `Data/ProviderMapper.cs` — `MaskEmail()` (`"test@x.hr"` → `"t***@x.hr"`).
+- `Auth/AuthEmails.cs` — `SendClaimVerification(vendorEmail, vendorName, rawToken, ct)`; link ide
+  na `/partner/potvrda-vlasnistva?token=` (frontend, isti obrazac kao `/prijava/potvrda`).
+- `Contracts/ProviderContracts.cs` — `VerifyClaimRequest(string Token)`.
+- `Controllers/ClaimsController.cs` — `POST /{id}/send-verification` (max 3 tokena/24h + 2min
+  cooldown protiv zloupotrebe; 400 `no_email_on_file` ako `vendor.Email` nedostaje; vraća
+  maskiranu adresu, NIKAD punu) i `POST /verify` (provjera hasha+isteka+potrošenosti; `Evidence
+  = "email_verified"`; auto-approve preko `Claims:AutoApproveOnEmailVerify` config ključa, default
+  `true`; 403 `not_your_claim` ako token pripada tuđem claimu).
+- `Controllers/AdminController.cs` — `ApproveClaim` sad tanki wrapper oko `ClaimApprovalService`.
+- `Program.cs` — registriran `ClaimApprovalService` (scoped).
+- `Wediplan.Api.Tests/ClaimVerificationTests.cs` (novo, 9 testova) — happy path (auto-approve
+  on/off), istekao token, potrošen token, nepoznat token, token tuđeg korisnika (403), rate limit
+  na send-verification, no-email fallback. **Napomena:** `Claim` je dvosmisleno ime naspram
+  `System.Security.Claims.Claim` kad su oba namespacea uvezena (`using Wediplan.Api.Domain;` +
+  `using System.Security.Claims;`, potonji treba za `ClaimsPrincipal`/`ClaimTypes` u testu) —
+  riješeno alias-om `using DomainClaim = Wediplan.Api.Domain.Claim;`. Vrijedi zapamtiti za buduće
+  testove koji dodiruju i domenski `Claim` i auth claims.
 
-**Tri nalaza tijekom rada, vrijedna zapisati (nisu bili očiti unaprijed):**
+**Frontend — potvrđeno (`tsc --noEmit` + `npm run build` čisti, `next start` vizualno provjeren):**
+- `lib/api/provider.ts` — `claimApi.sendVerification/verify` + HR poruke (`no_email_on_file`,
+  `too_many_requests`, `invalid_token`, `not_your_claim`, `already_decided`).
+- `components/ClaimPanel.tsx` — nakon poslanog zahtjeva nudi "Potvrdi vlasništvo e-mailom"
+  (osim ako je evidence već `email_verified` ili nema email na profilu). Prošao kroz dvije runde
+  čišćenja unutar iste sesije: prvi pokušaj je ostavio mrtvi/pogrešan kod (usporedba ishoda greške
+  preko `providerMessage()` koja nikad ne bi radila ispravno, plus dupliciran blok JSX-a na kraju
+  fajla od jednog neurednog str_replace-a) — oboje uočeno pri `tsc`/vizualnom pregledu i ispravljeno
+  prije predaje; finalna verzija koristi `AuthError.code` izravno za `no_email_on_file` grananje.
+- `app/partner/potvrda-vlasnistva/page.tsx` + `components/ClaimVerifyClient.tsx` (novo) — auto-fire
+  na mount (isti obrazac kao postojeći `TokenAction`/`/prijava/potvrda`, NE ručni gumb kako je
+  prvotni plan naveo — usklađeno s već postojećom konvencijom u repou radi dosljednosti).
+- `components/AdminPanel.tsx` — bedž "✓ e-mail potvrđen" za `evidence === "email_verified"`
+  (relevantno uglavnom kad je auto-approve isključen, jer inače takvi claimovi ne stignu u pending).
 
-1. **`inset: 0` CSS shorthand nije podržan** u Satori-ju (motor iza `next/og`) — element se sruši na intrinsic veličinu/poziciju umjesto da se rastegne. Popravak: posvuda eksplicitno `top: 0, left: 0, right: 0, bottom: 0`. Otkriveno i potvrđeno izoliranim A/B testom prije primjene na prave datoteke.
+**Dokumentacija:** `API.md` (dva nova endpointa, `ClaimDto.evidence` prošireno), `DEPLOY.md` (nova
+sekcija s migracijom, config ključem, ručnim testom toka — v. gore za točne komande).
 
-2. **Hrvatski dijakritici (č ć š ž đ) se ne prikazuju u OG slikama bez vlastitog fonta** — Satori-jev ugrađeni default (Noto Sans) ih pokriva, ALI Google Fonts CDN dijeli fontove na "latin" (osnovna slova) i "latin-ext" (dijakritici) u ODVOJENE fajlove — učitavanje samo jednog daje pola alfabeta kao "tofu" kvadratiće. Rješenje: iz službenog `google/fonts` GitHub repozitorija (ne CDN-a) izvučen je PUNI varijabilni font Instrument Sans (OFL-1.1) i preko `fonttools varLib.instancer` instanciran u dvije statične `.ttf` težine (400, 700) sa svim potrebnim znakovima — provjereno na stvarnim mock pružateljima ("Aria sala za vjenčanja", "Galerija Meštrović Split"). **Usput otkriveno:** Satori u ovoj (bundled @vercel/og) verziji (a) ne podržava `.woff2`, samo `.ttf/.otf/.woff`, i (b) NE radi per-glyph fallback kroz `fontFamily` listu niti kroz više fontova s istim imenom — prvi/jedini font koji se poklapa s traženim name+weight+style se koristi u cijelosti, bez posezanja za drugim za znakove koje ne pokriva. Posljedica: simboli "★"/"✓" (nisu u Instrument Sansu) su nakon uvođenja fonta postali tofu — riješeno crtanjem kao inline SVG (`lib/og-icons.tsx`) umjesto oslanjanja na font glyph.
-
-3. **Generirane placeholder ilustracije pružatelja** (`public/images/defaults*/<kategorija>.jpg` — ikona+naziv kategorije, "privremeno generirani defaulti" iz ranije sesije) se u `next/og`/Satori NE renderiraju ispravno s `objectFit:"cover"` (prikazuju se neskalirano/obrezano umjesto da prekriju cijeli kadar), dok STVARNE fotografije (npr. `public/images/hero/naslovnica.jpg`) rade besprijekorno. Isključeno kao uzrok, provjereno eksperimentom: DPI/JFIF metapodaci (300 DPI u originalu) i potpuno re-enkodiranje slike — nijedno nije riješilo problem, pravi uzrok ostaje nerazjašnjen (vjerojatno rubni slučaj u resvg/image-rs dekoderu specifičan za tu vrstu linijske grafike, izvan dosega ovog zadatka za dalje istraživati). **Odluka:** OG slika pružatelja koristi fotografiju u pozadini SAMO kad pružatelj ima stvarnu fotografiju (`!vendorImages(vendor,"profile")[0].isDefault`); bez nje ide brand gradijent (isti stil kao 404/fallback slučaj) — ionako bolji rezultat za social-share karticu nego razvučena sitna ilustracija, pa je ovo ostalo kao trajno rješenje, ne privremena zakrpa.
-
-**Verifikacija:** `npx tsc --noEmit` i `npm run build` čisti (uključujući čisti `rm -rf .next` prije zadnje provjere). Vizualno potvrđeno (`next start`, stvarni PNG izlazi pregledani): OG slika s recenzijama+"✓ Provjereno", bez recenzija ("cijena na upit"), s hrvatskim dijakriticima u imenu (č; š+ć), root default (hero foto + "vjenčanje"/"budžeta" s ispravnim dijakriticima), 404 fallback. JSON-LD i `og:title` na stranici profila provjereni da nose ispravan UTF-8 ("Meštrović"). `AggregateRating` potvrđeno izostaje za pružatelja s `reviewCount:0`. Bez promjene API-ja/sheme/migracija — `API.md` se ne mijenja za ovaj zadatak.
-
-**Napomena za vlasnika:** placeholder ilustracije kategorija (nalaz 3) i dalje rade ispravno posvuda drugdje na stranici (kartice, karta — normalan `next/image` u pregledniku, nepovezano sa Satori bugom) — utječe samo na OG generiranje, i to je zaobiđeno kako je opisano. Kad providers dobiju stvarne fotografije (Faza 5 upload/ImageSharp pipeline), OG slike će ih automatski koristiti bez daljnjih izmjena koda.
-
-**Sljedeći korak: Zadatak 5 (claim e-mail verifikacija)**, iz `PLAN-PRIORITETI-LANSIRANJE-2.md`.
-
-
-## Sesija 2026-09-22 (f) - analiza i sljedeći koraci
-Drugi val planiran — v. PLAN-PRIORITETI-LANSIRANJE-2.md (redoslijed 6→5→7→9→8)
+**Sljedeći korak:** nakon što vlasnik potvrdi `dotnet build`/`dotnet test`/migraciju lokalno →
+Zadatak 7 (partner mailovi) iz `PLAN-PRIORITETI-LANSIRANJE-2.md`.
 
 ## Sesija 2026-09-22 (e) — Potvrđeno: dotnet build + dotnet test prolaze (4/4)
 Nakon dva popravka iz prošle bilješke, vlasnik ponovno pokrenuo `dotnet test backend/Wediplan.sln`:

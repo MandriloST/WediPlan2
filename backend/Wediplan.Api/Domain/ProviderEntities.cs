@@ -19,7 +19,8 @@ public class Claim
     public Guid UserId { get; set; }
     public string Message { get; set; } = "";
 
-    /// <summary>"domain_match" | "" — dokaz vlasništva izveden pri kreiranju (ne unosi ga korisnik).</summary>
+    /// <summary>"domain_match" | "email_verified" | "" — dokaz vlasništva. "domain_match" se izvodi
+    /// pri kreiranju; "email_verified" nakon klika na poveznicu poslanu na Vendor.Email (§Zadatak 5).</summary>
     public string Evidence { get; set; } = "";
 
     /// <summary>pending | approved | rejected.</summary>
@@ -28,6 +29,22 @@ public class Claim
     public Guid? DecidedBy { get; set; }
     public DateTime? DecidedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Jednokratni token za dokaz vlasništva claima (§ Plan prioriteti 2, Zadatak 5). Šalje se na
+/// <c>Vendor.Email</c> (adresa iz importa, javno se ne izlaže) — tko klikne link iz TOG inboxa,
+/// dokazao je kontrolu nad službenom adresom profila. Isti obrazac kao <c>EmailVerificationToken</c>:
+/// sirovi token u mailu, u bazu SAMO SHA-256 hash.
+/// </summary>
+public class ClaimVerificationToken
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClaimId { get; set; }
+    public string TokenHash { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? ConsumedAt { get; set; }
 }
 
 /// <summary>

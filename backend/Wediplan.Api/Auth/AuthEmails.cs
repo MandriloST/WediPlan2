@@ -35,6 +35,19 @@ public class AuthEmails
             "Zatražili ste novu lozinku. Postavite je klikom (poveznica vrijedi 1 sat):", url, "Nova lozinka", ct);
     }
 
+    /// <summary>
+    /// §Zadatak 5 — dokaz vlasništva claima. Šalje se na Vendor.Email (adresa iz importa, ne na
+    /// e-mail korisnikova računa) — link vodi na FRONTEND stranicu koja tek na klik gumba šalje
+    /// POST (da GET-prefetch mail-skenera ne "potroši" token, isti obrazac kao ostali auth linkovi).
+    /// </summary>
+    public Task SendClaimVerification(string vendorEmail, string vendorName, string rawToken, CancellationToken ct)
+    {
+        var url = $"{_appUrl}/partner/potvrda-vlasnistva?token={rawToken}";
+        return Send(vendorEmail, "Potvrda vlasništva profila — Wediplan",
+            $"Netko je zatražio preuzimanje profila „{vendorName}” na Wediplanu. Ako ste to vi, " +
+            "potvrdite vlasništvo klikom (poveznica vrijedi 24 sata):", url, "Potvrdi vlasništvo", ct);
+    }
+
     private Task Send(string email, string subject, string intro, string url, string cta, CancellationToken ct)
     {
         var html = $@"<div style=""font-family:system-ui,sans-serif;max-width:480px;margin:0 auto"">
