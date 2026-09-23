@@ -1,11 +1,27 @@
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Sentry.AspNetCore;
 using Wediplan.Api.Data;
 using Wediplan.Api.Import;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Monitoring (§Zadatak 8, PLAN-PRIORITETI-LANSIRANJE-2.md) — aktivan SAMO ako je DSN postavljen
+// (isti obrazac kao Resend: bez ključa/DSN-a nula promjene ponašanja, CI/testovi netaknuti jer
+// nemaju Sentry:Dsn postavljen). Postavlja se RANO (odmah nakon CreateBuilder) da hvata i greške
+// pri samom startu aplikacije, ne samo tijekom obrade zahtjeva.
+var sentryDsn = builder.Configuration["Sentry:Dsn"];
+if (!string.IsNullOrWhiteSpace(sentryDsn))
+    builder.WebHost.UseSentry(o =>
+    {
+        o.Dsn = sentryDsn;
+        o.Environment = builder.Environment.EnvironmentName;
+        o.Release = Environment.GetEnvironmentVariable("SENTRY_RELEASE"); // git sha iz CI-ja (opcionalno)
+        o.TracesSampleRate = 0.1;
+        o.SendDefaultPii = false; // bez e-maila/IP-a u eventima — ista minimizacija kao svugdje drugdje
+    });
 
 // JSON: camelCase + izostavljanje null polja (identično Next.js mocku; API.md ugovor).
 builder.Services.AddControllers().AddJsonOptions(o =>

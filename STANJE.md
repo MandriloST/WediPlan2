@@ -10,7 +10,64 @@
 ## Repo: **WediPlan2** (novi, čist — GDPR #18 riješen). Javan dok razvoj traje; na kraju → private.
 ## Trenutna faza: **Faza 6 (lansiranje) — KOD IMPLEMENTIRAN ⏳ (2026-09-17)**. Frontend build/tsc čisti; backend kod predan (bez nove migracije). Preostaju OPS koraci vlasnika: domena+`NEXT_PUBLIC_SITE_URL`, popuna+pravna provjera pravnih stranica, Google Search Console, finalna regresija, **merge `develop`→`main`**. Sve odluke #1–#19 ODOBRENE.
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
-## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`): Zadaci 6, 5, 7 **mergeani u develop i POTVRĐENI**. Zadatak 9 (ova bilješka) na grani `feat/rate-limit-writes`. Redoslijed: 6→5→7→9→8.
+## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`): Zadaci 6, 5, 7, 9 **mergeani u develop i POTVRĐENI**. Zadatak 8 (ova bilješka, ZADNJI u drugom valu) na grani `feat/sentry`. Redoslijed 6→5→7→9→8 GOTOV nakon ovoga.
+
+## Sesija 2026-09-23 (d) — Zadatak 8 (monitoring: Sentry) — backend NEPOTVRĐEN, **frontend POTVRĐEN** (grana `feat/sentry`)
+
+Implementiran Zadatak 8 (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — zadnji u drugom valu prioriteta.
+
+**Backend — isto ograničenje kao Zadaci 5/7/9** (sandbox nema pristup `api.nuget.org`): kod ručno
+pregledan, `dotnet build`/`dotnet test` NISU pokrenuti ovdje.
+```bash
+dotnet restore    # povuci novi paket Sentry.AspNetCore
+dotnet build backend/Wediplan.sln -c Release   # mora proći
+dotnet test                                     # mora biti zeleno (bez promjene — nema novih testova)
+```
+- `Wediplan.Api.csproj` — `Sentry.AspNetCore` 6.11.1 (najnovija stabilna, provjereno uživo preko
+  `git ls-remote`+CHANGELOG.md na getsentry/sentry-dotnet, jer `api.nuget.org` i `api.github.com`
+  nisu bili dostupni za direktnu verziju-provjeru).
+- `Program.cs` — `UseSentry()` odmah nakon `CreateBuilder`, uvjetno na `Sentry:Dsn` (prazan string
+  default u `appsettings.json` → nula promjene ponašanja, isti obrazac kao Resend).
+- `appsettings.json` — `Sentry:Dsn: ""` placeholder (isti obrazac kao `Email:ResendApiKey`).
+
+**Frontend — POTVRĐENO** (`tsc --noEmit` + `npm run build` čisti; runtime testiran i BEZ DSN-a i
+S privremenim probnim DSN-om preko `next start`, oba slučaja rade ispravno, stranice vraćaju 200):
+- `@sentry/nextjs@11.0.0` instaliran (`npm i`, stvarno, ne samo dodano u package.json).
+- `instrumentation-client.ts` + `instrumentation.ts` (novo, root projekta) — uvjetno na
+  `NEXT_PUBLIC_SENTRY_DSN`.
+- `next.config.mjs` — omotano `withSentryConfig(...)`, postojeći rewrites/remotePatterns
+  NEDIRANI. `tunnelRoute: "/monitoring"`, `silent: true`.
+- `.env.local.example` — dodan `NEXT_PUBLIC_SENTRY_DSN`.
+
+**Dva stvarna nalaza tijekom rada (plan je opisivao stariji SDK obrazac — provjereno uživo jer je
+`npm` dostupan u ovom sandboxu, za razliku od nuget-a):**
+
+1. **`@sentry/nextjs` v11 je napustio `sentry.client/server/edge.config.ts` obrazac.** Paket
+   eksplicitno upozorava i traži brisanje tih fajlova ako ih pronađe, u korist
+   `instrumentation-client.ts` (klijent) + Next.js-evog vlastitog `instrumentation.ts` hooka
+   (server+edge). Za Next 14 (ova verzija) `withSentryConfig` automatski uključuje
+   `experimental.instrumentationHook` — provjereno čitanjem stvarnog paketiranog koda
+   (`getFinalConfigObjectUtils.js`), potvrđeno u build izlazu ("Experiments: instrumentationHook").
+   Plan je opisivao stariji obrazac; primijenjen je ispravan/trenutni.
+
+2. **`import { withSentryConfig } from "@sentry/nextjs"` puca u `next.config.mjs`** ("Named export
+   'withSentryConfig' not found" — Node-ov ESM/CJS interop ne prepoznaje named export s glavnog,
+   uvjetno-eksportiranog paketa u kontekstu izravnog Node učitavanja config fajla). Rješenje:
+   `@sentry/nextjs/config` — paket ima poseban export subpath baš za ovu namjenu, potvrđeno u
+   `package.json`-u paketa. I ovo je otkriveno i popravljeno UŽIVO (build je stvarno pukao, pa
+   popravljen, pa ponovno pokrenut do zelenog) — ne pretpostavka.
+
+3. (manji, backend-strana ali vrijedan zapisati) **`SendDefaultPii` je opcija .NET SDK-a
+   (`Sentry.AspNetCore`), NE postoji u JS/Node SDK-u** — prvi pokušaj je greškom prenio taj naziv
+   opcije i u `instrumentation.ts`/`instrumentation-client.ts`; `tsc` je to ispravno uhvatio
+   (`error TS2353`), uklonjeno uz komentar objašnjenja.
+
+**Ažurirano:** `DEPLOY.md` (nova sekcija — env varijable za obje strane, ručni test, napomena o
+konvenciji fajlova), `STANJE.md` (ova bilješka). `API.md` nije trebalo mijenjati (nema promjene
+API ugovora).
+
+**Ovo je bio zadnji zadatak drugog vala.** Nakon što vlasnik potvrdi backend build/test →
+kompletan `PLAN-PRIORITETI-LANSIRANJE-2.md` je proveden (6, 5, 7, 9, 8 svi gotovi).
 
 ## Sesija 2026-09-23 (c) — Zadatak 9 (rate-limit writes/auth politike) — kod gotov, **backend build/test NEPOTVRĐEN** (grana `feat/rate-limit-writes`)
 

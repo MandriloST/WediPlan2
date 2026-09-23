@@ -272,3 +272,49 @@ akcija (approve/reject claim, approve review) uvijek vraća 200 bez obzira je li
 
 **Ručni test:** bez Resend ključa, odobri/odbij claim ili objavi recenziju u `/admin` → mail (s
 ispravnim imenom pružatelja i poveznicom na `/partner`) se ispisuje u konzolu servera.
+
+## Plan prioriteti 2, Zadatak 8 — monitoring: Sentry (2026-09-23)
+
+Isti "aktivno samo s ključem" obrazac kao Resend — bez DSN-a nula promjene ponašanja (backend
+i frontend), CI/dev ostaju netaknuti. `/api/health` ostaje za **uptime** (vanjski servis poput
+UptimeRobot ili BetterStack ping-a taj endpoint); Sentry je za **greške** — komplementarni, ne
+zamjenjuju jedno drugo.
+
+**Backend:**
+```
+Sentry__Dsn = https://xxxx@oXXXXXX.ingest.sentry.io/XXXXXXX   (env, NIKAD u appsettings u gitu)
+SENTRY_RELEASE = <git sha>                                     (opcionalno, npr. iz CI-ja)
+```
+Bez `Sentry:Dsn` (default, prazan string u `appsettings.json`) — `Sentry.AspNetCore` paket je
+učitan ali `UseSentry()` se nikad poziva. `dotnet restore` treba povući novi paket prije builda.
+
+**Frontend:**
+```
+NEXT_PUBLIC_SENTRY_DSN = https://xxxx@oXXXXXX.ingest.sentry.io/XXXXXXX   (Vercel env)
+SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN                          (opcionalno — upload
+                                                                           source mapova pri buildu;
+                                                                           bez njih build i dalje
+                                                                           prolazi, samo se sourcemap
+                                                                           upload tiho preskače)
+```
+**Napomena o konvenciji fajlova** (otkriveno pri implementaciji, razlikuje se od starijeg
+"sentry.client/server/edge.config.ts" obrasca koji se često spominje u starijim vodičima):
+instalirana verzija `@sentry/nextjs` (11.x) je taj obrazac **napustila** — SDK sad eksplicitno
+upozorava i traži brisanje tih fajlova. Umjesto njih: `instrumentation-client.ts` (klijent) i
+`instrumentation.ts` (server+edge, preko Next.js-evog vlastitog instrumentation hooka). Za Next 14
+(verzija u ovom projektu) `withSentryConfig` u `next.config.mjs` automatski uključuje
+`experimental.instrumentationHook` — ništa dodatno nije potrebno ručno postaviti. Import u
+`next.config.mjs` mora biti iz `@sentry/nextjs/config` (ne iz golog `@sentry/nextjs`) — Node-ov
+ESM/CJS interop ne prepoznaje `withSentryConfig` kao named export s glavnog paketa u kontekstu
+učitavanja `next.config.mjs` (build inače puca s "Named export not found").
+
+**Ručni test (vlasnik, s pravim DSN-om):**
+- Backend: privremeno baci `throw new Exception("test-sentry")` u bilo koju rutu → event stiže u
+  Sentry projekt unutar par sekundi.
+- Frontend: privremeno baci grešku u klijentskoj komponenti (npr. `onClick={() => { throw new
+  Error("test-sentry-client") }}`) → event stiže u isti ili zaseban Sentry projekt.
+- Bez DSN-a (obje strane): build/test identični kao prije ovog zadatka — potvrdi da
+  `dotnet test` i `npm run build` prolaze i BEZ ijedne Sentry env varijable postavljene.
+
+**Budući, neobavezan korak** (ne blokira): upload source mapova + release marking u
+`.github/workflows/ci.yml` (Sentry CLI akcija) za čitljive stack traceove u produkciji.
