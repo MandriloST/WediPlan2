@@ -24,6 +24,9 @@
          komercijalna licenca iznad praga). Provjeriti prije komercijalnog lansiranja (v. DEPLOY.md). -->
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.5" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.416.4" />
+    <!-- Faza 6, Zadatak 8 — monitoring. Aktivan SAMO ako je Sentry:Dsn postavljen (v. Program.cs);
+         bez DSN-a paket je učitan ali UseSentry() se nikad ne poziva — nula promjene ponašanja. -->
+    <PackageReference Include="Sentry.AspNetCore" Version="6.11.1" />
   </ItemGroup>
 
 </Project>
