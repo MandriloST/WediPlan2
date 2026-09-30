@@ -31,9 +31,9 @@ postojati prije bilo kakve migracije nad stvarnim podacima. 13 uvodi SVE nove st
 13 i 14 diraju shemu i sve putove pisanja — dati ih Opusu ili Sonnetu uz obavezan pregled diffa prije mergea.
 
 ## Status
-- [~] **Zadatak 10 — Importer ne gazi izmjene partnera na preuzetim profilima.** (backend, bez sheme) — **kod gotov na grani `fix/import-protect-claimed` (2026-09-30); čeka vlasnikov `dotnet build` + `dotnet test` i merge.**
+- [x] **Zadatak 10 — Importer ne gazi izmjene partnera na preuzetim profilima.** (backend, bez sheme) — **kod gotov na grani `fix/import-protect-claimed` (2026-09-30); čeka vlasnikov `dotnet build` + `dotnet test` i merge.**
 - [x] **Zadatak 11 — Zeleni pin za točnu lokaciju + legenda karte.** (frontend, bez sheme) — **gotovo na grani `feat/map-exact-pins` (2026-09-30); `tsc` + `npm run build` čisti, provjereno u headless Chromiumu.**
-- [ ] **Zadatak 18 — JSON-LD `aggregateRating` samo iz vlastitih recenzija.** (frontend, bez sheme)
+- [x] **Zadatak 18 — JSON-LD `aggregateRating` samo iz vlastitih recenzija.** (frontend, bez sheme) — **gotovo na grani `fix/jsonld-own-ratings` (2026-09-30); `tsc` + `npm run build` čisti, ponašanje provjereno izvršavanjem.**
 - [ ] **Zadatak 12 — Backup: custom format, enkripcija, off-site, testirani restore, slike.** (ops)
 - [ ] **Zadatak 13 — Migracija `AuditIModeracija` (sva nova shema odjednom).** (backend, +migracija)
 - [ ] **Zadatak 14 — Audit log (interceptor) + admin pregled povijesti.** (backend+frontend, bez nove sheme)
