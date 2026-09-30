@@ -14,6 +14,37 @@
 
 ## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku: Zadatak 10 kod gotov (grana `fix/import-protect-claimed`, čeka vlasnikov build/test), ostalo planirano** (2026-09-30). Zadaci 10–18: importer štiti preuzete profile, zeleni pinovi + legenda, JSON-LD samo vlastite ocjene, backup hardening, migracija `AuditIModeracija`, audit log, moderacija slika, verifikacija recenzija, porijeklo/privola. Sve odluke potvrđene s vlasnikom.
 
+## Sesija 2026-09-30 (c) — Zadatak 11 (zeleni pin + legenda karte) — **frontend POTVRĐEN** (grana `feat/map-exact-pins`)
+
+Implementiran Zadatak 11 iz `PLAN-PRIORITETI-LANSIRANJE-3.md` u cijelosti. **Čisti frontend: bez backenda, bez migracije, bez novih paketa.**
+
+**Novo/izmijenjeno:**
+- `components/CroatiaMap.tsx` — `toFC` dobiva `exact` (`locationPrecision === "exact"`); ne-klaster pin dobiva klasu
+  `exact` (kombinira se s `upit`) i točku `.pin-dot` ispred cijene. Klasteri ostaju plavi.
+- `components/MapLegend.tsx` (novo) — legenda „točna lokacija / približno — centar grada / cijena na upit".
+  Desktop uvijek otvorena; ≤ 640px sklopiva iza gumba „Legenda" (default zatvorena, bez hydration razlike).
+- `components/ExploreShell.tsx` (samo kad nije `browsing`) i `components/MapPageShell.tsx` (samo kad je odabrana
+  kategorija) prikazuju legendu. `LandingShell` NE (karta tamo nema pinova).
+- `app/globals.css` — `--exact: #1f9d5b` (obrub/točka), `--exact-ink: #147242` (tekst, kontrast ≈ 6:1), `.pin.exact`,
+  `.pin.exact:not(.upit)`, `.pin-dot`, `.map-legend*`. „Na upit + točno" = zeleni obrub + prigušen kurzivni tekst.
+
+**Usput pronađena i popravljena POSTOJEĆA greška:** `maplibregl.Marker.addTo()` uvijek postavlja
+`aria-label="Map marker"` (maplibre-gl 4.7.1, `addTo`), pa su se naziv+cijena pina i oznaka klastera gubili za
+čitače ekrana. Oznaka se sad postavlja NAKON `addTo`. Pin: „{naziv}, {cijena}, točna lokacija" (ili „približna
+lokacija (centar grada)"); klaster: „N pružatelja — približi".
+
+**Provjera (stvarno pokrenuto):** `npx tsc --noEmit` i `npm run build` čisti. Headless Chromium na produkcijskom
+buildu (`/karta?kategorija=foto-i-video`, `/dalmacija/foto-i-video`, desktop 1280 i mobitel 390): pinovi dobivaju
+ispravne klase i aria-label, legenda je vidljiva na desktopu bez gumba, na mobitelu se otvara klikom, pojavljuje se
+samo gdje ima pinova (nema je na `/` ni na `/kategorije`). Stanje „približno" testirano presretanjem `/api/pins`
+odgovora (mock podaci su svi `exact`). Tile pozadina OSM-a nije učitana u sandboxu (nema interneta) — pinovi i
+legenda se ipak vide.
+
+**Napomena vlasniku (iz plana):** `exact` znači „koordinate su upisane u Excel", ne „provjereno". Zelena boja korisnicima
+djeluje kao obećanje — vrijedi provjeriti koordinate barem za dvorane prije lansiranja.
+
+**Sljedeći korak:** Zadatak 18 (JSON-LD), zatim 12 (backup) prije bilo kakve migracije.
+
 ## Sesija 2026-09-30 (b) — Zadatak 10 (importer štiti preuzete profile) — kod gotov, **backend build/test NEPOTVRĐEN** (grana `fix/import-protect-claimed`)
 
 Implementiran Zadatak 10 iz `PLAN-PRIORITETI-LANSIRANJE-3.md` u cijelosti. **Bez migracije, bez frontend izmjena.**

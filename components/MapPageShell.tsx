@@ -9,6 +9,7 @@ import { api } from "@/lib/api/client";
 import { pathFor } from "@/lib/paths";
 import { useBudget } from "@/stores";
 import { track } from "@/lib/analytics";
+import MapLegend from "./MapLegend";
 
 const CroatiaMap = dynamic(() => import("./CroatiaMap"), { ssr: false });
 
@@ -74,6 +75,7 @@ export default function MapPageShell({ category }: { category?: string }) {
           Odaberite kategoriju — pružatelji će se pojaviti na karti
         </div>
       )}
+      {category && <MapLegend />}
       <button className="btn map-fab" onClick={openDrawer}>
         🧮 Budžet
       </button>
