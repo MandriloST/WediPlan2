@@ -65,6 +65,11 @@ public class UserReview
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? DecidedAt { get; set; }
+
+    /// <summary>Admin koji je odlučio (Zadatak 13; postavlja Zadatak 16). null za odluke prije evidencije.</summary>
+    public Guid? DecidedBy { get; set; }
+    /// <summary>Razlog odbijanja (interno; ne prikazuje se javno ni autoru).</summary>
+    public string? RejectReason { get; set; }
 }
 
 /// <summary>

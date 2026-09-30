@@ -106,11 +106,24 @@ subscriptions      v. §M.4 (faza 3/4 — uz claim)
                    style_tags text[], about, services text[], website, phone, email,
                    verified bool, live_calendar bool, claim_status (unclaimed|pending|claimed),
                    owner_user_id (nullable FK), is_published bool, opt_out bool,
-                   search tsvector (generated), created_at, updated_at
-vendor_photos      id, vendor_id, storage_key, sort_order, is_cover
-imported_reviews   id, vendor_id, author, rating, text, source, year   -- "što oni kažu"
+                   search tsvector (generated), created_at, updated_at,
+                   -- porijeklo i privola (Zadatak 13; ADMIN-INTERNO, nikad u javni API):
+                   data_source, data_collected_at, consent_status (unknown|requested|granted|refused),
+                   consent_requested_at, consent_at, consent_channel, consent_scope text[] (data|photos|reviews),
+                   consent_note, google_place_id (smije se spremati; Google rating/count NIKAD)
+vendor_photos      id, vendor_id, storage_key, sort_order, is_cover,
+                   -- evidencija + moderacija (Zadatak 13/15): created_at (null = prije evidencije), uploaded_by_user_id,
+                   source (partner|import), rights_confirmed_at, moderation_status (unreviewed|approved|flagged),
+                   reviewed_by_user_id, reviewed_at, moderation_note   -- post-moderacija: slika je javna odmah
+imported_reviews   id, vendor_id, author, rating, text, source, year,  -- "što oni kažu"
+                   -- stabilni ključ + provjera (Zadatak 13/16): external_key (unique po vendoru kad nije NULL),
+                   created_at, updated_at, verification_status (unverified|verified|rejected),
+                   verified_by_user_id, verified_at, evidence_note
 user_reviews       id, vendor_id, user_id, rating, text, status (pending|published|rejected),
-                   created_at                                          -- "što korisnici kažu"
+                   created_at, decided_at, decided_by, reject_reason   -- "što korisnici kažu"
+audit_log          id (bigint), occurred_at, actor_type (admin|partner|user|public|import|system), actor_user_id,
+                   entity_type, entity_id, action, changes jsonb, source, note
+                   -- Zadatak 13/14: append-only dnevnik promjena (GDPR), BEZ FK-ova (preživljava brisanje korisnika)
 users              id, email (unique), name, google_sub (nullable), password_hash (nullable),
                    role (couple|provider|admin), created_at
 magic_links        id, user_id, token_hash, expires_at, used_at
@@ -126,6 +139,13 @@ Napomene:
 - `opt_out` podržava GDPR zahtjev "ovo nije moj profil / uklonite me" (v. §9).
 - `profile_views` je namjerno dnevni agregat (privacy + jeftino), dovoljan za
   "profil pregledan 340× ovaj mjesec" vrijednost pružateljima.
+- **`audit_log` (Zadatak 13/14):** jedna append-only tablica; puni se automatski EF interceptorom (Zadatak 14), bez FK-ova
+  da zapisi prežive brisanje korisnika i entiteta. Kontakt polja se bilježe BEZ vrijednosti (`{"changed":true}`),
+  rok čuvanja 24 mjeseca (`--audit-prune`). `actor_user_id` je pseudonimni GUID — nakon brisanja računa ne pokazuje ni na koga.
+- **Vremenski stupci za staru povijest su `nullable` i ostaju `NULL`** (npr. `vendor_photos.created_at`): ne izmišljamo datume
+  koje nemamo. Stupci sa statusom (`consent_status`, `moderation_status`, `verification_status`, `source`) imaju DB default
+  pa migracija postavlja smislenu vrijednost i na postojeće retke.
+- Google Places: trajno se sprema samo `google_place_id`; ocjena i broj recenzija se dohvaćaju uživo i **ne spremaju** u bazu.
 - Kategorije i regije ostaju sifrarnici u kodu (kao danas u `lib/data.ts`), NE tablice —
   mijenjaju se rijetko, a slugovi su ugovor s URL-ovima/SEO-om.
 

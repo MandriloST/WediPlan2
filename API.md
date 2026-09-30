@@ -267,6 +267,12 @@ logira, admin akcija i dalje vraća 200 — odgovor korisniku ovih endpointa se 
 Napomena: objavljene korisničke recenzije zasad NE mijenjaju `vendor.rating`/`reviewCount`
 (oni ostaju iz importa). Stapanje ocjena je zasebna odluka (v. PLAN §11 #19).
 
+## Napomena uz Zadatak 13 (shema za audit, moderaciju i privolu)
+Migracija `AuditIModeracija` dodaje stupce i tablicu `audit_log` isključivo **interno**: **nijedan javni DTO ni ruta se ne mijenja**
+(`VendorDto`, `VendorProfileDto`, `ImportedReviewDto`, `ProviderPhotoDto`, `AdminReviewDto`… ostaju isti). Polja o porijeklu i privoli
+pružatelja (`consent_*`, `data_source`, `google_place_id`) nikad ne ulaze u javni API. Nove rute i polja u DTO-ovima dolaze tek
+u Zadacima 14–17 i bit će opisani ovdje kad se uvedu.
+
 ## Kasnije (Coming soon)
 - `GET /api/vendors/{id}/availability?month=YYYY-MM` → `{ "days": { "2026-09-05": "free|busy" } }` — do tada frontend koristi deterministički mock iz `lib/availability.ts` (ista logika na profilu i u usporedbi)
 - Fotografije u draftu (Faza 5, R2), premium mogućnosti iz `subscriptions` (§M.1)

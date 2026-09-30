@@ -213,6 +213,7 @@ public class ExcelImporter
                     Author = Nullify(col(row, "autor")) ?? "Anonimno",
                     Rating = (int)rr, Text = text, Source = source,
                     Year = (int)(ParseNum(col(row, "godina")) is var y && y > 0 ? y : DateTime.UtcNow.Year),
+                    CreatedAt = DateTime.UtcNow, // Zadatak 13 (ExternalKey/upsert dolazi u Zadatku 16)
                 }));
             }
         }
