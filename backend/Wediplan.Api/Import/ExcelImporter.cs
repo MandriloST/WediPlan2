@@ -234,7 +234,7 @@ public class ExcelImporter
         // Zapis u bazu (upsert po slugu)
         if (!_dryRun)
         {
-            await UpsertAsync(parsed, importedReviews, ct);
+            await UpsertAsync(parsed, importedReviews, seenSlug, ct);
         }
 
         // Izvještaj
@@ -248,7 +248,8 @@ public class ExcelImporter
     }
 
     private async Task UpsertAsync(List<Vendor> parsed,
-        List<(string slug, ImportedReview r)> reviews, CancellationToken ct)
+        List<(string slug, ImportedReview r)> reviews, IReadOnlyDictionary<string, int> rowBySlug,
+        CancellationToken ct)
     {
         var reviewsBySlug = reviews.GroupBy(x => x.slug).ToDictionary(g => g.Key, g => g.Select(x => x.r).ToList());
         int inserted = 0, updated = 0;
@@ -266,20 +267,13 @@ public class ExcelImporter
             }
             else
             {
-                // ažuriraj skalarna polja
-                existing.Name = v.Name; existing.CategorySlug = v.CategorySlug; existing.RegionSlug = v.RegionSlug;
-                existing.Country = v.Country;
-                existing.City = v.City; existing.Lat = v.Lat; existing.Lng = v.Lng;
-                existing.LocationPrecision = v.LocationPrecision;
-                existing.CoverageAll = v.CoverageAll; existing.CoverageRegions = v.CoverageRegions;
-                existing.CoverageNote = v.CoverageNote;
-                existing.PriceKind = v.PriceKind; existing.PriceFrom = v.PriceFrom; existing.PriceTo = v.PriceTo;
-                existing.Rating = v.Rating; existing.ReviewCount = v.ReviewCount; existing.RatingSource = v.RatingSource;
-                existing.Verified = v.Verified; existing.LiveCalendar = v.LiveCalendar;
-                existing.StyleTags = v.StyleTags; existing.About = v.About; existing.Services = v.Services;
-                existing.Website = v.Website; existing.Phone = v.Phone; existing.Email = v.Email;
-                existing.SocialInstagram = v.SocialInstagram; existing.SocialFacebook = v.SocialFacebook;
-                existing.UpdatedAt = DateTime.UtcNow;
+                // ažuriraj skalarna polja (ImportMerge: partnerska polja preuzetih profila se NE prepisuju)
+                var skippedFields = ImportMerge.Apply(existing, v);
+                if (skippedFields.Count > 0)
+                {
+                    Warn(rowBySlug.TryGetValue(v.Slug, out var rowNo) ? rowNo : 0, v.Name,
+                        $"profil preuzet od partnera — polja nisu prepisana iz Excela: {string.Join(", ", skippedFields)}");
+                }
                 // zamijeni kategorije i recenzije
                 _db.VendorCategories.RemoveRange(existing.Categories);
                 existing.Categories = v.Categories;

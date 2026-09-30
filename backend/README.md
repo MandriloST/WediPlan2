@@ -130,6 +130,14 @@ dotnet run -- --import /put/do/vendors-live.xlsx
 ```
 ⚠️ U `Import/Geocoder.cs` zamijenite kontakt-email u User-Agentu (Nominatim politika).
 
+**Re-import i preuzeti profili (§Zadatak 10):** ponovni import ažurira podatke kojima upravlja Wediplan
+(naziv, lokacija, pokrivanje, ocjena, bedževi, kontakti), ali za profile s `ClaimStatus = claimed` **ne
+prepisuje polja koja uređuje partner** — `About`, `Services`, cijenu (`PriceKind/From/To`) i `StyleTags`.
+Svaki takav slučaj (samo ako se Excel stvarno razlikuje od baze) ide kao upozorenje u `import-report.txt`
+(„profil preuzet od partnera — polja nisu prepisana…"). Zaštita vrijedi i kad je vlasnik obrisao račun.
+`--dry-run` ne spaja se na bazu, pa ta upozorenja prikazuje tek pravi uvoz. Logika je u `Import/ImportMerge.cs`;
+ako se u `ProviderMapper.ApplyToVendor` doda novo partnersko polje, dodati ga i tamo.
+
 **Analitika (§A):** `POST /api/events` (batch ≤20, whitelist, tihi 204, IP se ne pohranjuje).
 Dnevni rollup: `dotnet run -- --rollup [YYYY-MM-DD]` (default: jučer) → `daily_stats`.
 Postavi noćni cron/systemd timer da ga zove.
