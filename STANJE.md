@@ -12,7 +12,41 @@
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 ## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
 
-## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo: Zadatak 10 (mergeano u `develop`), 11 (grana `feat/map-exact-pins`), 18 (grana `fix/jsonld-own-ratings`). Preostalo: 12 (backup, ops) → 13 (migracija) → 14 → 15/16/17. Sve odluke potvrđene s vlasnikom (2026-09-30).
+## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10, 11, 18. Zadatak 12 (backup) — skripte gotove na grani `ops/backup-hardening`, čeka vlasnikov lokalni backup+restore-test i merge. Preostalo: 13 (migracija; **tek nakon uspješnog restore-testa**) → 14 → 15/16/17. Sve odluke potvrđene s vlasnikom (2026-09-30).
+
+## Sesija 2026-09-30 (e) — Zadatak 12 (backup: custom format, age, off-site, restore-test, slike) — **skripte PROVJERENE, čeka vlasnikov lokalni test** (grana `ops/backup-hardening`)
+
+Implementiran Zadatak 12 iz `PLAN-PRIORITETI-LANSIRANJE-3.md`. **Samo `ops/` + `DEPLOY.md` §4: bez backend/frontend koda, bez migracije, bez `npm install`.**
+
+**Novo/izmijenjeno:**
+- `ops/backup.sh` (prepisano) — `pg_dump -Fc` → opcionalno `age` (`BACKUP_AGE_RECIPIENT`, više ključeva razmak/zarez) → opcionalno
+  `rclone copy --immutable` (`BACKUP_RCLONE_REMOTE`) → lokalna rotacija (`KEEP_DAYS`). Piše u `.partial` pa `mv` (pad dumpa nikad ne ostavlja
+  backup pod pravim imenom), `umask 077`, `flock` protiv istodobnih pokretanja, brza provjera čitljivosti za nekriptirani. Exit `1` = dump/konfiguracija,
+  `2` = lokalni backup OK ali upload nije. Odbija Npgsql connection string (`;`) — `pg_dump` traži libpq format. Rotacija pokriva i stari format `*.sql.gz`.
+- `ops/restore-test.sh` (novo) — vraća `.dump`/`.dump.age` u privremenu bazu `wediplan_restore_test_<stamp>`, `pg_restore --no-owner --no-privileges --exit-on-error`,
+  provjerava `vendors` (≥ `RESTORE_MIN_VENDORS`, default 1), `users`, `user_reviews`, `vendor_photos` i ispisuje zadnju EF migraciju; uvijek briše privremenu
+  bazu (trap). Enkriptirani backup ide kroz cjevovod `age -d | pg_restore` — plaintext se ne zapisuje na disk. Koristi `PG*` varijable (korisnik s CREATEDB).
+- `ops/backup-photos.sh` (novo) — `rclone sync` izvor (`PHOTOS_MODE=r2|local`) → `<dest>/current`, a obrisano/prepisano ide u `<dest>/archive/YYYY-MM-DD`
+  (`--backup-dir`) umjesto da nestane iz backupa. `--max-delete` (default 100) ograničava brisanja po prolazu. Odbija preklapajući izvor/odredište i nepostojeći lokalni folder.
+  Odstupanje od plana: plan je tražio golu `rclone sync` zrcalu; ta bi obrisanu/prepisanu sliku (ili masovno brisanje) prenijela i u backup.
+- `.gitattributes` (novo) — `*.sh text eol=lf`: CRLF završeci (Windows checkout) bi srušili skripte na Linux serveru (`$'\r': command not found`).
+- `DEPLOY.md` §4 prepisan: cron, env datoteka, age ključevi, R2 EU + rclone config (`.eu.` endpoint, `no_check_bucket`), lifecycle pravila, restore,
+  lokalni Docker postupak, runbook „prije migracije“, GDPR odlomak (backupi istječu, brisanja se ponovno primjenjuju nakon restorea).
+
+**Provjera (stvarno pokrenuto, Postgres 16 + age + rclone u sandboxu, stvarna `backend/Wediplan.Api/db/schema.sql`):**
+`bash -n` i `shellcheck -x` = 0 nalaza na sve tri skripte. Backup s 2 age ključa → restore-test prolazi s oba ključa, pada s krivim ključem (jasna poruka, baza obrisana),
+.age nije čitljiv bez ključa. Nekriptirani backup i restore OK; oštećena datoteka pada. Pad `pg_dump`-a kroz `age` cjevovod → exit 1 i nema datoteke. Upload na
+nepostojeći remote → exit 2, lokalni backup ostaje. Rotacija (nova i stari `.sql.gz`), `flock`, prazna baza (pada uz default), baza bez `__EFMigrationsHistory` (pada).
+Slike: sync, arhiva izmijenjenih/obrisanih i oporavak iz arhive, `--max-delete`, dry-run, 10 pogrešnih konfiguracija. Backup s rolom `pg_read_all_data` radi i ne može pisati.
+Cron-stil pozivanje (`sh -c '. env; skripta'`) radi.
+
+**Ograničenja provjere (iskreno):** R2/S3 i stvarni cron nisu testirani (nema interneta); rclone je testiran na lokalnim odredištima, pa `no_check_bucket` i EU endpoint
+potječu iz Cloudflareove dokumentacije, ne iz pokrenutog testa. `--fast-list` se na lokalnom remoteu ignorira. **Kriterij „gotovo“ traži vlasnikov lokalni backup + uspješan `restore-test.sh`** (upute u `DEPLOY.md` §4, „Lokalni razvoj“).
+
+**Za vlasnika (OPS):** (1) `age-keygen` radni + rezervni ključ, privatne u password manager + offline; (2) EU bucket + zaseban token + rclone remote; (3) lifecycle pravila (`db/` 14 d, `photos/archive/` 30 d, NE `photos/current/`);
+(4) politika privatnosti: rokovi backupa i arhive slika. **Zadatak 13 (migracija) ne primjenjivati na stvarnu bazu prije uspješnog restore-testa.**
+
+**Sljedeći korak:** vlasnik napravi lokalni backup + restore-test → Zadatak 13 (migracija `AuditIModeracija`; model piše entitete, vlasnik generira migraciju).
 
 ## Sesija 2026-09-30 (d) — Zadatak 18 (JSON-LD `aggregateRating` samo iz vlastitih recenzija) — **frontend POTVRĐEN** (grana `fix/jsonld-own-ratings`)
 

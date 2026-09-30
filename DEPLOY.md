@@ -211,12 +211,140 @@ isključivo preko proxyja — inače se IP može lažirati.
 Usmjeri `api.wediplan.hr` preko Cloudflarea (proxy ON): bot fight mode, rate limiting pravila,
 opcionalno JS challenge na `/api/vendors`. Tek tada `Proxy__TrustForwardedFor=true`.
 
-### 4. Backup baze
-`ops/backup.sh` (pg_dump + gzip + rotacija). Cron primjer:
+### 4. Backup baze i slika, restore i provjera (Zadatak 12)
+
+Tri skripte u `ops/` (sve `set -euo pipefail`, provjerene `shellcheck`-om i stvarno pokrenute nad Postgresom 16):
+
+| Skripta | Što radi | Kad |
+|---|---|---|
+| `ops/backup.sh` | `pg_dump -Fc` → (age enkripcija) → (rclone kopija izvan servera) → lokalna rotacija | dnevno, 03:00 |
+| `ops/backup-photos.sh` | slike (R2 ili lokalni folder) → odvojeni remote; obrisano/prepisano ide u arhivu po datumu | dnevno, 03:30 |
+| `ops/restore-test.sh` | vraća backup u **privremenu** bazu, provjeri sadržaj, obriše je | **prije svake migracije** + barem mjesečno (v. „Restore“) |
+
 ```
-0 3 * * * /opt/wediplan/ops/backup.sh >> /var/log/wediplan-backup.log 2>&1
+0 3  * * *  . /etc/wediplan-backup.env; /opt/wediplan/ops/backup.sh        >> /var/log/wediplan-backup.log 2>&1
+30 3 * * *  . /etc/wediplan-backup.env; /opt/wediplan/ops/backup-photos.sh >> /var/log/wediplan-photos-backup.log 2>&1
 ```
-Povremeno kopirati backupe izvan servera (isti R2, odvojeni prefix, ili rclone drugdje).
+Skripte **izlaze s kodom ≠ 0** kad nešto padne (backup.sh: `1` = dump/konfiguracija, `2` = lokalni backup OK ali upload nije).
+Zato cron treba javljati greške (npr. `MAILTO=` ili `chronic`/healthchecks.io ping nakon uspješnog prolaza).
+
+#### Instalacija na serveru
+```bash
+apt install postgresql-client age rclone      # pg_dump mora biti iste ili novije verzije od Postgres servera (16)
+```
+Ako Postgres radi u Dockeru na istom serveru: u `docker-compose` objavi port samo na localhost (`127.0.0.1:5432:5432`)
+i u env-u postavi `PGHOST=127.0.0.1` — **nikad** ne izlaži Postgres na javni IP.
+
+#### Env datoteka `/etc/wediplan-backup.env` (`chmod 600`, vlasnik root)
+```bash
+set -a
+# veza na bazu — libpq format (NE Npgsql "Host=…;Port=…"):
+WEDIPLAN_DB="postgresql://wediplan_backup:LOZINKA@127.0.0.1:5432/wediplan"   # ili PGHOST/PGUSER/PGPASSWORD/PGDATABASE
+BACKUP_DIR=/var/backups/wediplan
+KEEP_DAYS=14
+BACKUP_AGE_RECIPIENT="age1…radni age1…rezervni"      # javni ključevi (razmak ili zarez)
+BACKUP_RCLONE_REMOTE=r2-backup:wediplan-backups/db
+PHOTOS_MODE=r2                                       # ili: local
+PHOTOS_R2_REMOTE=r2-media:wediplan-media             # mode=r2: izvor (bucket iz Storage__R2__Bucket)
+PHOTOS_LOCAL_DIR=/opt/wediplan/api/wwwroot/uploads   # mode=local: izvor
+PHOTOS_BACKUP_REMOTE=r2-backup:wediplan-backups/photos
+set +a
+```
+Preporuka: za backup napravi posebnog DB korisnika samo s pravom čitanja (`GRANT pg_read_all_data TO wediplan_backup;`,
+Postgres ≥ 14) — `pg_dump` mu je dovoljan, a ne može mijenjati podatke.
+
+#### age ključevi (enkripcija — backup sadrži osobne podatke)
+```bash
+# NA SVOM RAČUNALU, ne na serveru:
+age-keygen -o wediplan-backup-radni.key      # ispiše "Public key: age1…"  → to ide u BACKUP_AGE_RECIPIENT
+age-keygen -o wediplan-backup-rezervni.key   # drugi ključ (npr. u sefu / kod drugog povjerljivog čovjeka)
+```
+- **Privatni ključ (`*.key`) nikad na produkcijski server** — na serveru je samo javni ključ; tko provali server ne može čitati stare backupe.
+- Privatni ključ čuvaj u password manageru **i** offline kopiju. **Izgubiš li sve privatne ključeve, backupi su nečitljivi.**
+- Dva ključa u `BACKUP_AGE_RECIPIENT`: bilo koji od njih otključava backup.
+- Bez `BACKUP_AGE_RECIPIENT` skripta radi, ali ispiše upozorenje i backup **nije** enkriptiran.
+
+#### rclone + Cloudflare R2 (EU)
+1. Kreiraj **zaseban bucket za backupe** (npr. `wediplan-backups`) s **EU jurisdikcijom** (Cloudflare → R2 → Create bucket →
+   Jurisdiction: European Union). Jurisdikcija se poslije **ne može promijeniti**. Ne koristi isti bucket kao za slike.
+2. Napravi **zaseban API token** (R2 → Manage API tokens → *Object Read & Write*) ograničen **samo na backup bucket** — ne koristi
+   aplikacijski token (`Storage__R2__*`).
+3. `rclone config` → novi remote (ili ručno u `~/.config/rclone/rclone.conf`; pokreće se kao korisnik koji izvršava cron):
+```ini
+[r2-backup]
+type = s3
+provider = Cloudflare
+access_key_id = <ACCESS_KEY_ID>
+secret_access_key = <SECRET_ACCESS_KEY>
+endpoint = https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com
+acl = private
+no_check_bucket = true
+```
+   `.eu.` u endpointu je **obavezno** za EU bucket (bez toga je bucket nedostupan); `no_check_bucket = true` je potreban kad token
+   ima samo prava na objekte (inače rclone pokuša kreirati bucket i dobije 403). Provjera: `rclone lsd r2-backup:` / `rclone ls r2-backup:wediplan-backups`.
+4. **Retencija izvan servera radi lifecycle pravilo na bucketu** (skripte tamo ništa ne brišu): R2 → bucket → Settings → *Object lifecycle rules*
+   → *Add rule* (točan naziv izbornika može se razlikovati): prefiks `db/` → delete nakon **14 dana** (isti rok kao `KEEP_DAYS`); prefiks `photos/archive/` → delete nakon **30 dana**.
+   **NEMOJ** postaviti pravilo na `photos/current/` (to je živo zrcalo slika). Pravila se primjenjuju unutar ~24 h.
+   Opcionalno: *Bucket locks* (retencija koja sprječava slučajno brisanje) — pročitaj ograničenja u Cloudflare dokumentaciji prije uključivanja.
+
+#### Slike: kako radi `backup-photos.sh`
+`rclone sync` izvor → `…/photos/current/`. Datoteke koje su na izvoru **obrisane ili prepisane** ne nestaju iz backupa nego se presele u
+`…/photos/archive/YYYY-MM-DD/` — slučajno brisanje (ili napad) na izvoru ne briše i backup. `--max-delete` (default 100, `PHOTOS_MAX_DELETE`)
+ograničava broj brisanja po prolazu: kad se dosegne, rclone stane i skripta javi grešku. Vraćanje slike: `rclone copy r2-backup:wediplan-backups/photos/archive/2026-09-30/vendors/<id>/ ./oporavak/`.
+Probni prolaz bez promjena: `DRY_RUN=1 ops/backup-photos.sh`.
+
+#### Restore (ručno i provjera)
+```bash
+# Provjera da se backup vraća (PRIVREMENA baza, produkcija se ne dira; PG* = server s pravom CREATEDB):
+export PGHOST=127.0.0.1 PGUSER=postgres PGPASSWORD=…
+BACKUP_AGE_IDENTITY=~/wediplan-backup-radni.key ops/restore-test.sh /var/backups/wediplan/wediplan-20260930-030001.dump.age
+#   ispiše brojeve redaka (vendors, users, user_reviews, vendor_photos) i zadnju EF migraciju; exit ≠ 0 ako išta ne valja.
+#   RESTORE_MIN_VENDORS=0 isključuje provjeru "barem 1 pružatelj"; KEEP_TEST_DB=1 ostavlja privremenu bazu za ručni pregled.
+
+# Pravi restore (npr. nova baza nakon gubitka servera):
+createdb wediplan
+age -d -i ~/wediplan-backup-radni.key wediplan-….dump.age | pg_restore --no-owner --no-privileges -d wediplan   # enkriptirani
+pg_restore --no-owner --no-privileges -d wediplan wediplan-….dump                                               # nekriptirani
+# stari format iz prve verzije skripte (wediplan-*.sql.gz):  gunzip -c wediplan-….sql.gz | psql wediplan
+```
+Dekriptirani podaci idu ravno u `pg_restore` (cjevovod) — ne zapisuju se na disk.
+
+**Koliko često provjeravati restore:** enkriptirani backup može provjeriti samo netko tko ima **privatni** age ključ, a njega namjerno nema
+na serveru. Zato: (1) **prije svake migracije** (runbook niže) i (2) **barem jednom mjesečno** ručno — povuci zadnji backup s R2
+(`rclone copy r2-backup:wediplan-backups/db/ . --max-age 2d`) na svoje računalo i pokreni `restore-test.sh` protiv lokalnog/dev Postgresa.
+Povratni signal da se backup uopće stvara daju ti `exit` kodovi + ping u monitoring (v. gore).
+
+*Opcionalno — automatski tjedni test na serveru:* generiraj **treći, namjenski** par ključeva (`age-keygen -o restore-test.key`), javni ključ dodaj u
+`BACKUP_AGE_RECIPIENT`, a privatni stavi na server (`chmod 600`) samo za `restore-test.sh`. Kompromis: tko preuzme server može dekriptirati i
+**stare** backupe iz R2 (ne samo trenutnu bazu, do koje ionako ima pristup) — uključi to samo ako ti je praktičnost važnija. Cron:
+`0 5 * * 1  . /etc/wediplan-backup.env; BACKUP_AGE_IDENTITY=/root/restore-test.key /opt/wediplan/ops/restore-test.sh "$(ls -t /var/backups/wediplan/wediplan-*.dump* | head -1)" >> /var/log/wediplan-restore-test.log 2>&1`
+(`PGUSER` mora imati pravo `CREATEDB`; za to ne koristi backup korisnika iz gornjeg savjeta).
+
+#### Lokalni razvoj (Docker, iz `backend/`)
+```bash
+cd backend
+docker compose exec -T postgres pg_dump -U wediplan -d wediplan -Fc > wediplan-$(date +%Y%m%d-%H%M).dump
+docker compose exec -T postgres createdb -U wediplan wediplan_restore_test
+docker compose exec -T postgres pg_restore -U wediplan -d wediplan_restore_test --no-owner < wediplan-XXXX.dump
+docker compose exec -T postgres psql -U wediplan -d wediplan_restore_test -c "select count(*) from vendors;"
+docker compose exec -T postgres dropdb -U wediplan wediplan_restore_test
+```
+(Dev Postgres sluša na `localhost:5433`: `PGHOST=localhost PGPORT=5433 PGUSER=wediplan PGPASSWORD=wediplan ops/backup.sh` radi i s hosta ako imaš `pg_dump`.)
+
+#### Runbook: PRIJE svake migracije / deploya koji dira bazu
+1. `ops/backup.sh` (ručno, **svježi** backup) — mora završiti s exit 0.
+2. `ops/restore-test.sh <taj backup>` — mora ispisati `OK` i očekivane brojeve.
+3. Tek tada: `dotnet ef database update` / deploy.
+4. Ako migracija pođe po zlu: vrati iz tog backupa (v. „Pravi restore“), ne popravljaj bazu ručno.
+
+#### GDPR: backupi i brisanje osobnih podataka
+- Backupi sadrže osobne podatke (e-mailovi korisnika, kontakti pružatelja). Zato: enkripcija (age), EU pohrana (R2 EU jurisdikcija), ograničen pristup (`chmod 600/700`), zaseban token.
+- **Brisanja se ne primjenjuju retroaktivno na postojeće backupe** — backupi istječu sami nakon roka (lokalno `KEEP_DAYS`, na R2 lifecycle pravilo; predloženo 14 dana).
+  Tu činjenicu i rokove navedi u politici privatnosti (vlasnik; pravna provjera).
+- **Nakon restorea iz backupa ponovno primijeni brisanja** izvršena od trenutka tog backupa: brisanja računa i opt-out zahtjeve.
+  Izvor: dnevnik u `audit_log` (akcije `account_deleted`, `optout`) nakon što se uvede Zadatak 14; do tada log aplikacije
+  (`account deleted: user=…`, `GDPR opt-out: vendor=…` u `journalctl -u wediplan-api`). Zato **čuvaj log brisanja barem onoliko koliko i backupe**.
+- Arhiva slika (`photos/archive/`) zadržava obrisane fotografije do isteka lifecycle pravila (predloženo 30 dana) — uskladi s politikom privatnosti.
 
 ### 5. Monitoring
 Health endpoint: `GET /api/health` → `200 {status:ok}` kad je baza dostupna, `503` inače.
