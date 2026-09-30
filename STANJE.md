@@ -12,7 +12,52 @@
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 ## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
 
-## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **📋 PLANIRAN, ništa još implementirano** (2026-09-30). Zadaci 10–18: importer štiti preuzete profile, zeleni pinovi + legenda, JSON-LD samo vlastite ocjene, backup hardening, migracija `AuditIModeracija`, audit log, moderacija slika, verifikacija recenzija, porijeklo/privola. Sve odluke potvrđene s vlasnikom.
+## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku: Zadatak 10 kod gotov (grana `fix/import-protect-claimed`, čeka vlasnikov build/test), ostalo planirano** (2026-09-30). Zadaci 10–18: importer štiti preuzete profile, zeleni pinovi + legenda, JSON-LD samo vlastite ocjene, backup hardening, migracija `AuditIModeracija`, audit log, moderacija slika, verifikacija recenzija, porijeklo/privola. Sve odluke potvrđene s vlasnikom.
+
+## Sesija 2026-09-30 (b) — Zadatak 10 (importer štiti preuzete profile) — kod gotov, **backend build/test NEPOTVRĐEN** (grana `fix/import-protect-claimed`)
+
+Implementiran Zadatak 10 iz `PLAN-PRIORITETI-LANSIRANJE-3.md` u cijelosti. **Bez migracije, bez frontend izmjena.**
+Problem: `ExcelImporter.UpsertAsync` je pri re-importu prepisivao `About/Services/Price*/StyleTags` i na
+preuzetim profilima, pa bi se partnerove objavljene izmjene tiho vratile na Excel.
+
+**Backend — novo/izmijenjeno:**
+- `Import/ImportMerge.cs` (novo) — čista statička `Apply(existing, incoming)`: polja kojima upravlja Wediplan
+  (naziv, kategorija, regija, država, grad, koordinate, preciznost, pokrivanje, ocjena, bedževi, kontakti)
+  kopira uvijek; partnerska polja (`About`, `Services`, `Price*`, `StyleTags`) samo ako
+  `existing.ClaimStatus != "claimed"`. Vraća popis preskočenih polja, **samo onih gdje se Excel stvarno razlikuje**
+  (cijena se javlja jednom kao `Price`). Zaštita ovisi o `ClaimStatus`, ne `OwnerUserId` (vlasnik s obrisanim
+  računom ima `OwnerUserId = null`, ali `claimed`). Ne dira `ClaimStatus/OwnerUserId/OptOut/IsPublished`.
+  Konstanta `PartnerManagedFields` mora pratiti `ProviderMapper.ApplyToVendor`.
+- `Import/ExcelImporter.cs` — `UpsertAsync` zove `ImportMerge.Apply`; nova upozorenja u `import-report.txt`
+  („profil preuzet od partnera — polja nisu prepisana iz Excela: …") s brojem retka. `UpsertAsync` sad prima
+  `seenSlug` (slug → broj retka, već je postojao u `RunAsync`). Kategorije i uvezene recenzije NEDIRANI
+  (recenzije mijenja Zadatak 16).
+- `Wediplan.Api.Tests/ImportMergeTests.cs` (novo) — 7 testova: `Unclaimed_CopiesPartnerFields`,
+  `Claimed_KeepsPartnerFields_AndReportsOnlyChangedOnes`, `Claimed_NothingDiffers_ReportsNothing`,
+  `Claimed_StillUpdatesWediplanFields`, `Claimed_WithDeletedOwner_StillProtected`,
+  `Apply_DoesNotTouchClaimOwnershipOrVisibility`, `PartnerManagedFields_MatchWhatApplyActuallyProtects`.
+
+**Što je provjereno, a što nije (iskreno):**
+- Sandbox nema `api.nuget.org` → cijeli projekt i pravi xunit NISU kompilirani/pokrenuti. .NET SDK 8 je ipak
+  instaliran iz Ubuntu arhive pa je **stvarni** `ImportMerge.cs` + **stvarni** `Entities.cs` (samo bez Npgsql tipa
+  `NpgsqlTsVector`) + **nepromijenjeni** `ImportMergeTests.cs` kompiliran i pokrenut uz minimalni xunit shim:
+  **7/7 prolazi**; mutacijska provjera (zaštita isključena) obara 3 testa. To potvrđuje logiku, NE zamjenjuje
+  `dotnet test`.
+- `ExcelImporter.cs` izmjena (mali, ručno pregledan diff; ClosedXML/EF se ne mogu kompilirati ovdje) — **nije
+  kompilirana**. Prije mergea vlasnik MORA:
+```bash
+cd backend
+dotnet build Wediplan.sln -c Release   # mora proći
+dotnet test                             # mora biti zeleno (7 novih testova + postojeći)
+```
+- Ručna provjera (preporuka): preuzmi testni profil, promijeni mu opis u `/partner` i objavi, pokreni isti Excel
+  ponovno (`dotnet run -- --import <xlsx>`) → opis ostaje, `import-report.txt` sadrži upozorenje. `--dry-run` ne
+  koristi bazu pa tih upozorenja nema (namjerno).
+
+**Dokumentacija:** `backend/README.md` (odlomak o re-importu), `PLAN-PRIORITETI-LANSIRANJE-3.md` (status). `API.md`
+nije trebalo mijenjati.
+
+**Sljedeći korak:** nakon potvrde build/test → merge u `develop`; zatim Zadaci 11 i 18 (frontend, paralelno), pa 12.
 
 ## Sesija 2026-09-30 — Analiza + plan trećeg vala (samo dokumentacija, bez koda)
 
