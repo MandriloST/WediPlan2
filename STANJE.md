@@ -12,6 +12,27 @@
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 ## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
 
+## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **📋 PLANIRAN, ništa još implementirano** (2026-09-30). Zadaci 10–18: importer štiti preuzete profile, zeleni pinovi + legenda, JSON-LD samo vlastite ocjene, backup hardening, migracija `AuditIModeracija`, audit log, moderacija slika, verifikacija recenzija, porijeklo/privola. Sve odluke potvrđene s vlasnikom.
+
+## Sesija 2026-09-30 — Analiza + plan trećeg vala (samo dokumentacija, bez koda)
+
+Vlasnik tražio analizu izvedivosti: zeleni pin za točnu lokaciju, legenda karte, backup baze uz GDPR i
+timestampove, evidencija promjena partnerskih podataka, admin evidencija recenzija i slika. Analiza na commitu
+`fb1d79e`; vlasnik prihvatio sve preporuke → `PLAN-PRIORITETI-LANSIRANJE-3.md` (novo).
+
+**Nalazi analize vrijedni zapamtiti:**
+- `ExcelImporter.UpsertAsync` prepisuje `About/Services/Price*/StyleTags` i na **preuzetim** profilima → tihi
+  gubitak partnerovih izmjena pri re-importu (Zadatak 10, ide prvi).
+- `lib/jsonld.ts` šalje `aggregateRating` iz Excel ocjena (vanjski izvor) — protivno Googleovim smjernicama za
+  review snippete (Zadatak 18).
+- `VendorPhoto` nema nikakav timestamp ni autora; `UserReview` nema `DecidedBy`; `ImportedReview` se pri
+  re-importu briše i ponovno stvara (status provjere ne bi preživio) → sve u Zadacima 13/15/16.
+- `AccountController` koristi `ExecuteUpdateAsync` (zaobilazi ChangeTracker) → audit mora imati eksplicitne zapise.
+- Google Places: trajno se smije spremati samo `place_id`; rating/count nikad u bazu ni JSON-LD (dodaje se samo
+  stupac `GooglePlaceId`, integracija je „Budući rad").
+
+**Sljedeći korak:** Zadatak 10 (+ paralelno 11 i 18), zatim 12 prije bilo kakve migracije.
+
 ## Sesija 2026-09-23 (e) — Drugi val prioriteta ZATVOREN: build+test potvrđeni za sve
 
 Vlasnik potvrdio da Zadaci 5, 7, 9 i 8 (claim e-mail verifikacija, partner mailovi, rate-limit,
