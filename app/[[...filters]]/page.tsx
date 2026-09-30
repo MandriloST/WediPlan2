@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import ExploreShell from "@/components/ExploreShell";
 import LandingShell from "@/components/LandingShell";
 import { TOP_RATED_CATEGORIES } from "@/lib/landing";
-import { pathFor, type ExploreFilters } from "@/lib/paths";
+import { pathFor, PAGE_SIZE, type ExploreFilters } from "@/lib/paths";
 import { CATEGORY_BY_SLUG, REGION_BY_ID } from "@/lib/data";
 import { getCategories, getVendors } from "@/lib/api/server";
 import type { CategoryWithCount, Paged, RegionId, Vendor } from "@/lib/types";
@@ -97,6 +97,7 @@ export default async function ExplorePage({ params, searchParams }: Props) {
         category: filters.category,
         q: filters.q,
         page: filters.page,
+        pageSize: PAGE_SIZE,
       });
   } catch (e) {
     console.error("[explore] SSR dohvat nije uspio:", e);

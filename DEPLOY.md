@@ -226,3 +226,95 @@ i na frontend. Error log: pratiti stderr .NET procesa (systemd `journalctl -u we
 ### 6. Migracije
 Faza 5 **ne uvodi novu migraciju** (tablica `vendor_photos` postoji od Faze 1). Potrebno je samo
 `dotnet restore` (novi paketi ImageSharp + AWSSDK.S3) i `dotnet build`.
+
+## Plan prioriteti 2, Zadatak 5 — claim e-mail verifikacija (2026-09-23)
+
+**1. Migracija** (nova tablica `claim_verification_tokens`):
+```bash
+cd backend/Wediplan.Api
+dotnet ef migrations add ClaimVerification
+dotnet ef database update
+```
+(Sandbox u kojem je kod pisan nema pristup NuGet-u — isto ograničenje kao Faze 1/3/4 — pa
+migracija NIJE generirana ondje. Kod je pažljivo ručno pregledan, ali **`dotnet build` i
+`dotnet test` je potrebno pokrenuti ovdje, PRIJE mergea**, v. napomenu u STANJE.md ove sesije.)
+
+**2. Nova konfiguracija** (appsettings ili env; opcionalna — bez nje default je `true`):
+```
+Claims__AutoApproveOnEmailVerify = true    (default true; postavi na false da vratiš na "jak
+                                             dokaz + admin klik" bez ikakve izmjene koda)
+```
+
+**3. Ručni test toka:**
+- Kao korisnik A zatraži claim na nekom profilu (kao dosad).
+- Na `ClaimPanel`-u klikni "Potvrdi vlasništvo e-mailom" → ako profil ima `Vendor.Email`
+  (interni, iz importa), mail (konzola ako nema Resenda) sadrži poveznicu na
+  `/partner/potvrda-vlasnistva?token=…`.
+- Otvori tu poveznicu (prijavljen kao isti korisnik A) → gumb/auto-potvrda → uz
+  `Claims:AutoApproveOnEmailVerify=true` (default) profil je ODMAH `claimed`, korisnik A vlasnik.
+- Postavi `Claims__AutoApproveOnEmailVerify=false`, ponovi s drugim profilom → nakon potvrde
+  status ostaje `pending`, ali `/admin` prikazuje bedž "✓ e-mail potvrđen" — admin i dalje klikne
+  Odobri.
+- Profil bez `Vendor.Email` → gumb za e-mail potvrdu prikazuje objašnjenje da odobrava admin
+  (fallback na dosadašnji `domain_match`/ručni pregled).
+
+## Plan prioriteti 2, Zadatak 7 — obavijesti partnerima (2026-09-23)
+
+Bez nove migracije i bez nove konfiguracije — koristi isti `IEmailSender`/`App:PublicUrl` kao
+auth mailovi (v. gore). Nova klasa `PartnerEmails` (`Auth/PartnerEmails.cs`) šalje:
+- claim odobren (i ručno preko admina i auto-approve iz Zadatka 5) → vlasniku, link na `/partner`;
+- claim odbijen → korisniku, neutralan tekst;
+- recenzija objavljena → vlasniku profila (**samo ako je profil claiman** — neclaimani profili
+  nemaju koga obavijestiti).
+
+Slanje je best-effort (try/catch oko `IEmailSender.SendAsync`, greška se samo logira) — admin
+akcija (approve/reject claim, approve review) uvijek vraća 200 bez obzira je li mail uspio.
+
+**Ručni test:** bez Resend ključa, odobri/odbij claim ili objavi recenziju u `/admin` → mail (s
+ispravnim imenom pružatelja i poveznicom na `/partner`) se ispisuje u konzolu servera.
+
+## Plan prioriteti 2, Zadatak 8 — monitoring: Sentry (2026-09-23)
+
+Isti "aktivno samo s ključem" obrazac kao Resend — bez DSN-a nula promjene ponašanja (backend
+i frontend), CI/dev ostaju netaknuti. `/api/health` ostaje za **uptime** (vanjski servis poput
+UptimeRobot ili BetterStack ping-a taj endpoint); Sentry je za **greške** — komplementarni, ne
+zamjenjuju jedno drugo.
+
+**Backend:**
+```
+Sentry__Dsn = https://xxxx@oXXXXXX.ingest.sentry.io/XXXXXXX   (env, NIKAD u appsettings u gitu)
+SENTRY_RELEASE = <git sha>                                     (opcionalno, npr. iz CI-ja)
+```
+Bez `Sentry:Dsn` (default, prazan string u `appsettings.json`) — `Sentry.AspNetCore` paket je
+učitan ali `UseSentry()` se nikad poziva. `dotnet restore` treba povući novi paket prije builda.
+
+**Frontend:**
+```
+NEXT_PUBLIC_SENTRY_DSN = https://xxxx@oXXXXXX.ingest.sentry.io/XXXXXXX   (Vercel env)
+SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN                          (opcionalno — upload
+                                                                           source mapova pri buildu;
+                                                                           bez njih build i dalje
+                                                                           prolazi, samo se sourcemap
+                                                                           upload tiho preskače)
+```
+**Napomena o konvenciji fajlova** (otkriveno pri implementaciji, razlikuje se od starijeg
+"sentry.client/server/edge.config.ts" obrasca koji se često spominje u starijim vodičima):
+instalirana verzija `@sentry/nextjs` (11.x) je taj obrazac **napustila** — SDK sad eksplicitno
+upozorava i traži brisanje tih fajlova. Umjesto njih: `instrumentation-client.ts` (klijent) i
+`instrumentation.ts` (server+edge, preko Next.js-evog vlastitog instrumentation hooka). Za Next 14
+(verzija u ovom projektu) `withSentryConfig` u `next.config.mjs` automatski uključuje
+`experimental.instrumentationHook` — ništa dodatno nije potrebno ručno postaviti. Import u
+`next.config.mjs` mora biti iz `@sentry/nextjs/config` (ne iz golog `@sentry/nextjs`) — Node-ov
+ESM/CJS interop ne prepoznaje `withSentryConfig` kao named export s glavnog paketa u kontekstu
+učitavanja `next.config.mjs` (build inače puca s "Named export not found").
+
+**Ručni test (vlasnik, s pravim DSN-om):**
+- Backend: privremeno baci `throw new Exception("test-sentry")` u bilo koju rutu → event stiže u
+  Sentry projekt unutar par sekundi.
+- Frontend: privremeno baci grešku u klijentskoj komponenti (npr. `onClick={() => { throw new
+  Error("test-sentry-client") }}`) → event stiže u isti ili zaseban Sentry projekt.
+- Bez DSN-a (obje strane): build/test identični kao prije ovog zadatka — potvrdi da
+  `dotnet test` i `npm run build` prolaze i BEZ ijedne Sentry env varijable postavljene.
+
+**Budući, neobavezan korak** (ne blokira): upload source mapova + release marking u
+`.github/workflows/ci.yml` (Sentry CLI akcija) za čitljive stack traceove u produkciji.

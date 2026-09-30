@@ -37,6 +37,20 @@ export default function ReviewForm({ vendorSlug }: { vendorSlug: string }) {
     );
   }
 
+  // Povjerenje je USP platforme: recenziju smije poslati samo korisnik s potvrđenim emailom
+  // (backend to i tako odbije s email_not_confirmed — ovo je samo bolji, trenutni prikaz).
+  if (!user.emailConfirmed) {
+    return (
+      <div className="empty" style={{ marginTop: 14 }}>
+        <h3>Podijelite svoje iskustvo</h3>
+        <p>
+          Za pisanje recenzije prvo potvrdite svoju e-mail adresu — poveznicu smo poslali pri
+          registraciji na <strong>{user.email}</strong>. Provjerite i mapu neželjene pošte.
+        </p>
+      </div>
+    );
+  }
+
   if (done) {
     return (
       <div className="fit good" style={{ marginTop: 14 }}>

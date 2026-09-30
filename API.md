@@ -158,6 +158,15 @@ Favoriti NEMAJU FK na vendors: ako pružatelj nestane, zapis je bezopasan i filt
 `MeDto`: `{ id, email, displayName?, emailConfirmed, roles[] }` (role: couple|provider|admin).
 Kontakti/tokeni/hashevi se NIKAD ne vraćaju.
 
+### Brisanje računa (§9, Plan prioriteti #2)
+- `DELETE /api/account` `{confirm:"OBRISI"}` (sesija) → `200 {ok:true}` / `400 confirmation_required`
+  (confirm mora biti točno `"OBRISI"`) / `401` (nema sesije).
+  Briše `AppUser` (+ Identity role/login/token — kaskadno na razini baze) te `Favorite`, `BudgetPlan`,
+  `Claim`, `UserReview` (isto kaskadno — svi imaju pravi FK ON DELETE CASCADE prema korisniku).
+  Eksplicitno briše `EmailVerificationToken` (po `UserId`) i `MagicLink` (po emailu) — ta dva NEMAJU
+  cascade FK. `Vendor.OwnerUserId` se postavlja na `null` za sve profile tog korisnika — **profil
+  pružatelja ostaje javan** (poslovni, ne osobni podatak), samo gubi vlasnika. Odjavljuje sesiju.
+
 ## POST /api/events
 First-party analitika (§A). Batch max 20, whitelist `event_name`, tihi **204**.
 IP se koristi samo za rate limit (ne pohranjuje se); bez PII. Iza Vercel rewritea stvarni IP je
@@ -204,8 +213,23 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
   (idempotentno); odbijeni se može ponovno zatražiti.
   `evidence`: `"domain_match"` kad se domena e-maila korisnika poklapa s web-domenom profila.
 - `GET /api/claims/mine` → `ClaimDto[]` (svi zahtjevi korisnika).
+- **`POST /api/claims/{id}/send-verification`** (2026-09 · Plan prioriteti 2, Zadatak 5) →
+  `{ sentTo }` (maskirana adresa, npr. `"t***@domena.hr"` — puna `vendor.Email` se nikad ne
+  vraća). Šalje jednokratni token (24h) na `vendor.Email` (interni, iz importa — jak dokaz
+  vlasništva jer profil javno ne izlaže tu adresu). 404 ako claim nije korisnikov ili ne
+  postoji; 409 `already_decided` ako claim više nije pending; 400 `no_email_on_file` ako
+  pružatelj nema email na profilu (fallback ostaje `domain_match`/admin); 429
+  `too_many_requests` (anti-zloupotreba: max 3 tokena/24h, min. 2 min razmak — vlastita provjera,
+  neovisna o i strožija od opće "writes" rate-limit politike, §Zadatak 9, ispod).
+- **`POST /api/claims/verify`** `{token}` (2026-09 · Zadatak 5) → `{status: "approved"|"verified"}`.
+  Potvrđuje token; postavlja `evidence="email_verified"`. Ako je claim još pending **i**
+  `Claims:AutoApproveOnEmailVerify` nije eksplicitno `false` (default `true`) → auto-odobrava
+  (ista logika kao admin approve, `decidedBy=null`) i vraća `"approved"`; inače samo bilježi
+  dokaz i vraća `"verified"` (čeka admina). 400 `invalid_token` (nepostojeći/istekao/potrošen);
+  403 `not_your_claim` (token pripada tuđem claimu).
 
 `ClaimDto`: `{ id, vendorSlug, vendorName, status: pending|approved|rejected, evidence, createdAt }`.
+`evidence`: `"domain_match" | "email_verified" | ""`.
 
 ### Nadzorna ploča partnera
 - `GET /api/provider/vendors` → `ProviderVendorDto[]` — pružatelji koje korisnik posjeduje ili
@@ -222,7 +246,9 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
 ### Korisničke recenzije
 - `POST /api/reviews` `{vendorSlug, rating (1–5), text}` → `{status:"pending", message}`.
   Ide u moderaciju; jedna recenzija po (korisnik, pružatelj) — 409 `already_reviewed`;
-  400 `own_vendor` (vlasnik ne recenzira sebe); 404 `vendor_not_found`.
+  400 `own_vendor` (vlasnik ne recenzira sebe); 404 `vendor_not_found`;
+  **403 `email_not_confirmed`** (2026-09 · Plan prioriteti #3 — recenzirati smije samo korisnik s
+  potvrđenim emailom; throwaway/nepotvrđeni računi su blokirani i prije provjere postoji li vendor).
 
 ### Admin (rola admin)
 - `GET /api/admin/claims?status=pending` → `AdminClaimDto[]`.
@@ -231,6 +257,12 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
 - `GET /api/admin/reviews?status=pending` → `AdminReviewDto[]`.
 - `POST /api/admin/reviews/{id}/approve` (→ `published`) · `POST …/reject`.
 - `POST /api/admin/vendors/{slug}/unpublish` · `POST …/publish` → toggla `is_published` (§9).
+
+**Obavijesti partnerima** (2026-09 · Plan prioriteti 2, Zadatak 7): `approve claim`, `reject claim`
+i `approve review` (samo ako je profil claiman, tj. `vendor.OwnerUserId` postoji) šalju vlasniku
+HR mail nakon uspješnog spremanja (`PartnerEmails`, isti `IEmailSender` kao auth mailovi — dev
+konzola bez Resend ključa). Slanje je **best-effort**: pad (npr. neispravan Resend ključ) se samo
+logira, admin akcija i dalje vraća 200 — odgovor korisniku ovih endpointa se ne mijenja.
 
 Napomena: objavljene korisničke recenzije zasad NE mijenjaju `vendor.rating`/`reviewCount`
 (oni ostaju iz importa). Stapanje ocjena je zasebna odluka (v. PLAN §11 #19).
@@ -261,8 +293,12 @@ WebP → opcionalni tekstualni žig. `GET /api/provider/vendors` sada vraća i `
 
 **Health:** `GET /api/health` (bez autentikacije) → `200 {status:"ok"}` / `503 {status:"db_down"}`.
 
-**Rate limiting:** globalno 300/min po IP-u; liste (`/api/vendors`, `/api/pins`, `/api/suggest`)
-60/min. Prekoračenje → `429`.
+**Rate limiting** (2026-09 · Plan prioriteti 2, Zadatak 9 — očvršćeno): globalno 300/min po IP-u;
+liste (`/api/vendors`, `/api/pins`, `/api/suggest`) 60/min; **pisanja** (`POST /api/reviews`,
+`/api/claims`, `/api/claims/{id}/send-verification`, `/api/claims/verify`, `/api/optout`) 20/min,
+sliding-window, particija po **korisniku** ako je prijavljen (inače po IP-u); **auth**
+(`/api/auth/*` osim `logout`) 10/min, sliding-window, particija po IP-u — komplementarno Identity
+lockoutu (8 promašaja/15 min). Svaki `429` nosi `Retry-After` zaglavlje.
 
 ---
 

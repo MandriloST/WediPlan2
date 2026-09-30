@@ -14,6 +14,7 @@ import path from "node:path";
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const IMG_DIR = path.join(ROOT, "public", "images", "vendors");
 const DEFAULTS_DIR = path.join(ROOT, "public", "images", "defaults");
+const DEFAULTS_PROFILE_DIR = path.join(ROOT, "public", "images", "defaults-profile");
 const DEFAULT_EXT = ".jpg"; // mora pratiti lib/images.ts
 const IMG_RE = /\.(jpe?g|png|webp|avif)$/i;
 const MAX_PHOTOS = 3;
@@ -49,9 +50,16 @@ export function applyImages(vendors) {
   }
   // default slika mora postojati za svaku kategoriju koju netko bez slika koristi
   const needDefault = new Set(vendors.filter((v) => !v.photos.length).map((v) => v.category));
+  // način čitamo iz lib/images.ts (VENDOR_DEFAULT_MODE): "single" = defaults/pruzatelj.jpg za sve
+  const imagesTs = readFileSync(path.join(ROOT, "lib", "images.ts"), "utf8");
+  const single = /VENDOR_DEFAULT_MODE[^=]*=\s*"single"/.test(imagesTs);
+  if (single) needDefault.clear(), needDefault.add("pruzatelj");
   for (const cat of needDefault) {
     if (!existsSync(path.join(DEFAULTS_DIR, cat + DEFAULT_EXT))) {
-      warnings.push(`  NEDOSTAJE default slika: public/images/defaults/${cat}${DEFAULT_EXT} (vendori te kategorije bez slika prikazat će razbijenu sliku!)`);
+      warnings.push(`  NEDOSTAJE default slika (kartica): public/images/defaults/${cat}${DEFAULT_EXT} (vendori te kategorije bez slika prikazat će razbijenu sliku na kartici!)`);
+    }
+    if (!existsSync(path.join(DEFAULTS_PROFILE_DIR, cat + DEFAULT_EXT))) {
+      warnings.push(`  NEDOSTAJE default slika (profil): public/images/defaults-profile/${cat}${DEFAULT_EXT} (vendori te kategorije bez slika prikazat će razbijenu sliku na profilu!)`);
     }
   }
   const withPhotos = vendors.filter((v) => v.photos.length).length;
@@ -69,5 +77,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }
   writeFileSync(file, JSON.stringify(vendors, null, 2) + "\n");
   console.log(`✓ ${withPhotos}/${vendors.length} pružatelja ima stvarne slike → data/vendors.json ažuriran`);
-  console.log("  Ostali prikazuju default sliku svoje kategorije (public/images/defaults/).");
+  console.log("  Ostali prikazuju default sliku pružatelja (public/images/defaults/, v. VENDOR_DEFAULT_MODE u lib/images.ts).");
 }

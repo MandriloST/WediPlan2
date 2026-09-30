@@ -36,8 +36,11 @@ public record ClaimDto(
     string VendorSlug,
     string VendorName,
     string Status,        // pending | approved | rejected
-    string Evidence,      // domain_match | ""
+    string Evidence,      // domain_match | email_verified | ""
     DateTime CreatedAt);
+
+/// <summary>POST /api/claims/verify — potvrdi vlasništvo tokenom poslanim na Vendor.Email (§Zadatak 5).</summary>
+public record VerifyClaimRequest([property: Required] string Token);
 
 // ---------------------------------------------------------------- provider dashboard
 

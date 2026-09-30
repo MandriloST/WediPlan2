@@ -354,6 +354,44 @@ namespace Wediplan.Api.Migrations
                     b.ToTable("claims", (string)null);
                 });
 
+            modelBuilder.Entity("Wediplan.Api.Domain.ClaimVerificationToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("claim_id");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("claim_verification_tokens", (string)null);
+                });
+
             modelBuilder.Entity("Wediplan.Api.Domain.DailyStat", b =>
                 {
                     b.Property<DateOnly>("Day")
@@ -1049,6 +1087,15 @@ namespace Wediplan.Api.Migrations
                     b.HasOne("Wediplan.Api.Domain.Vendor", null)
                         .WithMany()
                         .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wediplan.Api.Domain.ClaimVerificationToken", b =>
+                {
+                    b.HasOne("Wediplan.Api.Domain.Claim", null)
+                        .WithMany()
+                        .HasForeignKey("ClaimId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

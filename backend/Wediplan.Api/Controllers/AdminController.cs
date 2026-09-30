@@ -2,9 +2,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Wediplan.Api.Auth;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
 using Wediplan.Api.Domain;
+using Wediplan.Api.Services;
 
 namespace Wediplan.Api.Controllers;
 
@@ -20,7 +22,15 @@ public class AdminController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly UserManager<AppUser> _users;
-    public AdminController(AppDbContext db, UserManager<AppUser> users) { _db = db; _users = users; }
+    private readonly ClaimApprovalService _approval;
+    private readonly PartnerEmails _emails;
+    private readonly ILogger<AdminController> _log;
+
+    public AdminController(AppDbContext db, UserManager<AppUser> users, ClaimApprovalService approval,
+        PartnerEmails emails, ILogger<AdminController> log)
+    {
+        _db = db; _users = users; _approval = approval; _emails = emails; _log = log;
+    }
 
     private Guid Uid() => Guid.Parse(_users.GetUserId(User)!);
 
@@ -55,23 +65,7 @@ public class AdminController : ControllerBase
         var vendor = await _db.Vendors.FirstOrDefaultAsync(v => v.Id == claim.VendorId, ct);
         if (vendor == null) return NotFound(new { error = "vendor_not_found" });
 
-        // Objavi draft (ako postoji) u živu verziju.
-        var draft = await _db.VendorDrafts.FirstOrDefaultAsync(d => d.VendorId == vendor.Id, ct);
-        if (draft != null) ProviderMapper.ApplyToVendor(draft, vendor);
-
-        vendor.ClaimStatus = "claimed";
-        vendor.OwnerUserId = claim.UserId;
-        vendor.UpdatedAt = DateTime.UtcNow;
-
-        claim.Status = "approved"; claim.DecidedBy = Uid(); claim.DecidedAt = DateTime.UtcNow;
-
-        // Ostali pending zahtjevi za istog pružatelja → odbijeni.
-        var others = await _db.Claims
-            .Where(c => c.VendorId == vendor.Id && c.Id != claim.Id && c.Status == "pending")
-            .ToListAsync(ct);
-        foreach (var o in others) { o.Status = "rejected"; o.DecidedBy = Uid(); o.DecidedAt = DateTime.UtcNow; }
-
-        await _db.SaveChangesAsync(ct);
+        await _approval.ApproveAsync(claim, vendor, decidedBy: Uid(), ct);
         return Ok(new { status = "approved" });
     }
 
@@ -84,6 +78,19 @@ public class AdminController : ControllerBase
         if (claim.Status != "pending") return Conflict(new { error = "already_decided" });
         claim.Status = "rejected"; claim.DecidedBy = Uid(); claim.DecidedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        // §Zadatak 7 — best-effort obavijest; pad slanja ne obara odluku (već spremljena).
+        try
+        {
+            var vendor = await _db.Vendors.AsNoTracking().FirstOrDefaultAsync(v => v.Id == claim.VendorId, ct);
+            var user = await _users.FindByIdAsync(claim.UserId.ToString());
+            if (vendor != null && user?.Email != null) await _emails.SendClaimRejected(user.Email, vendor.Name, ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Slanje obavijesti o odbijenom claimu {ClaimId} nije uspjelo.", claim.Id);
+        }
+
         return Ok(new { status = "rejected" });
     }
 
@@ -112,6 +119,22 @@ public class AdminController : ControllerBase
         if (r.Status != "pending") return Conflict(new { error = "already_decided" });
         r.Status = "published"; r.DecidedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        // §Zadatak 7 — best-effort obavijest, SAMO ako je profil claiman (ima vlasnika koga obavijestiti).
+        try
+        {
+            var vendor = await _db.Vendors.AsNoTracking().FirstOrDefaultAsync(v => v.Id == r.VendorId, ct);
+            if (vendor?.OwnerUserId != null)
+            {
+                var owner = await _users.FindByIdAsync(vendor.OwnerUserId.Value.ToString());
+                if (owner?.Email != null) await _emails.SendReviewPublished(owner.Email, vendor.Name, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Slanje obavijesti o objavljenoj recenziji {ReviewId} nije uspjelo.", r.Id);
+        }
+
         return Ok(new { status = "published" });
     }
 

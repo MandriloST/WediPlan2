@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { cleanQuery, track } from "@/lib/analytics";
 import SearchBar from "./SearchBar";
 import VendorCard from "./VendorCard";
@@ -13,7 +13,8 @@ import { CATEGORIES, CATEGORY_BY_SLUG, REGIONS } from "@/lib/data";
 import { api } from "@/lib/api/client";
 import type { CategoryWithCount, Paged, PinVendor, RegionId, Vendor } from "@/lib/types";
 import { useBudget } from "@/stores";
-import { browsePath, pathFor, type ExploreFilters } from "@/lib/paths";
+import { browsePath, pathFor, PAGE_SIZE, type ExploreFilters } from "@/lib/paths";
+import Pagination, { SideArrows } from "./Pagination";
 
 const CroatiaMap = dynamic(() => import("./CroatiaMap"), {
   ssr: false,
@@ -36,7 +37,7 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
   const go = (next: ExploreFilters) => router.push(pathFor(next));
 
   const { region, category, q } = filters;
-  const startPage = Math.max(1, filters.page ?? 1);
+  const page = Math.max(1, filters.page ?? 1);
   const browsing = !category && !q; // §L: bez kategorije i teksta → grid, bez liste i pinova
   const cat = category ? CATEGORY_BY_SLUG[category] : undefined;
   const regionName = region ? REGIONS.find((r) => r.id === region)?.name : undefined;
@@ -55,17 +56,12 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
     queryFn: ({ signal }) => api.regions(category, signal),
   });
 
-  const listQ = useInfiniteQuery({
-    queryKey: ["vendors", region ?? "", category ?? "", q ?? "", startPage],
-    queryFn: ({ pageParam, signal }) =>
-      api.vendors({ region, category, q, page: pageParam }, signal),
-    initialPageParam: startPage,
-    getNextPageParam: (last) =>
-      last.page * last.pageSize < last.total ? last.page + 1 : undefined,
+  // jedna stranica = najviše PAGE_SIZE (12) pružatelja; stranica je u URL-u (?page=N)
+  const listQ = useQuery({
+    queryKey: ["vendors", region ?? "", category ?? "", q ?? "", page, PAGE_SIZE],
+    queryFn: ({ signal }) => api.vendors({ region, category, q, page, pageSize: PAGE_SIZE }, signal),
     enabled: !browsing,
-    initialData: !browsing && initialPage
-      ? { pages: [initialPage], pageParams: [startPage] }
-      : undefined,
+    initialData: !browsing ? initialPage : undefined,
   });
 
   const pinsQ = useQuery({
@@ -75,9 +71,21 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
     placeholderData: (prev) => prev, // promjena regije ne prazni kartu dok stižu pinovi
   });
 
-  const items = listQ.data?.pages.flatMap((p) => p.items) ?? [];
-  const total = listQ.data?.pages[0]?.total;
-  const shownTo = (startPage - 1) * (listQ.data?.pages[0]?.pageSize ?? 24) + items.length;
+  const items = (listQ.data?.items ?? []).slice(0, PAGE_SIZE);
+  const total = listQ.data?.total;
+  const pageCount = total ? Math.max(1, Math.ceil(total / PAGE_SIZE)) : 1;
+  const shownFrom = (page - 1) * PAGE_SIZE + 1;
+  const shownTo = (page - 1) * PAGE_SIZE + items.length;
+  const pageHref = (p: number) => pathFor({ ...filters, page: p });
+
+  // promjena stranice → vrh liste (ne vrh cijele stranice; prvi prikaz se ne dira)
+  const resultsRef = useRef<HTMLElement>(null);
+  const firstPage = useRef(page);
+  useEffect(() => {
+    if (firstPage.current === page) return;
+    firstPage.current = -1;
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [page]);
 
   // karta: kategorija → svi pinovi kategorije (pins endpoint);
   // samo tekst → pinovi učitanih rezultata; landing → samo regije
@@ -88,7 +96,7 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
   /* ---------------- analitika (§A) ---------------- */
 
   // jedna "pretraga" = jedan skup filtara u načinu rezultata; šalje se kad je poznat broj
-  // rezultata (izvještaj "pretrage bez rezultata"). Stranica/"Učitaj još" se ne broje ponovno.
+  // rezultata (izvještaj "pretrage bez rezultata"). Promjena stranice se ne broji ponovno.
   const searchKey = browsing ? "" : `${region ?? ""}|${category ?? ""}|${q ?? ""}`;
   const trackedSearch = useRef("");
   useEffect(() => {
@@ -211,8 +219,6 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
 
   const siblings = cat ? CATEGORIES.filter((c) => c.group === cat.group) : [];
   const heading = [cat?.name ?? `„${q}”`, regionName].filter(Boolean).join(" · ");
-  const params = listQ.data?.pageParams ?? [];
-  const nextPage = listQ.hasNextPage ? (params[params.length - 1] as number) + 1 : undefined;
 
   return (
     <main>
@@ -257,32 +263,26 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
           {map}
         </section>
 
-        <section aria-live="polite">
+        <section aria-live="polite" ref={resultsRef} className="results">
           <div className="results-head">
             <h2>{total !== undefined ? `${total} ${total === 1 ? "rezultat" : "rezultata"}` : "Rezultati"}</h2>
             <span className="meta">
+              {total !== undefined && items.length > 0 && pageCount > 1
+                ? `prikazano ${shownFrom}–${shownTo} · stranica ${page} od ${pageCount} · `
+                : ""}
               cijena uvijek vidljiva
               {withoutPin > 0 && ` · ${withoutPin} bez točne lokacije (nisu na karti)`}
             </span>
           </div>
 
-          {startPage > 1 && (
-            <p className="pager-prev">
-              <Link rel="prev" href={pathFor({ ...filters, page: startPage - 1 })}>
-                ← Prethodna stranica
-              </Link>{" "}
-              · <Link href={pathFor({ ...filters, page: undefined })}>prva stranica</Link>
-            </p>
-          )}
-
+          <div className="results-wrap">
+          <SideArrows page={page} pageCount={pageCount} hrefFor={pageHref} />
           <div className="results-grid">
             {listQ.isLoading &&
               Array.from({ length: 6 }).map((_, i) => <div key={i} className="skel" />)}
             {items.map((v) => (
               <VendorCard key={v.id} vendor={v} />
             ))}
-            {listQ.isFetchingNextPage &&
-              Array.from({ length: 3 }).map((_, i) => <div key={`n${i}`} className="skel" />)}
 
             {listQ.isError && items.length === 0 && (
               <div className="empty">
@@ -324,28 +324,9 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
             )}
           </div>
 
-          {nextPage !== undefined && (
-            <div className="load-more">
-              {/* pravi link (rel=next) za crawlere; klik učitava ispod bez navigacije */}
-              <a
-                className="btn"
-                rel="next"
-                href={pathFor({ ...filters, page: nextPage })}
-                aria-busy={listQ.isFetchingNextPage}
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (!listQ.isFetchingNextPage) listQ.fetchNextPage();
-                }}
-              >
-                {listQ.isFetchingNextPage ? "Učitavam…" : "Učitaj još"}
-              </a>
-              {total !== undefined && (
-                <span className="muted">
-                  prikazano {shownTo} od {total}
-                </span>
-              )}
-            </div>
-          )}
+          </div>
+
+          <Pagination page={page} pageCount={pageCount} hrefFor={pageHref} />
         </section>
       </div>
     </main>

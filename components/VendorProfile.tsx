@@ -43,7 +43,8 @@ export default function VendorProfile({ data, similar }: { data: VendorProfileDa
   const cat = CATEGORY_BY_SLUG[vendor.category] ?? { slug: vendor.category, name: vendor.category, group: "ostalo" };
   const over = isOverBudget(vendor, plan);
   const fav = favorites.ids.includes(vendor.id);
-  const images = vendorImages(vendor);
+  // "profile": kad vendor nema svoje slike, koristi defaults-profile/<kategorija>.jpg (odvojeno od kartice)
+  const images = vendorImages(vendor, "profile");
 
   return (
     <main className="container page profile">

@@ -32,6 +32,7 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
 
     // Faza 4 — claim, korisničke recenzije, draft uređivanja, pretplate
     public DbSet<Claim> Claims => Set<Claim>();
+    public DbSet<ClaimVerificationToken> ClaimVerificationTokens => Set<ClaimVerificationToken>();
     public DbSet<UserReview> UserReviews => Set<UserReview>();
     public DbSet<VendorDraft> VendorDrafts => Set<VendorDraft>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
@@ -40,8 +41,11 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
     {
         base.OnModelCreating(b); // OBAVEZNO prvo — konfigurira Identity tablice
 
-        // pg_trgm za typeahead (tolerancija tipfelera) — §2.2
-        b.HasPostgresExtension("pg_trgm");
+        // pg_trgm za typeahead (tolerancija tipfelera) — §2.2. Postgres-specifično: pod drugim
+        // providerom (npr. EF InMemory u testovima, § Plan prioriteti #1b) ovo se preskače, jer
+        // te Npgsql-fluent-API pozive nema smisla (ni jamstvo da rade) izvan pravog Postgresa.
+        var isNpgsql = Database.IsNpgsql();
+        if (isNpgsql) b.HasPostgresExtension("pg_trgm");
 
         b.Entity<Vendor>(e =>
         {
@@ -53,6 +57,17 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.Property(v => v.CoverageRegions).HasColumnType("text[]");
             e.Property(v => v.StyleTags).HasColumnType("text[]");
             e.Property(v => v.Services).HasColumnType("text[]");
+
+            if (!isNpgsql)
+            {
+                // Search je NpgsqlTsVector? — CLR tip koji izvan Npgsqla EF ne zna mapirati kao
+                // skalar (pokušava ga "razviti" kao complex/owned tip i puca na traženju
+                // konstruktora: "No suitable constructor was found for entity type 'NpgsqlTsVector'").
+                // Samo isključivanje generated-column/GIN konfiguracije (v. gore) NIJE dovoljno —
+                // sam CLR tip stupca treba potpuno maknuti iz modela pod drugim providerom (testovi).
+                e.Ignore(v => v.Search);
+                return; // ostatak (GIN/trgm) je čisto Postgres — v. komentar gore
+            }
 
             // Generirani tsvector iz name/city/about (§2.2). FTS relevancija;
             // typeahead ide preko pg_trgm (v. indekse dolje).
@@ -178,6 +193,17 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.HasIndex(x => new { x.UserId, x.VendorId }).IsUnique();
             e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Vendor>().WithMany().HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Dokaz vlasništva claima e-mailom (§Zadatak 5). FK cascade na Claim — briše li se
+        // claim (npr. korisnik obriše račun → kaskadno preko AppUser), token nestaje s njim.
+        b.Entity<ClaimVerificationToken>(e =>
+        {
+            e.ToTable("claim_verification_tokens");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.ClaimId);
+            e.HasOne<Claim>().WithMany().HasForeignKey(x => x.ClaimId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<VendorDraft>(e =>

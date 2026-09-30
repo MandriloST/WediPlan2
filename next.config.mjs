@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // Slike: danas iz public/images; nakon selidbe na Bunny postavi
 // NEXT_PUBLIC_IMAGE_BASE=https://wediplan.b-cdn.net (ista struktura foldera)
@@ -54,4 +55,18 @@ const nextConfig = {
     ];
   },
 };
-export default nextConfig;
+
+// Monitoring (§Zadatak 8) — withSentryConfig SAMO omata build (source-map upload, auto-instrument);
+// ne pokreće ništa u runtimeu i ne treba DSN da bi build prošao. Upload izvornih mapa u Sentry je
+// opcionalan i sam po sebi bez organizacije/tokena samo tiho preskače (ne ruši build) — postavi
+// SENTRY_ORG/SENTRY_PROJECT/SENTRY_AUTH_TOKEN (CI/Vercel env, nikad u git) kad to zatreba.
+// Za Next 14 (ova verzija) withSentryConfig automatski uključuje experimental.instrumentationHook
+// (potrebno da se instrumentation.ts uopće izvrši) — ništa dodatno ovdje nije potrebno postaviti.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true, // bez build-log šuma kad org/token nisu postavljeni (dev/CI bez Sentryja)
+  tunnelRoute: "/monitoring", // events idu kroz vlastitu domenu — ad-block ne guši Sentry pozive
+  disableLogger: true, // manji client bundle (uklanja Sentry-ev interni debug logger iz koda)
+});

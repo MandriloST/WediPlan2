@@ -59,6 +59,7 @@ export default function AdminPanel() {
                 <div>
                   <Link href={`/pruzatelj/${c.vendorSlug}`}>{c.vendorName}</Link>{" "}
                   {c.evidence === "domain_match" && <span className="badge verified">✓ domena se poklapa</span>}
+                  {c.evidence === "email_verified" && <span className="badge verified">✓ e-mail potvrđen</span>}
                 </div>
                 <p className="muted" style={{ fontSize: 13 }}>
                   {c.userDisplayName ? `${c.userDisplayName} · ` : ""}{c.userEmail}

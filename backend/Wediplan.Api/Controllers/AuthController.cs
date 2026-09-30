@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Auth;
 using Wediplan.Api.Contracts;
@@ -22,6 +23,7 @@ namespace Wediplan.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
+[EnableRateLimiting("auth")] // §Zadatak 9 — najstroža politika, particija po IP-u (pre-login gost)
 public class AuthController : ControllerBase
 {
     private readonly UserManager<AppUser> _users;
@@ -199,6 +201,7 @@ public class AuthController : ControllerBase
 
     // ---------------------------------------------------------------- odjava
     [HttpPost("logout")]
+    [DisableRateLimiting] // §Zadatak 9 — traži već aktivnu sesiju, nema smisla za spam/enumeraciju
     public async Task<IActionResult> Logout()
     {
         await _signIn.SignOutAsync();
