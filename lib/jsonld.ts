@@ -15,7 +15,7 @@ import { absoluteUrl } from "./site";
  * aggregateRating izostaju kad ih stvarno nemamo — NIKAD ne izmišljamo podatak radi Googlea.
  */
 export function vendorJsonLd(data: VendorProfileData): Record<string, unknown> {
-  const { vendor, about } = data;
+  const { vendor, about, userReviews } = data;
   const url = absoluteUrl(`/pruzatelj/${vendor.slug}`);
   const image = absoluteUrl(vendorImages(vendor, "profile")[0].src);
 
@@ -46,12 +46,23 @@ export function vendorJsonLd(data: VendorProfileData): Record<string, unknown> {
     business.priceRange = formatPrice(vendor.price);
   }
 
-  // Prazan/nulti rating se NE šalje — Google odbija AggregateRating bez recenzija.
-  if (vendor.reviewCount > 0) {
+  // aggregateRating SAMO iz vlastitih, objavljenih recenzija korisnika Wediplana (Zadatak 18).
+  // NE koristimo vendor.rating/reviewCount: to su ocjene iz Excela s vanjskih izvora (vendor.ratingSource,
+  // npr. Google) — Googleove smjernice za review snippete ne dopuštaju agregiranje ocjena s drugih stranica,
+  // a ocjene Google Places API-ja se ionako ne smiju spremati ni ponovno objavljivati (PLAN-3, Odluka 11).
+  // Bez recenzija → polje izostaje (Google odbija AggregateRating bez recenzija). Vizualni prikaz ocjene na
+  // profilu (VendorProfile.tsx) ostaje netaknut.
+  const own = (userReviews ?? []).filter(
+    (r) => Number.isFinite(r.rating) && r.rating >= 1 && r.rating <= 5
+  );
+  if (own.length > 0) {
+    const avg = own.reduce((sum, r) => sum + r.rating, 0) / own.length;
     business.aggregateRating = {
       "@type": "AggregateRating",
-      ratingValue: vendor.rating,
-      reviewCount: vendor.reviewCount,
+      ratingValue: Math.round(avg * 10) / 10,
+      reviewCount: own.length,
+      bestRating: 5,
+      worstRating: 1,
     };
   }
 

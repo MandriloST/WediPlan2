@@ -12,7 +12,30 @@
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 ## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
 
-## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku: Zadatak 10 kod gotov (grana `fix/import-protect-claimed`, čeka vlasnikov build/test), ostalo planirano** (2026-09-30). Zadaci 10–18: importer štiti preuzete profile, zeleni pinovi + legenda, JSON-LD samo vlastite ocjene, backup hardening, migracija `AuditIModeracija`, audit log, moderacija slika, verifikacija recenzija, porijeklo/privola. Sve odluke potvrđene s vlasnikom.
+## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo: Zadatak 10 (mergeano u `develop`), 11 (grana `feat/map-exact-pins`), 18 (grana `fix/jsonld-own-ratings`). Preostalo: 12 (backup, ops) → 13 (migracija) → 14 → 15/16/17. Sve odluke potvrđene s vlasnikom (2026-09-30).
+
+## Sesija 2026-09-30 (d) — Zadatak 18 (JSON-LD `aggregateRating` samo iz vlastitih recenzija) — **frontend POTVRĐEN** (grana `fix/jsonld-own-ratings`)
+
+Implementiran Zadatak 18 iz `PLAN-PRIORITETI-LANSIRANJE-3.md`. **Čisti frontend: bez backenda, bez migracije, bez novih paketa.**
+Grana je složena NA grani `feat/map-exact-pins` (Zadatak 11) radi istog mjesta u `STANJE.md`/planu; mergati redom 11 → 18.
+
+**Problem:** `lib/jsonld.ts` je kao `aggregateRating` slao `vendor.rating`/`vendor.reviewCount` — ocjene iz Excela s
+vanjskog izvora (`ratingSource`, npr. Google). Googleove smjernice za review snippete ne dopuštaju agregiranje ocjena
+s drugih stranica.
+
+**Promjena (samo `lib/jsonld.ts`):** `aggregateRating` se računa iz `data.userReviews` (objavljene recenzije korisnika
+Wediplana): `ratingValue` = prosjek zaokružen na 1 decimalu, `reviewCount` = broj tih recenzija, uz
+`bestRating: 5`, `worstRating: 1`. Bez recenzija polje izostaje. Ocjene izvan 1–5 / NaN se ignoriraju.
+Vizualni prikaz ocjene na profilu (`VendorProfile.tsx`) NIJE mijenjan.
+
+**Provjera (stvarno pokrenuto):** `npx tsc --noEmit` i `npm run build` čisti. Stvarni `lib/jsonld.ts` izvršen preko
+`tsx` s 8 scenarija (vanjska ocjena 4.9/120 u Excelu): bez recenzija → nema `aggregateRating`; recenzije 5,4,4 →
+4.3/3 (ne 4.9/120); neispravne ocjene ignorirane; graf i dalje ima `LocalBusiness` + `BreadcrumbList`. Isti scenariji
+protiv STAROG koda padaju (šalje 4.9/120). Na produkcijskom buildu profil `restoran-kampus-catering-sc` (ima vanjski
+`reviewCount > 0`, nema korisničkih recenzija) u HTML-u više nema `aggregateRating`. Skripta nije u repou (frontend
+nema test framework); ako želiš trajni regresijski test, treba dodati vitest.
+
+**Preporuka (OPS):** nakon deploya provjeriti jedan profil u Google Rich Results Testu.
 
 ## Sesija 2026-09-30 (c) — Zadatak 11 (zeleni pin + legenda karte) — **frontend POTVRĐEN** (grana `feat/map-exact-pins`)
 
