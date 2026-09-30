@@ -65,6 +65,8 @@ function toFC(vendors: PinVendor[]): GeoJSON.FeatureCollection {
           rating: v.reviewCount > 0 ? `★ ${formatRating(v.rating)}` : "još bez ocjene",
           cover: coverImage(v).src,
           approx: v.locationPrecision === "city" ? "1" : "",
+          // zeleni pin (Zadatak 11): koordinate su upisane kao točne, ne centroid grada
+          exact: v.locationPrecision === "exact" ? "1" : "",
         },
       })),
   };
@@ -208,10 +210,12 @@ export default function CroatiaMap({ vendors, selectedRegion, onRegionClick, cla
           if (markers.current[key]) continue;
 
           const el = document.createElement("button");
+          // MapLibre Marker.addTo() prepisuje aria-label s "Map marker" — zato se oznaka postavlja NAKON addTo
+          let label = "";
           if (props.cluster) {
             el.className = "pin-cluster";
             el.textContent = String(props.point_count);
-            el.setAttribute("aria-label", `${props.point_count} pružatelja — približi`);
+            label = `${props.point_count} pružatelja — približi`;
             el.addEventListener("click", (ev) => {
               ev.stopPropagation();
               const src = map.getSource("vendors") as maplibregl.GeoJSONSource;
@@ -220,9 +224,19 @@ export default function CroatiaMap({ vendors, selectedRegion, onRegionClick, cla
               });
             });
           } else {
-            el.className = props.upit ? "pin upit" : "pin"; // "na upit" prigušen (§10.4)
-            el.textContent = props.price;
-            el.setAttribute("aria-label", `${props.name}, ${props.priceFull}`);
+            // "na upit" prigušen (§10.4); "exact" = zeleni obrub + točka (legenda: MapLegend.tsx)
+            el.className = ["pin", props.upit && "upit", props.exact && "exact"].filter(Boolean).join(" ");
+            if (props.exact) {
+              // boja nije jedini nositelj značenja: točka u pinu + aria-label
+              const dot = document.createElement("span");
+              dot.className = "pin-dot";
+              dot.setAttribute("aria-hidden", "true");
+              el.append(dot, document.createTextNode(props.price));
+            } else {
+              el.textContent = props.price;
+            }
+            const where = props.exact ? ", točna lokacija" : props.approx ? ", približna lokacija (centar grada)" : "";
+            label = `${props.name}, ${props.priceFull}${where}`;
             el.addEventListener("click", (ev) => {
               ev.stopPropagation();
               track("map_pin_clicked", { slug: props.slug, category: props.category });
@@ -233,6 +247,7 @@ export default function CroatiaMap({ vendors, selectedRegion, onRegionClick, cla
             });
           }
           markers.current[key] = new Marker({ element: el }).setLngLat(coords).addTo(map);
+          el.setAttribute("aria-label", label);
         }
         for (const key of Object.keys(markers.current)) {
           if (!keep.has(key)) {

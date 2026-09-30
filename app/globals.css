@@ -587,6 +587,42 @@ select option:checked {
 /* pin "na upit" — prigušen, da se razlikuje od objavljene cijene (§10.4) */
 .pin.upit { border-color: var(--border-strong); color: var(--muted); font-style: italic; font-weight: 600; box-shadow: 0 1px 4px rgba(33, 37, 44, 0.15); }
 
+/* pin s točnom lokacijom (Zadatak 11) — zeleni obrub + točka; tekst tamnije zelen radi kontrasta (≥ 4.5:1).
+   Kombinacija s "na upit": obrub ostaje zelen, tekst prigušen + kurziv (oba signala čitljiva). */
+:root { --exact: #1f9d5b; --exact-ink: #147242; }
+.pin.exact { border-color: var(--exact); box-shadow: 0 2px 8px rgba(31, 157, 91, 0.28); }
+.pin.exact:not(.upit) { color: var(--exact-ink); }
+.pin.exact.selected { background: var(--exact); color: #fff; }
+.pin .pin-dot {
+  display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%;
+  background: var(--exact); vertical-align: middle; position: relative; top: -1px;
+}
+.pin.exact.selected .pin-dot { background: #fff; }
+
+/* legenda karte (Zadatak 11): dolje lijevo (desno su gumb Budžet i atribucija, gore lijevo hint/odabir kategorije) */
+.map-legend {
+  position: absolute; left: 14px; bottom: 14px; z-index: 5;
+  display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 6px;
+  max-width: calc(100% - 156px);
+}
+.map-legend-toggle { display: none; }
+.map-legend-body {
+  list-style: none; margin: 0; padding: 8px 12px; display: grid; gap: 6px;
+  background: rgba(255, 255, 255, 0.94); border: 1px solid var(--border); border-radius: var(--r-card);
+  box-shadow: var(--shadow-1); backdrop-filter: blur(3px); font-size: 12.5px; color: var(--muted);
+}
+.map-legend-body li { display: flex; align-items: center; gap: 8px; }
+.map-legend .legend-pin { cursor: default; pointer-events: none; flex: none; font-size: 11.5px; padding: 2px 8px; }
+.map-legend .legend-pin:hover { transform: none; }
+@media (max-width: 640px) {
+  .map-legend-toggle {
+    display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px;
+    background: rgba(255, 255, 255, 0.94); border: 1px solid var(--border); border-radius: var(--r-pill);
+    box-shadow: var(--shadow-1); font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink); cursor: pointer;
+  }
+  .map-legend:not(.open) .map-legend-body { display: none; }
+}
+
 /* ================================================================
    Faza 3 — auth (prijava, registracija, magic/verify/reset)
    ================================================================ */

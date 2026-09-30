@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cleanQuery, track } from "@/lib/analytics";
 import SearchBar from "./SearchBar";
 import VendorCard from "./VendorCard";
+import MapLegend from "./MapLegend";
 import CategoryGrid from "./CategoryGrid";
 import { CATEGORIES, CATEGORY_BY_SLUG, REGIONS } from "@/lib/data";
 import { api } from "@/lib/api/client";
@@ -151,6 +152,7 @@ export default function ExploreShell({ filters, initialCategories, initialPage }
             : "kliknite regiju ili pin — lista i karta su povezane"}
         </span>
       )}
+      {!browsing && <MapLegend />}
       <button className="btn map-fab" onClick={openDrawer}>
         🧮 Budžet
       </button>
