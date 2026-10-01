@@ -6,8 +6,25 @@ import Link from "next/link";
 import { adminApi, providerMessage } from "@/lib/api/provider";
 import { AuthError } from "@/lib/api/auth";
 import { actionLabel, actorLabel, entityLabel, formatWhen, summarizeChanges } from "@/lib/audit";
+import {
+  CONSENT_CHANNELS, CONSENT_SCOPES, CONSENT_STATUSES, DATA_SOURCES, consentSummaryLine, fromDateInput, toDateInput,
+} from "@/lib/provenance";
 import { useAuth } from "@/stores/auth";
-import type { AdminAuditEntry, AdminClaim, AdminImportedReview, AdminOptOut, AdminPhoto, AdminReview } from "@/lib/types";
+import type {
+  AdminAuditEntry, AdminClaim, AdminConsentSummary, AdminImportedReview, AdminOptOut, AdminPhoto, AdminProvenance, AdminReview,
+} from "@/lib/types";
+
+/** Oblik forme za porijeklo/privolu: datumi kao "yyyy-MM-dd" (input type=date), ostalo tekst. */
+interface ProvForm {
+  dataSource: string; dataCollectedAt: string; consentStatus: string; consentRequestedAt: string; consentAt: string;
+  consentChannel: string; consentScope: string[]; consentNote: string; googlePlaceId: string;
+}
+const toForm = (p: AdminProvenance): ProvForm => ({
+  dataSource: p.dataSource ?? "", dataCollectedAt: toDateInput(p.dataCollectedAt), consentStatus: p.consentStatus,
+  consentRequestedAt: toDateInput(p.consentRequestedAt), consentAt: toDateInput(p.consentAt),
+  consentChannel: p.consentChannel ?? "", consentScope: [...p.consentScope], consentNote: p.consentNote ?? "",
+  googlePlaceId: p.googlePlaceId ?? "",
+});
 
 /** Minimalno admin sučelje (§6): moderacija claimova i korisničkih recenzija. Samo rola admin. */
 export default function AdminPanel() {
@@ -23,6 +40,12 @@ export default function AdminPanel() {
   // §Zadatak 15 — post-moderacija fotografija (slike su javne odmah; admin vodi evidenciju i sakriva neprimjerene)
   const [photos, setPhotos] = useState<AdminPhoto[]>([]);
   const [photoStatus, setPhotoStatus] = useState<"unreviewed" | "approved" | "flagged">("unreviewed");
+  // §Zadatak 17 — porijeklo podataka i privola (uz isti slug kao povijest promjena) + sažetak kampanje
+  const [consent, setConsent] = useState<AdminConsentSummary | null>(null);
+  const [prov, setProv] = useState<{ slug: string; data: AdminProvenance } | null>(null);
+  const [provForm, setProvForm] = useState<ProvForm | null>(null);
+  const [provBusy, setProvBusy] = useState(false);
+  const [provSaved, setProvSaved] = useState(false);
   const [optouts, setOptouts] = useState<AdminOptOut[]>([]);
   const [error, setError] = useState<string | null>(null);
   // §Zadatak 14 — povijest promjena (GDPR). null = još nije učitano.
@@ -38,8 +61,9 @@ export default function AdminPanel() {
       adminApi.optouts(),
       adminApi.importedReviews(impStatus),
       adminApi.photos(photoStatus, 60),
+      adminApi.consentSummary(),
     ])
-      .then(([c, r, o, i, ph]) => { setClaims(c); setReviews(r); setOptouts(o); setImported(i); setPhotos(ph); })
+      .then(([c, r, o, i, ph, cs]) => { setClaims(c); setReviews(r); setOptouts(o); setImported(i); setPhotos(ph); setConsent(cs); })
       .catch((e) => setError(providerMessage(e)));
   }, [reviewStatus, impStatus, photoStatus]);
 
@@ -63,14 +87,53 @@ export default function AdminPanel() {
     try { await fn(); load(); } catch (e) { setError(providerMessage(e)); }
   }
 
+  async function saveProv() {
+    if (!prov || !provForm) return;
+    setError(null); setProvSaved(false); setProvBusy(true);
+    try {
+      const orig = prov.data;
+      const saved = await adminApi.saveProvenance(prov.slug, {
+        dataSource: provForm.dataSource || null,
+        dataCollectedAt: fromDateInput(provForm.dataCollectedAt, orig.dataCollectedAt),
+        consentStatus: provForm.consentStatus as AdminProvenance["consentStatus"],
+        consentRequestedAt: fromDateInput(provForm.consentRequestedAt, orig.consentRequestedAt),
+        consentAt: fromDateInput(provForm.consentAt, orig.consentAt),
+        consentChannel: provForm.consentChannel || null,
+        consentScope: provForm.consentScope,
+        consentNote: provForm.consentNote.trim() || null,
+        googlePlaceId: provForm.googlePlaceId.trim() || null,
+      });
+      setProv({ slug: prov.slug, data: saved });
+      setProvForm(toForm(saved));
+      setProvSaved(true);
+      // osvježi povijest (izmjena je zabilježena) i sažetak privole
+      setAudit(await adminApi.audit(prov.slug, 100));
+      adminApi.consentSummary().then(setConsent).catch(() => {});
+    } catch (e) {
+      setError(providerMessage(e));
+    } finally {
+      setProvBusy(false);
+    }
+  }
+
+  const setPF = (patch: Partial<ProvForm>) => { setProvSaved(false); setProvForm((f) => (f ? { ...f, ...patch } : f)); };
+
   async function loadAudit(ev: React.FormEvent) {
     ev.preventDefault();
     setError(null);
     setAuditBusy(true);
+    setProvSaved(false);
     try {
-      setAudit(await adminApi.audit(auditSlug.trim() || undefined, 100));
+      const slug = auditSlug.trim();
+      const [entries, p] = await Promise.all([
+        adminApi.audit(slug || undefined, 100),
+        slug ? adminApi.provenance(slug) : Promise.resolve(null),
+      ]);
+      setAudit(entries);
+      setProv(p ? { slug, data: p } : null);
+      setProvForm(p ? toForm(p) : null);
     } catch (e) {
-      setAudit(null);
+      setAudit(null); setProv(null); setProvForm(null);
       setError(e instanceof AuthError && e.status === 404 ? "Pružatelj s tim slugom ne postoji." : providerMessage(e));
     } finally {
       setAuditBusy(false);
@@ -338,6 +401,11 @@ export default function AdminPanel() {
         Tko je, kada i što promijenio (GDPR). Unesi slug pružatelja za njegovu povijest (uključuje slike, recenzije i
         zahtjeve za preuzimanje), ili ostavi prazno za zadnje promjene svih. Kontakti i tekstovi recenzija bilježe se samo kao „promijenjeno“.
       </p>
+      {consent && (
+        <p className="muted" style={{ fontSize: 13, margin: "0 0 10px" }}>
+          <strong>Privola pružatelja:</strong> {consentSummaryLine(consent)}
+        </p>
+      )}
       <form onSubmit={loadAudit} style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <input
           className="audit-input"
@@ -350,6 +418,65 @@ export default function AdminPanel() {
           {auditBusy ? "Učitavanje…" : "Prikaži"}
         </button>
       </form>
+      {prov && provForm && (
+        <div className="prov-box">
+          <h3 className="prov-box-title">Porijeklo podataka i privola — <code>{prov.slug}</code></h3>
+          <p className="muted" style={{ fontSize: 12.5, margin: "0 0 10px" }}>
+            Interno — nikad javno. Spremanje zamjenjuje sva polja. „Odbijeno“ uz to skriva profil (opt-out); vraćanje u prikaz je zasebna radnja.
+          </p>
+          <div className="prov-grid">
+            <label>Izvor podataka
+              <select className="audit-input" value={provForm.dataSource} onChange={(e) => setPF({ dataSource: e.target.value })}>
+                <option value="">— nije navedeno —</option>
+                {DATA_SOURCES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </label>
+            <label>Datum prikupljanja
+              <input className="audit-input" type="date" value={provForm.dataCollectedAt} onChange={(e) => setPF({ dataCollectedAt: e.target.value })} />
+            </label>
+            <label>Status privole
+              <select className="audit-input" value={provForm.consentStatus} onChange={(e) => setPF({ consentStatus: e.target.value })}>
+                {CONSENT_STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </label>
+            <label>Privola zatražena
+              <input className="audit-input" type="date" value={provForm.consentRequestedAt} onChange={(e) => setPF({ consentRequestedAt: e.target.value })} />
+            </label>
+            <label>Privola dana
+              <input className="audit-input" type="date" value={provForm.consentAt} onChange={(e) => setPF({ consentAt: e.target.value })} />
+            </label>
+            <label>Kanal
+              <select className="audit-input" value={provForm.consentChannel} onChange={(e) => setPF({ consentChannel: e.target.value })}>
+                <option value="">— nije navedeno —</option>
+                {CONSENT_CHANNELS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </label>
+            <label>Google Place ID
+              <input className="audit-input" value={provForm.googlePlaceId} maxLength={300} placeholder="ChIJ…" onChange={(e) => setPF({ googlePlaceId: e.target.value })} />
+            </label>
+          </div>
+          <fieldset className="prov-scope">
+            <legend>Opseg privole</legend>
+            {CONSENT_SCOPES.map(([v, l]) => (
+              <label key={v}>
+                <input
+                  type="checkbox"
+                  checked={provForm.consentScope.includes(v)}
+                  onChange={(e) => setPF({ consentScope: e.target.checked ? [...provForm.consentScope, v] : provForm.consentScope.filter((x) => x !== v) })}
+                />{" "}{l}
+              </label>
+            ))}
+          </fieldset>
+          <label className="prov-note">Napomena o privoli
+            <input className="audit-input" style={{ maxWidth: "100%" }} value={provForm.consentNote} maxLength={1000}
+              placeholder="npr. pristao u DM-u 12.9., čeka potvrdu za slike" onChange={(e) => setPF({ consentNote: e.target.value })} />
+          </label>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
+            <button className="btn btn-primary btn-sm" onClick={saveProv} disabled={provBusy}>{provBusy ? "Spremam…" : "Spremi"}</button>
+            {provSaved && <span className="muted" style={{ fontSize: 13 }}>Spremljeno.</span>}
+          </div>
+        </div>
+      )}
       {audit !== null &&
         (audit.length === 0 ? (
           <p className="muted">Nema zapisa.</p>

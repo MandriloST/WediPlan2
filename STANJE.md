@@ -12,7 +12,43 @@
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 ## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
 
-## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10–14, 16 i 18 (vlasnik: 79 testova zeleno). Zadatak 15 (moderacija slika) — kod gotov na grani `feat/photo-moderation`, **čeka vlasnikov `dotnet build/test`**. Preostalo: 17 (porijeklo/privola). Sve odluke potvrđene s vlasnikom (2026-09-30).
+## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **gotovo osim potvrde zadnjeg zadatka.** Mergeano: Zadaci 10–16 i 18 (vlasnik: testovi zeleno). Zadatak 17 (porijeklo i privola) — kod gotov na grani `feat/data-provenance`, **čeka vlasnikov `dotnet build/test`**. Nakon toga je treći val zatvoren; ostaje OPS (v. dolje) i „Budući rad“ u planu (Google Places API, statične slike → moderacija).
+
+## Sesija 2026-10-01 (d) — Zadatak 17 (porijeklo podataka i privola pružatelja) — kod gotov, **backend build + testovi NEPOTVRĐENI** (grana `feat/data-provenance`)
+
+Implementiran Zadatak 17 iz `PLAN-PRIORITETI-LANSIRANJE-3.md` — **posljednji u trećem valu**. **Nema migracije** (stupci iz Zadatka 13), **nema novih paketa**, nema nove konfiguracije. Zadatak 15 je mergean (vlasnik: testovi zeleno).
+
+**Excel predložak** (`scripts/make-template.py` → regeneriran `data/vendors-template.xlsx`): 9 novih stupaca NA KRAJ lista „Pružatelji“ (`izvor_podataka`, `datum_prikupljanja`, `privola_status`, `privola_zatrazena`, `privola_datum`, `privola_kanal`, `privola_opseg`, `privola_napomena`, `google_place_id`)
+s komentarima, padajućim listama (AA, AC, AF) i novim odlomkom u „Upute“ (Place ID Finder; zabrana kopiranja Google ocjena/recenzija/fotografija; „prazno ne briše“). Postojeći stupci, redoslijed i primjeri su nepromijenjeni (provjereno usporedbom sa starim predloškom).
+
+**Backend:**
+- `Import/ProvenanceMerge.cs` (novo, čista logika): `ProvenanceInput` (null = prazno → ne mijenjaj), `ProvenanceRules` (`ParseDate`: ISO, hrvatski `30.09.2026.`, `dd/MM/yyyy`, Excel serijski broj → UTC ponoć; mapiranje HR → interno: `dano→granted`, `odbijeno→refused`, `zatraženo→requested`, `nepoznato→unknown`; izvor/kanal/opseg s aliasima; nepoznato → upozorenje i ignorira; `AsUtc`),
+  `ProvenanceMerge.Apply` (prazno ne briše; `refused → OptOut = true`; **nikad `OptOut = false`**; privola preuzetog profila — `claimed` + `granted` + kanal `claim` — zaštićena od prepisivanja, samo `refused` ima prednost; ostala polja se i dalje primjenjuju).
+- `Services/ConsentRules.cs` (novo): `GrantViaClaim` — odobrenje claima postavlja `granted`, kanal `claim`, `ConsentAt`, opseg podaci/slike/recenzije; `refused` se ne poništava tiho. Poziva se iz `ClaimApprovalService.ApproveAsync` (ručni i auto put).
+- `Import/ExcelImporter.cs`: parsira stupce po retku, primjenjuje na nove i postojeće pružatelje, upozorenja u `import-report.txt`; `ReadSheet` čita prave Excel datume kao ISO (neovisno o kulturi stroja). Stariji Excel bez novih stupaca radi kao prije.
+- `AdminController`: `GET`/`PUT /api/admin/vendors/{slug}/provenance` (PUT = puna zamjena, validacija, `refused` → `OptOut = true`), `GET /api/admin/consent-summary`. DTO-ovi `AdminProvenanceDto`, `AdminConsentSummaryDto`. Izmjene su u dnevniku promjena (Zadatak 14; bilješka o privoli maskirana).
+
+**Frontend:** `lib/types.ts`, `lib/provenance.ts` (vrijednosti/oznake + datumski pomoćnici: spremanje forme NE prekraja `consentAt` iz claima na ponoć), `lib/api/provider.ts`, `components/AdminPanel.tsx` (sažetak kampanje + forma „Porijeklo podataka i privola“ uz isti slug kao povijest promjena), `globals.css`.
+Dokumentacija: `README.md`, `backend/README.md`, `API.md`, `DEPLOY.md`, `PLAN-ARHITEKTURA.md` §3.1.
+
+**Provjera (stvarno pokrenuto):**
+- **Čista logika: 91/91** (59 prijašnjih + 32 nova) — stvarni izvori kompilirani i pokrenuti uz xunit shim. **7 mutacija** (datum nije UTC, prazno briše, `refused` ne skriva, uvoz briše `OptOut`, nema zaštite claima, claim poništava odbijanje, krivo mapiranje `dano`) obara testove — jedna je isprva preživjela (UTC za Excel serijski put), pa je test pojačan.
+- **Predložak:** openpyxl — 35 stupaca, prvih 26 identično staro, svi primjeri imaju točnu duljinu, padajuće liste na ispravnim slovima stupaca.
+- **Kriterij iz plana (frontend uvoz):** `scripts/import-vendors.mjs` (u PRIVREMENOJ kopiji, jer piše `data/`) na pravim retcima s popunjenim novim stupcima → uspješno; **`vendors.json` i `profiles.json` su IDENTIČNI** onima iz istih redaka bez novih stupaca, a u njima nema nijednog novog polja. Stvarni `data/vendors.json` u repou nije dirnut (`git status data/` = samo predložak).
+- **Frontend:** `tsc` + `npm run build` čisti; `lib/provenance.ts` 13 scenarija (tsx). Headless Chromium uz presretnut API: sažetak privole, forma učitana iz GET-a, točno `PUT` tijelo (`consentAt` sa satom nepromijenjen, obrisan datum = `null`, Place ID trimmed), potvrda „Spremljeno.“, 404 za nepostojeći slug uklanja formu.
+- **NIJE kompilirano/pokrenuto** (nema `api.nuget.org`): izmjene `ExcelImporter.cs`, `AdminController.cs`, `ClaimApprovalService.cs` i **3 testa u `ClaimVerificationTests`** (claim → `granted`/`claim`/opseg; nadjačava `requested`; ne poništava `refused`). Importer nije testiran nad pravim Excelom i bazom — pokriva ga ručna provjera.
+
+**Vlasnik (redom):**
+```bash
+cd backend
+dotnet build Wediplan.sln -c Release       # mora proći
+dotnet test                                 # očekivano: 35 NOVIH testova (32 u `ProvenanceTests` + 3 u `ClaimVerificationTests`) uz postojeće — sve zeleno
+```
+Zatim ručna provjera po `DEPLOY.md` („Plan prioriteti 3, Zadatak 17“): uvoz s `privola_status = odbijeno` skriva profil i ponovni uvoz s praznom ćelijom ga ne vraća; claim odobren → forma pokazuje „Dano / claim“; uvoz s `zatraženo` ga ne spušta.
+
+**⚠ OPS korak (obavezan, ne mogu ga ja napraviti):** tekst **uvjeta za partnere** mora izričito navesti da **preuzimanjem profila pružatelj pristaje na objavu svojih podataka, fotografija i recenzija**. Sustav sada ZAPISUJE privolu pri odobrenju claima — bez tog teksta to je privola koju pravno ne možeš dokazati. Provjeri s pravnikom.
+
+**Što ostaje otvoreno nakon trećeg vala** (v. „Budući rad“ u planu): Google Places API (samo `place_id` se sprema; ocjena/broj uživo, uz atribuciju i EEA uvjete); statične slike iz `public/images/vendors/` još nisu u moderaciji; OPS iz Zadatka 12 (age ključevi, EU bucket, lifecycle pravila) i politika privatnosti (rokovi backupa, arhive slika, `audit_log` 24 mj., izvori podataka o pružateljima).
 
 ## Sesija 2026-10-01 (c) — Zadatak 15 (post-moderacija fotografija) — kod gotov, **backend build + testovi NEPOTVRĐENI** (grana `feat/photo-moderation`)
 

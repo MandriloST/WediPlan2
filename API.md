@@ -259,6 +259,15 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
   (Zadatak 16): `decidedAt?`, `deciderEmail?` (izostavljen ako je račun admina obrisan), `rejectReason?`.
 - `POST /api/admin/reviews/{id}/approve` (→ `published`) · `POST …/reject` s **neobaveznim** tijelom `{"reason":"…"}` (max 500 znakova → `400 reason_too_long`).
   Obje bilježe `DecidedBy`/`DecidedAt`; razlog je **interni** — ne prikazuje se javno ni autoru. Bez tijela radi kao prije.
+- `GET /api/admin/vendors/{slug}/provenance` → `AdminProvenanceDto` — porijeklo podataka i privola pružatelja (Zadatak 17; **admin-interno, nikad u javnom API-ju**; `404` za nepoznat slug).
+  `AdminProvenanceDto { dataSource?, dataCollectedAt?, consentStatus, consentRequestedAt?, consentAt?, consentChannel?, consentScope[], consentNote?, googlePlaceId? }`.
+  Vrijednosti: `dataSource` `google_maps|web|instagram|facebook|partner|preporuka|drugo`; `consentStatus` `unknown|requested|granted|refused`; `consentChannel` `email|instagram|facebook|telefon|osobno|claim`; `consentScope` podskup od `data|photos|reviews`.
+- `PUT /api/admin/vendors/{slug}/provenance` — ručna korekcija istim oblikom; **PUNA zamjena svih polja** (null/izostavljeno briše). Greške (400): `invalid_data_source`, `invalid_consent_status`, `invalid_consent_channel`,
+  `invalid_consent_scope`, `note_too_long` (>1000), `place_id_too_long` (>300). `consentStatus = "refused"` uz to postavlja `OptOut = true` (odbijena privola = profil se skriva); `OptOut` se ovdje nikad ne briše (vraćanje: `restore-optout`).
+  Datumi bez zone se tumače kao UTC. Izmjena ide u dnevnik promjena (bilješka o privoli bez sadržaja).
+- `GET /api/admin/consent-summary` → `{ total, unknown, requested, granted, refused }` — brojevi pružatelja po statusu privole (praćenje kampanje kontaktiranja).
+- **Claim = privola (Zadatak 17):** odobrenje claima (ručno ili auto nakon potvrde e-maila) postavlja `consentStatus = granted`, `consentChannel = claim`, `consentAt = sada`, `consentScope = [data, photos, reviews]` —
+  osim ako je privola već `refused` (ne poništava se tiho). Nijedno od ovih polja ne ulazi u javni `VendorDto` ni u `data/vendors.json`.
 - `GET /api/admin/photos?status=unreviewed&limit=60` → `AdminPhotoDto[]` — fotografije pružatelja za pregled (`status`: `unreviewed | approved | flagged`, inače `400 invalid_status`;
   `limit` 1–200). Poredak: najstarije prvo, slike bez datuma (iz vremena prije evidencije) na kraj.
   `AdminPhotoDto { id, vendorSlug, vendorName, url, thumbUrl, isCover, source (partner|import), moderationStatus, createdAt?, rightsConfirmedAt?, uploaderEmail?, reviewedAt?, reviewerEmail?, moderationNote? }`.

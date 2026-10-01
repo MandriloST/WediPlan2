@@ -138,6 +138,11 @@ Svaki takav slučaj (samo ako se Excel stvarno razlikuje od baze) ide kao upozor
 `--dry-run` ne spaja se na bazu, pa ta upozorenja prikazuje tek pravi uvoz. Logika je u `Import/ImportMerge.cs`;
 ako se u `ProviderMapper.ApplyToVendor` doda novo partnersko polje, dodati ga i tamo.
 
+**Porijeklo podataka i privola pri uvozu (§Zadatak 17):** zadnjih 9 stupaca lista „Pružatelji“ (`izvor_podataka` … `google_place_id`) uvoz sprema na pružatelja (admin-interno, nikad javno).
+**Prazna ćelija ne mijenja** vrijednost u bazi (ručni unos admina ostaje). `privola_status = odbijeno` → `OptOut = true` (profil se skriva); uvoz **nikad** ne postavlja `OptOut = false`.
+Privola preuzetog profila (`claimed`, `granted`, kanal `claim`) se iz Excela **ne prepisuje** (ni na `nepoznato`/`zatraženo` ni na drugi `dano`) — jedino `odbijeno` ima prednost. Nepoznate vrijednosti (krivo napisan status/izvor/kanal/opseg, neispravan datum) ispisuju upozorenje i ignoriraju se.
+Logika je u `Import/ProvenanceMerge.cs` (`ProvenanceRules` + `ProvenanceMerge`); stariji Excel bez tih stupaca radi kao prije.
+
 **Re-import i uvezene recenzije (§Zadatak 16):** list „Recenzije“ se pri ponovnom uvozu **upserta** (ne briše se sve pa dodaje). Svaka recenzija ima stabilan ključ
 (`ImportRules.ReviewKey`: slug + autor + tekst + izvor + godina, bez obzira na velika/mala slova, dijakritike i razmake). Ista recenzija ostaje (status provjere
 koji je admin postavio **se čuva**; ažurira se samo ocjena ako se promijenila), nova se dodaje kao „neprovjerena“, a ona koje više nema u Excelu se briše (Excel je izvor istine).

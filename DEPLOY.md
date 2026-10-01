@@ -561,3 +561,27 @@ Partner mora pri svakom uploadu potvrditi da ima pravo objaviti fotografiju (che
 5. Pokušaj iste radnje dvaput (npr. `U redu` na već odobrenoj) → `409 invalid_transition` (UI poruka „Ta radnja nije moguća…“).
 
 **Napomena (GDPR):** razlog skrivanja je tekst koji čita vlasnik profila — piši ga kao poruku njemu, bez osobnih podataka trećih osoba. Odluke se dnevnikuju u `audit_log`.
+
+## Plan prioriteti 3, Zadatak 17 — porijeklo podataka i privola pružatelja (2026-10-01)
+
+**Nema migracije** (stupci su iz Zadatka 13), **nema novih paketa**, nema nove konfiguracije. Posljednji zadatak trećeg vala.
+
+**Što je novo:**
+- **Excel predložak** (`data/vendors-template.xlsx`, regeneriran skriptom `scripts/make-template.py`) ima 9 novih stupaca na kraju lista „Pružatelji“: `izvor_podataka`, `datum_prikupljanja`, `privola_status`, `privola_zatrazena`, `privola_datum`, `privola_kanal`,
+  `privola_opseg`, `privola_napomena`, `google_place_id` (s padajućim listama i uputama). Postojeći stupci i njihov redoslijed su nepromijenjeni — **stariji Excel (bez tih stupaca) radi kao prije**; ako već radiš u vlastitoj kopiji (`data/vendors-live.xlsx`), nove stupce možeš dodati ručno ili prekopirati podatke u novi predložak.
+- **.NET uvoz** (`dotnet run -- --import <xlsx>`) sprema ih na pružatelja. **Prazno ne briše.** `privola_status = odbijeno` → profil se skriva (opt-out; u izvještaju: „privola odbijena — profil skriven (opt-out)“); uvoz nikad ne vraća skriveni profil u prikaz.
+  Privolu preuzetog profila Excel ne prepisuje. Neispravne vrijednosti → upozorenje u `import-report.txt`, ignorira se.
+- **Claim = privola:** pri odobrenju claima pružatelj se vodi kao `dano` (kanal `claim`, opseg podaci/slike/recenzije).
+- **Admin** (`/admin` → „Povijest promjena“ → slug → „Prikaži“): ispod polja za slug otvara se forma „Porijeklo podataka i privola“ za pregled i ispravak; iznad je sažetak kampanje („ukupno · nepoznato · zatraženo · dano · odbijeno“).
+
+**OPS korak (obavezan da bi „claim = privola“ bio pravno utemeljen):** tekst **uvjeta za partnere** (stranica `/uvjeti-koristenja` / uvjeti koje partner prihvaća pri preuzimanju profila) mora izričito navesti da **preuzimanjem profila pružatelj
+pristaje na objavu svojih podataka, fotografija i recenzija na Wediplanu**. Bez toga sustav bilježi privolu koju pravno ne možeš dokazati. Provjeri s pravnikom i zapiši to u politiku privatnosti.
+
+**Ručna provjera (kriterij):**
+1. Predložak: otvori `data/vendors-template.xlsx` → list „Pružatelji“ ima 9 novih stupaca (AA–AI) s padajućim listama; list „Upute“ ima odlomak „Porijeklo podataka i privola“ (uklj. Place ID Finder i zabranu kopiranja Google ocjena/recenzija/fotografija).
+2. Uvoz: u pravi (ne-PRIMJER) redak upiši `privola_status = odbijeno` i pokreni `dotnet run -- --import <xlsx>` → u izvještaju upozorenje o opt-outu; profil više nije na javnoj stranici; u `/admin` je u popisu „Skriveni profili“. Ponovni uvoz s praznom ćelijom ga **ne** vraća.
+3. `/admin` → „Povijest promjena“ → slug → forma: vidiš `Status privole: Odbijeno`; promijeni npr. izvor i klikni „Spremi“ → „Spremljeno.“; u povijesti se vidi izmjena (bilješka o privoli samo kao „promijenjeno“).
+4. Preuzmi testni profil (claim) i odobri ga → forma pokazuje `Dano`, kanal „Preuzimanje profila (claim)“, opseg podaci/slike/recenzije. Pokreni uvoz Excela s tim retkom i `privola_status = zatraženo` → u izvještaju upozorenje „privola preuzetog profila (claim) nije prepisana“; status ostaje `Dano`.
+5. Javni API: `GET /api/vendors/{slug}` i `data/vendors.json` **ne sadrže** nijedno od novih polja.
+
+**GDPR:** `google_place_id` se smije trajno spremati; Google ocjene/broj recenzija se NIKAD ne spremaju (v. „Budući rad“ u `PLAN-PRIORITETI-LANSIRANJE-3.md`). Bilješka o privoli (`consent_note`) ulazi u dnevnik promjena samo kao „promijenjeno“.

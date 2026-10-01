@@ -7,6 +7,7 @@ using Wediplan.Api.Auth;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
 using Wediplan.Api.Domain;
+using Wediplan.Api.Import;
 using Wediplan.Api.Infrastructure.Audit;
 using Wediplan.Api.Services;
 
@@ -339,6 +340,69 @@ public class AdminController : ControllerBase
             }
         }
         return Ok(new { status = to });
+    }
+
+    // ---------------------------------------------------------------- porijeklo podataka i privola (§Zadatak 17)
+    private static AdminProvenanceDto ToProvenanceDto(Vendor v) => new(
+        v.DataSource, v.DataCollectedAt, v.ConsentStatus, v.ConsentRequestedAt, v.ConsentAt, v.ConsentChannel,
+        v.ConsentScope ?? new List<string>(), v.ConsentNote, v.GooglePlaceId);
+
+    /// <summary>GET /api/admin/vendors/{slug}/provenance — odakle su podaci i je li (i za što) pružatelj dao privolu. Samo admin; nikad javno.</summary>
+    [HttpGet("vendors/{slug}/provenance")]
+    public async Task<ActionResult<AdminProvenanceDto>> GetProvenance(string slug, CancellationToken ct)
+    {
+        var v = await _db.Vendors.AsNoTracking().FirstOrDefaultAsync(x => x.Slug == slug, ct);
+        if (v == null) return NotFound();
+        return Ok(ToProvenanceDto(v));
+    }
+
+    /// <summary>
+    /// PUT /api/admin/vendors/{slug}/provenance — ručna korekcija (PUNA zamjena svih polja; null briše). Dnevnik promjena bilježi izmjenu
+    /// (bilješka o privoli bez sadržaja). <c>ConsentStatus = refused</c> uz to postavlja <c>OptOut = true</c> (odbijena privola = profil se
+    /// skriva); <c>OptOut</c> se NIKAD ne briše ovdje — vraćanje u prikaz je zasebna radnja („Vrati u prikaz").
+    /// </summary>
+    [HttpPut("vendors/{slug}/provenance")]
+    public async Task<ActionResult<AdminProvenanceDto>> PutProvenance(string slug, [FromBody] AdminProvenanceDto req, CancellationToken ct)
+    {
+        if (req.DataSource != null && !ProvenanceRules.DataSources.Contains(req.DataSource)) return BadRequest(new { error = "invalid_data_source" });
+        if (!ProvenanceRules.ConsentStatuses.Contains(req.ConsentStatus)) return BadRequest(new { error = "invalid_consent_status" });
+        if (req.ConsentChannel != null && !ProvenanceRules.ConsentChannelsAll.Contains(req.ConsentChannel)) return BadRequest(new { error = "invalid_consent_channel" });
+        var scope = (req.ConsentScope ?? Array.Empty<string>()).Distinct().ToList();
+        if (scope.Any(x => !ProvenanceRules.ConsentScopes.Contains(x))) return BadRequest(new { error = "invalid_consent_scope" });
+        var note = req.ConsentNote?.Trim();
+        if (note is { Length: > 1000 }) return BadRequest(new { error = "note_too_long" });
+        var placeId = req.GooglePlaceId?.Trim();
+        if (placeId is { Length: > 300 }) return BadRequest(new { error = "place_id_too_long" });
+
+        var v = await _db.Vendors.FirstOrDefaultAsync(x => x.Slug == slug, ct);
+        if (v == null) return NotFound();
+
+        v.DataSource = req.DataSource;
+        v.DataCollectedAt = ProvenanceRules.AsUtc(req.DataCollectedAt);
+        v.ConsentStatus = req.ConsentStatus;
+        v.ConsentRequestedAt = ProvenanceRules.AsUtc(req.ConsentRequestedAt);
+        v.ConsentAt = ProvenanceRules.AsUtc(req.ConsentAt);
+        v.ConsentChannel = req.ConsentChannel;
+        // kanonski redoslijed (data, photos, reviews), bez duplikata
+        v.ConsentScope = ProvenanceRules.ConsentScopes.Where(scope.Contains).ToList();
+        v.ConsentNote = string.IsNullOrEmpty(note) ? null : note;
+        v.GooglePlaceId = string.IsNullOrEmpty(placeId) ? null : placeId;
+        if (req.ConsentStatus == "refused") v.OptOut = true; // nikad false
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(ToProvenanceDto(v));
+    }
+
+    /// <summary>GET /api/admin/consent-summary — brojevi pružatelja po statusu privole (praćenje kampanje kontaktiranja).</summary>
+    [HttpGet("consent-summary")]
+    public async Task<ActionResult<AdminConsentSummaryDto>> ConsentSummary(CancellationToken ct)
+    {
+        var counts = await _db.Vendors.AsNoTracking()
+            .GroupBy(v => v.ConsentStatus)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+        int Of(string status) => counts.Where(c => c.Status == status).Sum(c => c.Count);
+        return Ok(new AdminConsentSummaryDto(counts.Sum(c => c.Count), Of("unknown"), Of("requested"), Of("granted"), Of("refused")));
     }
 
     // ---------------------------------------------------------------- GDPR opt-out (§9, faza 6)

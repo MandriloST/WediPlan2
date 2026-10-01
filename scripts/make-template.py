@@ -19,6 +19,10 @@ CATEGORIES = [
 ]
 REGIONS = ["Istra", "Kvarner", "Dalmacija", "Zagreb i okolica", "Slavonija"]
 STATUSES = ["Istraženo", "Kontaktirano", "Dozvola dobivena", "Objavljeno", "Skriveno"]
+# Porijeklo podataka i privola (Zadatak 17) — vrijednosti moraju pratiti Import/ProvenanceRules.cs
+DATA_SOURCES = ["google_maps", "web", "instagram", "facebook", "partner", "preporuka", "drugo"]
+CONSENT_STATUSES = ["nepoznato", "zatraženo", "dano", "odbijeno"]
+CONSENT_CHANNELS = ["email", "instagram", "facebook", "telefon", "osobno"]
 
 HEADERS = [
     ("naziv*", 26, "Puni naziv pružatelja"),
@@ -47,6 +51,16 @@ HEADERS = [
     ("email", 22, "INTERNO — ne prikazuje se na stranici"),
     ("status", 18, "Za tvoje praćenje — ne utječe na import"),
     ("napomena", 30, "Interno"),
+    # --- Porijeklo podataka i privola (Zadatak 17) — INTERNO, nikad javno. Prazna ćelija = import NE mijenja postojeću vrijednost u bazi. ---
+    ("izvor_podataka", 18, "Odakle su podaci o pružatelju: google_maps | web | instagram | facebook | partner | preporuka | drugo. INTERNO (GDPR evidencija — mnogi pružatelji su obrtnici, tj. fizičke osobe)."),
+    ("datum_prikupljanja", 16, "Kad si prikupio podatke. Datum, npr. 30.09.2026. ili 2026-09-30."),
+    ("privola_status", 16, "nepoznato | zatraženo | dano | odbijeno. 'odbijeno' = pružatelj ne želi biti na stranici → profil se automatski SKRIVA (opt-out). Preuzet profil (claim) se već vodi kao 'dano' i Excel ga ne smije vratiti na slabije."),
+    ("privola_zatrazena", 16, "Kad si zatražio privolu (datum)."),
+    ("privola_datum", 16, "Kad je pružatelj dao privolu (datum)."),
+    ("privola_kanal", 16, "Kako je privola zatražena/dana: email | instagram | facebook | telefon | osobno."),
+    ("privola_opseg", 22, "Za što je privola dana, odvojeno zarezom: podaci, slike, recenzije."),
+    ("privola_napomena", 30, "Interno — npr. 'pristao u DM-u 12.9., čeka potvrdu za slike'. U dnevniku promjena bilježi se samo 'promijenjeno', ne sadržaj."),
+    ("google_place_id", 28, "Google Place ID (npr. ChIJ…) — nađi ga preko Googleovog 'Place ID Finder'. SMIJE se spremati. NE kopiraj Google ocjene, recenzije ni fotografije (Googleovi uvjeti)."),
 ]
 
 REVIEW_HEADERS = [
@@ -102,6 +116,15 @@ lines = [
     ("• Detalje sumnje zapiši u kolonu napomena. Kad provjeriš i potvrdiš da je sve u redu, vrati status i pružatelj se opet uvozi.", False),
     ("• Redci čiji naziv počinje s 'PRIMJER' se preskaču pri importu — slobodno ih ostavi ili obriši.", False),
     ("", False),
+    ("PORIJEKLO PODATAKA I PRIVOLA (zadnjih 9 stupaca lista 'Pružatelji') — INTERNO, nikad javno:", True),
+    ("• Mnogi pružatelji su obrtnici (fizičke osobe), pa evidentiramo odakle podaci i je li (i za što) pružatelj dao privolu. Sve su to POMOĆNI stupci — ostavi prazno ako ne znaš.", False),
+    ("• PRAZNA ĆELIJA NE BRIŠE: ako je stupac prazan, import ne dira vrijednost koja je već u bazi (admin je može ispraviti na stranici). Zato se ništa ne gubi ako Excel nema te podatke.", False),
+    ("• privola_status = 'odbijeno' → profil se pri uvozu automatski SKRIVA (opt-out). Import NIKAD ne vraća skriveni profil u prikaz — to radi samo admin (gumb 'Vrati u prikaz').", False),
+    ("• Pružatelj koji preuzme profil (claim) automatski se vodi kao privola 'dano' (kanal claim); Excel to ne može vratiti na 'nepoznato' ni 'zatraženo'.", False),
+    ("• google_place_id: Googleov 'Place ID Finder' (developers.google.com/maps/documentation/places/web-service/place-id) → pretraži poslovni naziv → kopiraj ID (počinje s ChIJ). Bez razmaka.", False),
+    ("• NE KOPIRAJ Google ocjene, broj recenzija, tekstove recenzija ni fotografije iz Googlea — Googleovi uvjeti to ne dopuštaju. Sprema se samo Place ID; živa ocjena se kasnije prikazuje izravno iz Googlea.", False),
+    ("• Datumi: 30.09.2026. ili 2026-09-30 (ili pravi Excel datum). Nepoznata vrijednost (npr. krivo napisan status) ispisuje se kao upozorenje i ignorira.", False),
+    ("", False),
     ("SAVJET ZA POČETAK:", True),
     ("• Kreni s 1 regijom i 2–3 kategorije (npr. Dalmacija: Restorani i sale + Foto i Video) da provjeriš cijeli tok, pa širi.", False),
 ]
@@ -118,6 +141,12 @@ for i, r in enumerate(REGIONS, 1):
     sif.cell(row=i, column=2, value=r)
 for i, s in enumerate(STATUSES, 1):
     sif.cell(row=i, column=3, value=s)
+for i, v in enumerate(DATA_SOURCES, 1):
+    sif.cell(row=i, column=4, value=v)
+for i, v in enumerate(CONSENT_STATUSES, 1):
+    sif.cell(row=i, column=5, value=v)
+for i, v in enumerate(CONSENT_CHANNELS, 1):
+    sif.cell(row=i, column=6, value=v)
 sif.sheet_state = "hidden"
 
 # ---------------- Pružatelji ----------------
@@ -149,6 +178,13 @@ ws.add_data_validation(dv_price); dv_price.add(f"I2:I{MAXR}")
 ws.add_data_validation(dv_yn); dv_yn.add(f"O2:O{MAXR}")
 ws.add_data_validation(dv_yn2); dv_yn2.add(f"P2:P{MAXR}")
 ws.add_data_validation(dv_stat); dv_stat.add(f"Y2:Y{MAXR}")
+# Zadatak 17 — padajuće liste za stupce porijekla/privole (AA = izvor_podataka, AC = privola_status, AF = privola_kanal)
+dv_src = DataValidation(type="list", formula1=f"Sifrarnici!$D$1:$D${len(DATA_SOURCES)}", allow_blank=True, showErrorMessage=True)
+dv_cons = DataValidation(type="list", formula1=f"Sifrarnici!$E$1:$E${len(CONSENT_STATUSES)}", allow_blank=True, showErrorMessage=True)
+dv_chan = DataValidation(type="list", formula1=f"Sifrarnici!$F$1:$F${len(CONSENT_CHANNELS)}", allow_blank=True, showErrorMessage=True)
+ws.add_data_validation(dv_src); dv_src.add(f"AA2:AA{MAXR}")
+ws.add_data_validation(dv_cons); dv_cons.add(f"AC2:AC{MAXR}")
+ws.add_data_validation(dv_chan); dv_chan.add(f"AF2:AF{MAXR}")
 
 examples = [
     # 1) dvorana — puna lokacija (grad + koordinate OBAVEZNI za sale)
@@ -156,27 +192,32 @@ examples = [
      "po osobi (raspon)", 65, 95, 4.8, 57, "Google recenzije", "DA", "NE", "uz more, terasa",
      "Terasa uz more za do 220 gostiju, vlastita kuhinja i parking. Cijena po osobi uključuje meni od 5 slijedova.",
      "Meni po osobi, Osoblje, Osnovna dekoracija, Parking", "@villa.dalmacija", "facebook.com/villadalmacija", "villa-dalmacija.hr", "021/555-123",
-     "info@villa-dalmacija.hr", "Dozvola dobivena", "primjer — obriši ili ostavi (preskače se)"],
+     "info@villa-dalmacija.hr", "Dozvola dobivena", "primjer — obriši ili ostavi (preskače se)",
+     "google_maps", "30.09.2026.", "dano", "20.09.2026.", "29.09.2026.", "email", "podaci, slike", "pristao mailom, slike uz navođenje autora", "ChIJ-primjer-place-id"],
     # 2) fotograf sa sjedištem koji pokriva 2 regije (više gradova → glavni u grad, ostali u napomenu)
     ["PRIMJER — Foto studio Anić", "Foto i Video", "Audio, foto kabine i selfie mirror", "Dalmacija", "Split", "43.5081, 16.4402",
      "Dalmacija; Kvarner", "radi u Splitu, Zadru i Šibeniku, po dogovoru i šire",
      "od (paušal)", 850, None, 4.8, 31, "Google recenzije", "DA", "NE", "boho, film",
      "Vjenčanja fotografiramo od 2014. — reportažno, s naglaskom na svjetlo i emociju.",
-     "", "https://instagram.com/foto.anic", "", "fotostudio-anic.hr", "", "", "Kontaktirano", "primjer — preskače se pri importu"],
+     "", "https://instagram.com/foto.anic", "", "fotostudio-anic.hr", "", "", "Kontaktirano", "primjer — preskače se pri importu",
+     "instagram", "2026-09-28", "zatraženo", "2026-09-28", "", "instagram", "", "poslan DM, čeka odgovor", ""],
     # 3) bend bez grada — poznata samo regija (bez pina, prikazuje se u listi regije)
     ["PRIMJER — Bend Adria", "Glazba — bendovi", "DJ", "Dalmacija", "", "", "", "",
      "od (paušal)", 1200, None, None, None, "", "NE", "NE", "pop, rock",
-     "", "", "", "", "bend-adria.hr", "", "", "Istraženo", "primjer — bez grada/koordinata → bez pina"],
+     "", "", "", "", "bend-adria.hr", "", "", "Istraženo", "primjer — bez grada/koordinata → bez pina",
+     "web", "", "", "", "", "", "", "", ""],
     # 4) fotograf s gradom, ali bez koordinata — geokodira se iz grada u Fazi 1
     ["PRIMJER — Ana Fotografija", "Foto i Video", "", "Istra", "Pula", "", "", "",
      "na upit", None, None, None, None, "", "NE", "NE", "elegantno",
-     "", "", "", "", "", "", "", "Istraženo", "primjer — koordinate se geokodiraju iz grada"],
+     "", "", "", "", "", "", "", "Istraženo", "primjer — koordinate se geokodiraju iz grada",
+     "preporuka", "", "nepoznato", "", "", "", "", "", ""],
     # 5) organizator koji pokriva cijelu Hrvatsku
     ["PRIMJER — Perfect Day Weddings", "Organizatori vjenčanja", "", "Zagreb i okolica", "Zagreb", "45.8150, 15.9819",
      "cijela Hrvatska", "organiziramo vjenčanja u cijeloj Hrvatskoj",
      "na upit", None, None, 5.0, 12, "Google recenzije", "DA", "NE", "full service",
      "Organiziramo vjenčanja od Istre do Slavonije — od koncepta do izvedbe.",
-     "", "@perfectday.hr", "facebook.com/perfectdayweddings", "perfectday.hr", "", "", "Dozvola dobivena", "primjer — pokriva cijelu HR"],
+     "", "@perfectday.hr", "facebook.com/perfectdayweddings", "perfectday.hr", "", "", "Dozvola dobivena", "primjer — pokriva cijelu HR",
+     "partner", "", "dano", "", "01.09.2026.", "osobno", "podaci, slike, recenzije", "", ""],
 ]
 for r, row in enumerate(examples, 2):
     for col, val in enumerate(row, 1):
