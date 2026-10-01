@@ -7,7 +7,7 @@ import { adminApi, providerMessage } from "@/lib/api/provider";
 import { AuthError } from "@/lib/api/auth";
 import { actionLabel, actorLabel, entityLabel, formatWhen, summarizeChanges } from "@/lib/audit";
 import { useAuth } from "@/stores/auth";
-import type { AdminAuditEntry, AdminClaim, AdminImportedReview, AdminOptOut, AdminReview } from "@/lib/types";
+import type { AdminAuditEntry, AdminClaim, AdminImportedReview, AdminOptOut, AdminPhoto, AdminReview } from "@/lib/types";
 
 /** Minimalno admin sučelje (§6): moderacija claimova i korisničkih recenzija. Samo rola admin. */
 export default function AdminPanel() {
@@ -20,6 +20,9 @@ export default function AdminPanel() {
   const [imported, setImported] = useState<AdminImportedReview[]>([]);
   const [impStatus, setImpStatus] = useState<"unverified" | "verified" | "rejected">("unverified");
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // §Zadatak 15 — post-moderacija fotografija (slike su javne odmah; admin vodi evidenciju i sakriva neprimjerene)
+  const [photos, setPhotos] = useState<AdminPhoto[]>([]);
+  const [photoStatus, setPhotoStatus] = useState<"unreviewed" | "approved" | "flagged">("unreviewed");
   const [optouts, setOptouts] = useState<AdminOptOut[]>([]);
   const [error, setError] = useState<string | null>(null);
   // §Zadatak 14 — povijest promjena (GDPR). null = još nije učitano.
@@ -34,10 +37,11 @@ export default function AdminPanel() {
       adminApi.reviews(reviewStatus),
       adminApi.optouts(),
       adminApi.importedReviews(impStatus),
+      adminApi.photos(photoStatus, 60),
     ])
-      .then(([c, r, o, i]) => { setClaims(c); setReviews(r); setOptouts(o); setImported(i); })
+      .then(([c, r, o, i, ph]) => { setClaims(c); setReviews(r); setOptouts(o); setImported(i); setPhotos(ph); })
       .catch((e) => setError(providerMessage(e)));
-  }, [reviewStatus, impStatus]);
+  }, [reviewStatus, impStatus, photoStatus]);
 
   useEffect(() => {
     if (loading) return;
@@ -227,6 +231,87 @@ export default function AdminPanel() {
             </article>
           ))}
         </div>
+      )}
+
+      <h2 className="admin-h2" style={{ marginTop: 28 }}>Fotografije pružatelja — pregled ({photos.length})</h2>
+      <p className="muted" style={{ fontSize: 13, margin: "0 0 10px" }}>
+        Slike koje partneri učitaju su <strong>javne odmah</strong>; ovdje vodiš evidenciju koje si pregledao. „U redu“ je samo evidencija,
+        a „Sakrij…“ odmah uklanja sliku s javnog profila i karte (razlog vidi vlasnik profila). Klik na sliku otvara punu veličinu.
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 10px" }}>
+        <select
+          className="audit-input"
+          style={{ maxWidth: 220 }}
+          value={photoStatus}
+          onChange={(e) => setPhotoStatus(e.target.value as typeof photoStatus)}
+          aria-label="Status fotografija"
+        >
+          <option value="unreviewed">Nepregledane</option>
+          <option value="approved">Pregledane (u redu)</option>
+          <option value="flagged">Skrivene</option>
+        </select>
+        {photoStatus === "unreviewed" && photos.length > 0 && (
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => act(() => adminApi.approvePhotosBatch(photos.map((p) => p.id)))}
+          >
+            Odobri sve prikazane ({photos.length})
+          </button>
+        )}
+      </div>
+      {photos.length === 0 ? (
+        <p className="muted">Nema fotografija u ovom statusu.</p>
+      ) : (
+        <ul className="photo-admin-grid">
+          {photos.map((p) => (
+            <li key={p.id} className="photo-card">
+              <a href={p.url} target="_blank" rel="noopener noreferrer" title="Otvori punu veličinu">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.thumbUrl} alt={`Fotografija: ${p.vendorName}`} loading="lazy" />
+              </a>
+              <div className="photo-card-body">
+                <Link href={`/pruzatelj/${p.vendorSlug}`}>{p.vendorName}</Link>
+                <p className="muted photo-card-meta">
+                  {p.source === "partner" ? "partner" : p.source}
+                  {p.createdAt ? ` · ${formatWhen(p.createdAt)}` : " · datum nepoznat (prije evidencije)"}
+                  {p.uploaderEmail ? ` · ${p.uploaderEmail}` : ""}
+                </p>
+                <p className="muted photo-card-meta">
+                  {p.rightsConfirmedAt ? `prava potvrđena ${formatWhen(p.rightsConfirmedAt)}` : "prava nisu potvrđena (starija slika)"}
+                </p>
+                {p.moderationStatus !== "unreviewed" && (
+                  <p className="muted photo-card-meta">
+                    {p.moderationStatus === "flagged" ? "Skrio/la" : "Pregledao/la"}: {p.reviewerEmail ?? "— (nepoznato)"}
+                    {p.reviewedAt ? ` · ${formatWhen(p.reviewedAt)}` : ""}
+                    {p.moderationStatus === "flagged" && p.moderationNote ? ` · razlog: ${p.moderationNote}` : ""}
+                  </p>
+                )}
+                <div className="photo-card-actions">
+                  {p.moderationStatus === "unreviewed" && (
+                    <button className="btn btn-primary btn-sm" onClick={() => act(() => adminApi.approvePhoto(p.id))}>U redu</button>
+                  )}
+                  {p.moderationStatus !== "flagged" && (
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => {
+                        // razlog je OBAVEZAN i vidi ga vlasnik profila (+ e-mail ako je profil preuzet)
+                        const note = window.prompt("Razlog skrivanja (obavezno — vidi ga vlasnik profila):");
+                        if (note === null) return;
+                        if (!note.trim()) { setError(providerMessage(new AuthError("note_required", 400))); return; }
+                        act(() => adminApi.flagPhoto(p.id, note.trim()));
+                      }}
+                    >
+                      Sakrij…
+                    </button>
+                  )}
+                  {p.moderationStatus === "flagged" && (
+                    <button className="btn btn-sm" onClick={() => act(() => adminApi.unflagPhoto(p.id))}>Vrati u prikaz</button>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
 
       <h2 className="admin-h2" style={{ marginTop: 28 }}>Skriveni profili — GDPR opt-out ({optouts.length})</h2>

@@ -4,6 +4,7 @@ import type {
   AdminClaim,
   AdminImportedReview,
   AdminOptOut,
+  AdminPhoto,
   AdminReview,
   Claim,
   ProviderPhoto,
@@ -52,9 +53,14 @@ export const providerApi = {
     call<void>(`/provider/vendors/${encodeURIComponent(slug)}/publish`, "POST"),
 
   // Faza 5 — fotografije (samo odobreni vlasnik)
-  uploadPhoto: async (slug: string, file: File): Promise<ProviderPhoto> => {
+  /**
+   * §Zadatak 15: `rightsConfirmed` mora biti true (korisnik je označio da ima pravo objaviti fotografiju), inače backend vraća
+   * 400 rights_not_confirmed. Šalje se kao eksplicitna vrijednost — ne pretpostavlja se u ime korisnika.
+   */
+  uploadPhoto: async (slug: string, file: File, rightsConfirmed: boolean): Promise<ProviderPhoto> => {
     const fd = new FormData();
     fd.append("file", file);
+    fd.append("rightsConfirmed", String(rightsConfirmed));
     const res = await fetch(`/api/provider/vendors/${encodeURIComponent(slug)}/photos`, {
       method: "POST",
       credentials: "include",
@@ -94,6 +100,16 @@ export const adminApi = {
   // §Zadatak 16 — provjera uvezenih recenzija ("što oni kažu"): bedž "provjereno" / skrivanje s profila
   importedReviews: (status: "unverified" | "verified" | "rejected" = "unverified", limit = 100) =>
     call<AdminImportedReview[]>(`/admin/imported-reviews?status=${status}&limit=${limit}`, "GET"),
+  // §Zadatak 15 — post-moderacija fotografija: slike su javne odmah, admin vodi evidenciju i može sakriti neprimjerene
+  photos: (status: "unreviewed" | "approved" | "flagged" = "unreviewed", limit = 60) =>
+    call<AdminPhoto[]>(`/admin/photos?status=${status}&limit=${limit}`, "GET"),
+  approvePhoto: (id: string) => call<{ status: string }>(`/admin/photos/${id}/approve`, "POST"),
+  /** Razlog je OBAVEZAN (max 1000) i vidi ga vlasnik profila. */
+  flagPhoto: (id: string, note: string) => call<{ status: string }>(`/admin/photos/${id}/flag`, "POST", { note }),
+  unflagPhoto: (id: string) => call<{ status: string }>(`/admin/photos/${id}/unflag`, "POST"),
+  approvePhotosBatch: (ids: string[]) =>
+    call<{ approved: number; skipped: number }>("/admin/photos/approve-batch", "POST", { ids }),
+
   // evidenceNote: izostavljeno = ostaje prijašnja napomena; "" = obriši napomenu; tekst = nova napomena
   verifyImportedReview: (id: string, evidenceNote?: string) =>
     call<{ status: string }>(`/admin/imported-reviews/${id}/verify`, "POST", evidenceNote === undefined ? undefined : { evidenceNote: evidenceNote.trim() }),
@@ -146,6 +162,16 @@ export function providerMessage(e: unknown): string {
         return "Poveznica je nevažeća ili je istekla. Zatražite novu potvrdu iz nadzorne ploče.";
       case "not_your_claim":
         return "Ova poveznica pripada drugom zahtjevu za preuzimanje.";
+      case "rights_not_confirmed":
+        return "Potvrdite da imate pravo objaviti fotografije.";
+      case "invalid_transition":
+        return "Ta radnja nije moguća za trenutni status fotografije. Osvježite popis.";
+      case "note_required":
+        return "Upišite razlog skrivanja (vidi ga vlasnik profila).";
+      case "note_too_long":
+        return "Napomena je preduga (maks. 1000 znakova).";
+      case "too_many_ids":
+        return "Odabrano je previše fotografija odjednom (maks. 60).";
       case "already_decided":
         return "Ovaj zahtjev je već obrađen.";
       case "invalid_price":

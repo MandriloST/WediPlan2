@@ -171,6 +171,8 @@ Cilj (GDPR, načelo odgovornosti): za svaku promjenu partnerskih/javnih podataka
   `account_deleted` u istoj transakciji, **bez e-maila**. Kaskadno brisanje korisnikovih recenzija/favorita (FK cascade) se NE dnevnikuje.
 - **Recenzije (Zadatak 16):** odluke admina nad korisničkim recenzijama nose `decided_by` i interni `reject_reason`; uvezene recenzije imaju `verification_status`
   (`unverified|verified|rejected`) koji **preživljava ponovni uvoz** jer se uvoz radi kao upsert po stabilnom ključu `external_key` (SHA-256 od slug|autor|tekst|izvor|godina nad normaliziranim tekstom).
+- **Fotografije (Zadatak 15):** post-moderacija — slika je javna odmah (`moderation_status = unreviewed`), admin je naknadno označi `approved` ili sakrije (`flagged`, uz obavezan razlog koji vidi vlasnik).
+  Javni put (`VendorMapper`, `PinsController`) nikad ne vraća `flagged`; naslovna je prva javna po `sort_order`. Upload traži potvrdu prava (`rights_confirmed_at`). Prijelazi statusa: `PhotoModeration` (čista logika).
 - **Rok čuvanja 24 mjeseca:** `dotnet run -- --audit-prune [--months N]` (mjesečni cron, v. `DEPLOY.md`). Pregled: `GET /api/admin/audit`, sekcija „Povijest promjena" u `/admin`.
 
 ---

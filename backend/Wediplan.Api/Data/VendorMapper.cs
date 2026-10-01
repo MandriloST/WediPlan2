@@ -56,8 +56,17 @@ public static class VendorMapper
         RatingSource: v.RatingSource,
         Social: Social(v),
         ClaimStatus: v.ClaimStatus == "claimed" ? "claimed" : null,
-        Photos: v.Photos != null && v.Photos.Count > 0
-            ? v.Photos.OrderBy(p => p.SortOrder).Select(p => p.StorageKey).ToList()
-            : null,
+        // §Zadatak 15: sakrivene (flagged) slike se NIKAD ne vraćaju javno. Naslovna = prva javna po SortOrder,
+        // pa kad je sakrivena slika bila naslovna, javno se automatski prikazuje sljedeća.
+        Photos: PublicPhotoUrls(v),
         Country: v.Country == "hr" ? null : v.Country);
+
+    /// <summary>Javni URL-ovi fotografija pružatelja po SortOrder, bez sakrivenih (§Zadatak 15); null kad nema nijedne.</summary>
+    private static List<string>? PublicPhotoUrls(Vendor v)
+    {
+        if (v.Photos == null) return null;
+        var urls = v.Photos.Where(Wediplan.Api.Services.PhotoModeration.IsPublic)
+            .OrderBy(p => p.SortOrder).Select(p => p.StorageKey).ToList();
+        return urls.Count > 0 ? urls : null;
+    }
 }

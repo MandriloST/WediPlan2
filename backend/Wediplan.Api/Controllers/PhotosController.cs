@@ -7,6 +7,7 @@ using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
 using Wediplan.Api.Domain;
 using Wediplan.Api.Media;
+using Wediplan.Api.Services;
 
 namespace Wediplan.Api.Controllers;
 
@@ -40,13 +41,19 @@ public class PhotosController : ControllerBase
         return v != null && v.OwnerUserId == uid && v.ClaimStatus == "claimed" ? v : null;
     }
 
-    /// <summary>POST — upload jedne fotografije (multipart, polje "file").</summary>
+    /// <summary>
+    /// POST — upload jedne fotografije (multipart: polje "file" + obavezno "rightsConfirmed=true").
+    /// Slika je JAVNA ODMAH (post-moderacija, §Zadatak 15) sa statusom <c>unreviewed</c>; admin naknadno vodi evidenciju.
+    /// Bez potvrde prava na fotografiju → <c>400 rights_not_confirmed</c> (provjera je PRIJE obrade slike).
+    /// </summary>
     [HttpPost]
     [RequestSizeLimit(15 * 1024 * 1024)]
-    public async Task<ActionResult<ProviderPhotoDto>> Upload(string slug, IFormFile? file, CancellationToken ct)
+    public async Task<ActionResult<ProviderPhotoDto>> Upload(string slug, IFormFile? file,
+        [FromForm] bool rightsConfirmed = false, CancellationToken ct = default)
     {
         var vendor = await OwnedAsync(slug, ct);
         if (vendor == null) return Forbid();
+        if (!rightsConfirmed) return BadRequest(new { error = "rights_not_confirmed" });
         if (file == null || file.Length == 0) return BadRequest(new { error = "no_file" });
         if (file.Length > _opt.MaxUploadBytes) return BadRequest(new { error = "file_too_large" });
         if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
@@ -80,6 +87,9 @@ public class PhotosController : ControllerBase
             CreatedAt = DateTime.UtcNow,
             UploadedByUserId = Uid(),
             Source = "partner",
+            // §Zadatak 15 — potvrda prava na fotografiju (dokaz ako se pojavi autor slike) i početni status moderacije
+            RightsConfirmedAt = DateTime.UtcNow,
+            ModerationStatus = PhotoModeration.Unreviewed,
         };
         _db.Add(photo);
         await _db.SaveChangesAsync(ct);

@@ -55,7 +55,11 @@ public record VendorDraftDto(
 public record ProviderStatsDto(int Views30, int Compares30, int Favorites30);
 
 /// <summary>Fotografija pružatelja (Faza 5). thumbUrl je izveden iz url-a konvencijom (_thumb).</summary>
-public record ProviderPhotoDto(string Id, string Url, string ThumbUrl, bool IsCover, int SortOrder);
+public record ProviderPhotoDto(
+    string Id, string Url, string ThumbUrl, bool IsCover, int SortOrder,
+    // §Zadatak 15 — status moderacije (unreviewed | approved | flagged). Vlasniku se kao razlika prikazuje samo "flagged"
+    // (slika je skrivena od javnosti); ModerationNote je razlog koji je upisao admin.
+    string ModerationStatus = "unreviewed", string? ModerationNote = null);
 
 /// <summary>PUT …/photos/order — novi poredak + naslovna.</summary>
 public record PhotoOrderRequest(IReadOnlyList<string> OrderedIds, string? CoverId);
@@ -122,6 +126,21 @@ public record AdminImportedReviewDto(
     DateTime? VerifiedAt,
     string? VerifierEmail,
     string? EvidenceNote);
+
+/// <summary>
+/// Fotografija pružatelja u admin redu za pregled (§Zadatak 15). Slike su javne odmah (post-moderacija); admin vodi evidenciju
+/// <c>ModerationStatus</c>: unreviewed | approved | flagged (sakrivena). <c>Source</c>: partner | import.
+/// </summary>
+public record AdminPhotoDto(
+    string Id, string VendorSlug, string VendorName, string Url, string ThumbUrl, bool IsCover,
+    string Source, string ModerationStatus, DateTime? CreatedAt, DateTime? RightsConfirmedAt,
+    string? UploaderEmail, DateTime? ReviewedAt, string? ReviewerEmail, string? ModerationNote);
+
+/// <summary>Tijelo za <c>POST /api/admin/photos/{id}/flag</c>: razlog je OBAVEZAN (max 1000) i vidi ga vlasnik profila.</summary>
+public record FlagPhotoRequest(string? Note);
+
+/// <summary>Tijelo za <c>POST /api/admin/photos/approve-batch</c> (max 60 id-eva).</summary>
+public record ApprovePhotosRequest(IReadOnlyList<string>? Ids);
 
 /// <summary>Tijelo za <c>POST /api/admin/imported-reviews/{id}/verify|reject</c> (napomena o dokazu, max 1000 znakova).</summary>
 public record ImportedReviewDecisionRequest(string? EvidenceNote);

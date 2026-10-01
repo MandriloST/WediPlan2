@@ -50,7 +50,10 @@ public class PinsController : ControllerBase
                 v.Id, v.Slug, v.Name, v.CategorySlug, v.City, v.Lng, v.Lat, v.LocationPrecision,
                 v.PriceKind, v.PriceFrom, v.PriceTo, v.Rating, v.ReviewCount,
                 Cats = v.Categories.OrderByDescending(c => c.IsPrimary).Select(c => c.CategorySlug).ToList(),
-                Cover = v.Photos.OrderBy(p => p.SortOrder).Select(p => p.StorageKey).FirstOrDefault(),
+                // §Zadatak 15: sakrivena (flagged) slika ne smije biti naslovna na karti; inline lambda jer EF ne prevodi
+                // PhotoModeration.IsPublic — MORA ostati usklađeno s njom.
+                Cover = v.Photos.Where(p => p.ModerationStatus != "flagged")
+                    .OrderBy(p => p.SortOrder).Select(p => p.StorageKey).FirstOrDefault(),
             })
             .ToListAsync(ct);
 

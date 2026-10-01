@@ -47,7 +47,20 @@ public class PartnerEmails
             url, "Pogledaj nadzornu ploču", ct);
     }
 
-    private Task Send(string email, string subject, string intro, string url, string cta, CancellationToken ct)
+    /// <summary>
+    /// Obavijest vlasniku da je jedna njegova fotografija skrivena s javnog profila (§Zadatak 15). Razlog je tekst koji je upisao
+    /// admin — u HTML se ESCAPE-a (HtmlEncode), a u tekstualnoj varijanti ide kakav jest.
+    /// </summary>
+    public Task SendPhotoFlagged(string email, string vendorName, string reason, CancellationToken ct)
+    {
+        var url = $"{_appUrl}/partner";
+        var plain = $"Jedna fotografija na profilu „{vendorName}” skrivena je iz javnog prikaza nakon pregleda. Razlog: {reason}";
+        var html = $"Jedna fotografija na profilu „{System.Net.WebUtility.HtmlEncode(vendorName)}” skrivena je iz javnog prikaza nakon pregleda. " +
+                   $"Razlog: {System.Net.WebUtility.HtmlEncode(reason)}";
+        return Send(email, "Fotografija je skrivena — Wediplan", html, url, "Pogledaj nadzornu ploču", ct, plain);
+    }
+
+    private Task Send(string email, string subject, string intro, string url, string cta, CancellationToken ct, string? textIntro = null)
     {
         var html = $@"<div style=""font-family:system-ui,sans-serif;max-width:480px;margin:0 auto"">
   <h2 style=""color:#c2410c"">Wediplan</h2>
@@ -55,7 +68,7 @@ public class PartnerEmails
   <p><a href=""{url}"" style=""display:inline-block;background:#c2410c;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600"">{cta}</a></p>
   <p style=""color:#999;font-size:12px;word-break:break-all"">Poveznica: {url}</p>
 </div>";
-        var text = $"{intro}\n\n{url}";
+        var text = $"{textIntro ?? intro}\n\n{url}";
         return _sender.SendAsync(email, subject, html, text, ct);
     }
 }
