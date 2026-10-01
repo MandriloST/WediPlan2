@@ -27,6 +27,20 @@ public static class ImportRules
 
     public static bool YesNo(string? v) => Norm(v) == "da";
 
+    /// <summary>
+    /// Stabilni ključ uvezene recenzije (§Zadatak 16): prvih 32 hex znaka (malim slovima) SHA-256 od
+    /// <c>slug|Norm(autor)|Norm(tekst)|Norm(izvor)|godina</c>. Omogućuje upsert pri ponovnom uvozu — admin je provjerio
+    /// KONKRETNU recenziju, pa joj status provjere mora preživjeti uvoz. <see cref="Norm"/> ignorira velika/mala slova,
+    /// dijakritike i višestruke razmake (nebitne razlike u Excelu ne stvaraju "novu" recenziju), a promjena teksta,
+    /// autora, izvora ili godine JEST nova recenzija (namjerno). Ocjena nije dio ključa: njezina promjena ažurira postojeći redak.
+    /// </summary>
+    public static string ReviewKey(string slug, string? author, string? text, string? source, int year)
+    {
+        var material = $"{slug}|{Norm(author)}|{Norm(text)}|{Norm(source)}|{year}";
+        var hash = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(material));
+        return Convert.ToHexString(hash).ToLowerInvariant()[..32];
+    }
+
     // Šifrarnici (nazivi → slug) — moraju pratiti Catalog.cs / lib/data.ts.
     private static readonly Dictionary<string, string> Regions = new()
     {

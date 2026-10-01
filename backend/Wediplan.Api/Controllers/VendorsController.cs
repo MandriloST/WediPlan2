@@ -92,9 +92,11 @@ public class VendorsController : ControllerBase
 
         if (v == null) return NotFound();
 
+        // §Zadatak 16: odbijene (admin nije prihvatio dokaz) se NE prikazuju; provjerene nose bedž "provjereno".
         var reviews = v.ImportedReviews
+            .Where(r => r.VerificationStatus != "rejected")
             .OrderByDescending(r => r.Year)
-            .Select(r => new ImportedReviewDto(r.Author, r.Rating, r.Text, r.Source, r.Year))
+            .Select(r => new ImportedReviewDto(r.Author, r.Rating, r.Text, r.Source, r.Year, r.VerificationStatus == "verified"))
             .ToList();
 
         // Objavljene korisničke recenzije ("što korisnici kažu", Faza 4). Autor = displayName ili generički.

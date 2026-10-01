@@ -218,8 +218,9 @@ export default function VendorProfile({ data, similar }: { data: VendorProfileDa
           <section>
             <h2>Recenzije</h2>
             <p className="rev-note">
-              Dvije vrste recenzija: <strong>prenesene</strong> (prikupio i provjerio Wediplan iz vanjskih izvora
-              prije lansiranja) i <strong>Wediplan recenzije</strong> stvarnih korisnika platforme.
+              Dvije vrste recenzija: <strong>prenesene</strong> (Wediplan ih je prikupio iz vanjskih izvora prije
+              lansiranja; oznaka „provjereno“ znači da je Wediplan provjerio izvor) i <strong>Wediplan recenzije</strong>{" "}
+              stvarnih korisnika platforme.
             </p>
 
             {importedReviews.length > 0 ? (
@@ -227,7 +228,12 @@ export default function VendorProfile({ data, similar }: { data: VendorProfileDa
                 {importedReviews.map((r, i) => (
                   <article key={i} className="review">
                     <div className="rev-head">
-                      <strong>{r.author}</strong>
+                      <span className="rev-who">
+                        <strong>{r.author}</strong>
+                        {r.verified && (
+                          <span className="badge verified" title="Wediplan je provjerio izvor ove recenzije">✓ provjereno</span>
+                        )}
+                      </span>
                       <span className="star">{"★".repeat(Math.round(r.rating))}</span>
                     </div>
                     <p>{r.text}</p>

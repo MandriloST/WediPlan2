@@ -96,7 +96,35 @@ public record AdminReviewDto(
     int Rating,
     string Text,
     string Status,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    // §Zadatak 16 — evidencija odluke (null dok je recenzija pending / za odluke prije evidencije)
+    DateTime? DecidedAt = null,
+    string? DeciderEmail = null,
+    string? RejectReason = null);
+
+/// <summary>Neobavezno tijelo za <c>POST /api/admin/reviews/{id}/reject</c> (razlog je interni, max 500 znakova).</summary>
+public record RejectReviewRequest(string? Reason);
+
+/// <summary>
+/// Uvezena recenzija ("što oni kažu") za provjeru u adminu (§Zadatak 16). <c>VerificationStatus</c>:
+/// unverified | verified | rejected. <c>EvidenceNote</c> = kratka napomena o dokazu (npr. gdje je screenshot).
+/// </summary>
+public record AdminImportedReviewDto(
+    string Id,
+    string VendorSlug,
+    string VendorName,
+    string Author,
+    int Rating,
+    string Text,
+    string Source,
+    int Year,
+    string VerificationStatus,
+    DateTime? VerifiedAt,
+    string? VerifierEmail,
+    string? EvidenceNote);
+
+/// <summary>Tijelo za <c>POST /api/admin/imported-reviews/{id}/verify|reject</c> (napomena o dokazu, max 1000 znakova).</summary>
+public record ImportedReviewDecisionRequest(string? EvidenceNote);
 
 // ---------------------------------------------------------------- Faza 6: GDPR opt-out (§9)
 /// <summary>Zahtjev za skidanje neclaimanog profila (GDPR §9). Slug + neobavezni razlog/kontakt.</summary>

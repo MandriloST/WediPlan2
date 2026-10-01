@@ -114,10 +114,11 @@ Samo slugovi objavljenih pružatelja + zadnja izmjena (za `sitemap.xml`, osvjež
 Profil pružatelja. `about: ""` i `services: []` kad nisu uneseni — frontend tada prikazuje
 zadani tekst kategorije (`lib/profile.ts withProfileDefaults`). 404 za nepostojeće/skrivene.
 `userReviews` (Faza 4) su OBJAVLJENE recenzije korisnika platforme ("što korisnici kažu");
-izostavljeno kad ih nema. `importedReviews` su prenesene ("što oni kažu").
+izostavljeno kad ih nema. `importedReviews` su prenesene ("što oni kažu"): **odbijene** (admin nije prihvatio dokaz) se ne vraćaju,
+a `verified: true` znači da je admin provjerio izvor (frontend prikazuje bedž "provjereno"); `verified` je `false` za neprovjerene (Zadatak 16).
 ```json
 { "vendor": {}, "about": "…", "services": ["…"],
-  "importedReviews": [{ "author": "Marija i Ivan", "rating": 5, "text": "…", "source": "Google recenzije", "year": 2025 }],
+  "importedReviews": [{ "author": "Marija i Ivan", "rating": 5, "text": "…", "source": "Google recenzije", "year": 2025, "verified": true }],
   "userReviews": [{ "id": "…", "author": "Ana", "rating": 5, "text": "…", "createdAt": "2026-09-17T08:00:00Z" }] }
 ```
 
@@ -254,8 +255,14 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
 - `GET /api/admin/claims?status=pending` → `AdminClaimDto[]`.
 - `POST /api/admin/claims/{id}/approve` → objavi draft, `claim_status=claimed`, postavi vlasnika,
   ostale pending zahtjeve za istog pružatelja odbaci. `POST …/reject`.
-- `GET /api/admin/reviews?status=pending` → `AdminReviewDto[]`.
-- `POST /api/admin/reviews/{id}/approve` (→ `published`) · `POST …/reject`.
+- `GET /api/admin/reviews?status=pending` → `AdminReviewDto[]` (`status`: `pending | published | rejected`). Uz osnovna polja vraća evidenciju odluke
+  (Zadatak 16): `decidedAt?`, `deciderEmail?` (izostavljen ako je račun admina obrisan), `rejectReason?`.
+- `POST /api/admin/reviews/{id}/approve` (→ `published`) · `POST …/reject` s **neobaveznim** tijelom `{"reason":"…"}` (max 500 znakova → `400 reason_too_long`).
+  Obje bilježe `DecidedBy`/`DecidedAt`; razlog je **interni** — ne prikazuje se javno ni autoru. Bez tijela radi kao prije.
+- `GET /api/admin/imported-reviews?status=unverified&limit=100` → `AdminImportedReviewDto[]` — uvezene recenzije ("što oni kažu") za provjeru
+  (`status`: `unverified | verified | rejected`, inače `400 invalid_status`; `limit` 1–500). `AdminImportedReviewDto { id, vendorSlug, vendorName, author, rating, text, source, year, verificationStatus, verifiedAt?, verifierEmail?, evidenceNote? }`.
+- `POST /api/admin/imported-reviews/{id}/verify` · `POST …/reject` — tijelo (neobavezno) `{"evidenceNote":"…"}` (max 1000 → `400 note_too_long`; izostavljeno = ostaje prijašnja napomena,
+  `""` = briše napomenu). Postavljaju `VerificationStatus`, `VerifiedByUserId`, `VerifiedAt`; admin smije promijeniti odluku (verified ↔ rejected). Odluka **preživljava ponovni Excel uvoz**.
 - `POST /api/admin/vendors/{slug}/unpublish` · `POST …/publish` → toggla `is_published` (§9).
 - `GET /api/admin/audit?slug=&entityType=&limit=100` → `AdminAuditEntryDto[]` — dnevnik promjena (GDPR, Zadatak 14), najnovije prvo,
   `limit` 1–500 (default 100). Sa `slug`: zapisi o tom pružatelju + o njegovim slikama, recenzijama i claimovima (uključujući

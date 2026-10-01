@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding; // EmptyBodyBehavior
 using Microsoft.EntityFrameworkCore;
 using Wediplan.Api.Auth;
 using Wediplan.Api.Contracts;
@@ -34,6 +35,18 @@ public class AdminController : ControllerBase
     }
 
     private Guid Uid() => Guid.Parse(_users.GetUserId(User)!);
+
+    /// <summary>E-mailovi korisnika po id-u (za prikaz "tko je odlučio" u adminu). Obrisan korisnik → ključ izostaje.</summary>
+    private async Task<Dictionary<Guid, string?>> EmailsAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var wanted = ids.Distinct().ToList();
+        var emails = new Dictionary<Guid, string?>();
+        if (wanted.Count == 0) return emails;
+        var found = await _users.Users.AsNoTracking().Where(u => wanted.Contains(u.Id))
+            .Select(u => new { u.Id, u.Email }).ToListAsync(ct);
+        foreach (var f in found) emails[f.Id] = f.Email;
+        return emails;
+    }
 
     // ---------------------------------------------------------------- claimovi
     /// <summary>GET /api/admin/claims?status=pending — zahtjevi za moderaciju.</summary>
@@ -96,7 +109,7 @@ public class AdminController : ControllerBase
     }
 
     // ---------------------------------------------------------------- recenzije
-    /// <summary>GET /api/admin/reviews?status=pending — recenzije za moderaciju.</summary>
+    /// <summary>GET /api/admin/reviews?status=pending — recenzije za moderaciju (status: pending | published | rejected).</summary>
     [HttpGet("reviews")]
     public async Task<ActionResult<IEnumerable<AdminReviewDto>>> Reviews([FromQuery] string status = "pending", CancellationToken ct = default)
     {
@@ -105,10 +118,18 @@ public class AdminController : ControllerBase
             join v in _db.Vendors.AsNoTracking() on r.VendorId equals v.Id
             join u in _db.Users.AsNoTracking() on r.UserId equals u.Id
             orderby r.CreatedAt
-            select new AdminReviewDto(
-                r.Id.ToString(), v.Slug, v.Name, u.Email!, r.Rating, r.Text, r.Status, r.CreatedAt)
+            select new
+            {
+                r.Id, v.Slug, v.Name, UserEmail = u.Email, r.Rating, r.Text, r.Status, r.CreatedAt,
+                r.DecidedAt, r.DecidedBy, r.RejectReason,
+            }
         ).ToListAsync(ct);
-        return Ok(rows);
+
+        // §Zadatak 16: tko je odlučio (e-mail admina; null ako je račun u međuvremenu obrisan ili za odluke prije evidencije)
+        var emails = await EmailsAsync(rows.Where(x => x.DecidedBy != null).Select(x => x.DecidedBy!.Value), ct);
+        return Ok(rows.Select(x => new AdminReviewDto(
+            x.Id.ToString(), x.Slug, x.Name, x.UserEmail!, x.Rating, x.Text, x.Status, x.CreatedAt,
+            x.DecidedAt, x.DecidedBy != null && emails.TryGetValue(x.DecidedBy.Value, out var e) ? e : null, x.RejectReason)));
     }
 
     /// <summary>POST /api/admin/reviews/{id}/approve — objavi recenziju.</summary>
@@ -118,7 +139,7 @@ public class AdminController : ControllerBase
         var r = await _db.UserReviews.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (r == null) return NotFound();
         if (r.Status != "pending") return Conflict(new { error = "already_decided" });
-        r.Status = "published"; r.DecidedAt = DateTime.UtcNow;
+        r.Status = "published"; r.DecidedAt = DateTime.UtcNow; r.DecidedBy = Uid();
         await _db.SaveChangesAsync(ct);
 
         // §Zadatak 7 — best-effort obavijest, SAMO ako je profil claiman (ima vlasnika koga obavijestiti).
@@ -139,16 +160,83 @@ public class AdminController : ControllerBase
         return Ok(new { status = "published" });
     }
 
-    /// <summary>POST /api/admin/reviews/{id}/reject.</summary>
+    /// <summary>
+    /// POST /api/admin/reviews/{id}/reject — odbij recenziju. Neobavezno tijelo <c>{"reason":"…"}</c> (max 500 znakova) se sprema
+    /// kao interni <c>RejectReason</c>; NE prikazuje se javno ni autoru. Bez tijela radi kao prije.
+    /// </summary>
     [HttpPost("reviews/{id:guid}/reject")]
-    public async Task<IActionResult> RejectReview(Guid id, CancellationToken ct)
+    public async Task<IActionResult> RejectReview(Guid id,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] RejectReviewRequest? req = null, CancellationToken ct = default)
     {
+        var reason = req?.Reason?.Trim();
+        if (reason is { Length: > 500 }) return BadRequest(new { error = "reason_too_long" });
+
         var r = await _db.UserReviews.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (r == null) return NotFound();
         if (r.Status != "pending") return Conflict(new { error = "already_decided" });
-        r.Status = "rejected"; r.DecidedAt = DateTime.UtcNow;
+        r.Status = "rejected"; r.DecidedAt = DateTime.UtcNow; r.DecidedBy = Uid();
+        r.RejectReason = string.IsNullOrEmpty(reason) ? null : reason;
         await _db.SaveChangesAsync(ct);
         return Ok(new { status = "rejected" });
+    }
+
+    // ---------------------------------------------------------------- uvezene recenzije — provjera (§Zadatak 16)
+    /// <summary>
+    /// GET /api/admin/imported-reviews?status=unverified&amp;limit=100 — uvezene recenzije ("što oni kažu") za provjeru
+    /// (status: unverified | verified | rejected). Poredak: pružatelj, pa godina silazno.
+    /// </summary>
+    [HttpGet("imported-reviews")]
+    public async Task<ActionResult<IEnumerable<AdminImportedReviewDto>>> ImportedReviews(
+        [FromQuery] string status = "unverified", [FromQuery] int limit = 100, CancellationToken ct = default)
+    {
+        if (status is not ("unverified" or "verified" or "rejected")) return BadRequest(new { error = "invalid_status" });
+        limit = Math.Clamp(limit, 1, 500);
+
+        var rows = await (
+            from r in _db.ImportedReviews.AsNoTracking().Where(r => r.VerificationStatus == status)
+            join v in _db.Vendors.AsNoTracking() on r.VendorId equals v.Id
+            orderby v.Name, r.Year descending
+            select new
+            {
+                r.Id, v.Slug, VendorName = v.Name, r.Author, r.Rating, r.Text, r.Source, r.Year,
+                r.VerificationStatus, r.VerifiedAt, r.VerifiedByUserId, r.EvidenceNote,
+            }
+        ).Take(limit).ToListAsync(ct);
+
+        var emails = await EmailsAsync(rows.Where(x => x.VerifiedByUserId != null).Select(x => x.VerifiedByUserId!.Value), ct);
+        return Ok(rows.Select(x => new AdminImportedReviewDto(
+            x.Id.ToString(), x.Slug, x.VendorName, x.Author, x.Rating, x.Text, x.Source, x.Year, x.VerificationStatus,
+            x.VerifiedAt, x.VerifiedByUserId != null && emails.TryGetValue(x.VerifiedByUserId.Value, out var e) ? e : null,
+            x.EvidenceNote)));
+    }
+
+    /// <summary>POST /api/admin/imported-reviews/{id}/verify — izvor je provjeren; dobiva bedž "provjereno". Tijelo: <c>{"evidenceNote":"…"}</c> (neobavezno, max 1000).</summary>
+    [HttpPost("imported-reviews/{id:guid}/verify")]
+    public Task<IActionResult> VerifyImportedReview(Guid id,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ImportedReviewDecisionRequest? req = null, CancellationToken ct = default)
+        => DecideImportedReview(id, "verified", req, ct);
+
+    /// <summary>POST /api/admin/imported-reviews/{id}/reject — dokaz nije prihvaćen; recenzija nestaje s javnog profila.</summary>
+    [HttpPost("imported-reviews/{id:guid}/reject")]
+    public Task<IActionResult> RejectImportedReview(Guid id,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ImportedReviewDecisionRequest? req = null, CancellationToken ct = default)
+        => DecideImportedReview(id, "rejected", req, ct);
+
+    /// <summary>Admin smije promijeniti odluku (verified ↔ rejected); svaka odluka bilježi tko i kada (a dnevnik promjena status).</summary>
+    private async Task<IActionResult> DecideImportedReview(Guid id, string status, ImportedReviewDecisionRequest? req, CancellationToken ct)
+    {
+        var note = req?.EvidenceNote?.Trim();
+        if (note is { Length: > 1000 }) return BadRequest(new { error = "note_too_long" });
+
+        var r = await _db.ImportedReviews.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (r == null) return NotFound();
+
+        r.VerificationStatus = status;
+        r.VerifiedByUserId = Uid();
+        r.VerifiedAt = DateTime.UtcNow;
+        if (note != null) r.EvidenceNote = note.Length == 0 ? null : note; // bez tijela ostaje prijašnja napomena
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { status });
     }
 
     // ---------------------------------------------------------------- GDPR opt-out (§9, faza 6)
@@ -202,14 +290,7 @@ public class AdminController : ControllerBase
         var rows = await q.OrderByDescending(a => a.OccurredAt).ThenByDescending(a => a.Id).Take(limit).ToListAsync(ct);
 
         // E-mail aktera (samo za admin pregled): null kad je korisnik u međuvremenu obrisan ili je radnja javna/sistemska.
-        var actorIds = rows.Where(r => r.ActorUserId != null).Select(r => r.ActorUserId!.Value).Distinct().ToList();
-        var emails = new Dictionary<Guid, string?>();
-        if (actorIds.Count > 0)
-        {
-            var found = await _users.Users.AsNoTracking().Where(u => actorIds.Contains(u.Id))
-                .Select(u => new { u.Id, u.Email }).ToListAsync(ct);
-            foreach (var f in found) emails[f.Id] = f.Email;
-        }
+        var emails = await EmailsAsync(rows.Where(r => r.ActorUserId != null).Select(r => r.ActorUserId!.Value), ct);
 
         string? EmailOf(Guid? id) => id != null && emails.TryGetValue(id.Value, out var e) ? e : null;
         return Ok(rows.Select(r => new AdminAuditEntryDto(

@@ -12,7 +12,43 @@
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 ## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
 
-## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10, 11, 12, 13 (migracija primijenjena), 18. Zadatak 14 (audit) — kod gotov na grani `feat/audit-log`, **čeka vlasnikov `dotnet build/test`**. Preostalo: 15 (moderacija slika) / 16 (recenzije) / 17 (privola) — međusobno neovisni. Sve odluke potvrđene s vlasnikom (2026-09-30).
+## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10–14 i 18. Zadatak 16 (recenzije) — kod gotov na grani `feat/review-verification`, **čeka vlasnikov `dotnet build/test`**. Preostalo: 15 (moderacija slika) i 17 (porijeklo/privola) — neovisni. Sve odluke potvrđene s vlasnikom (2026-09-30).
+
+## Sesija 2026-10-01 (b) — Zadatak 16 (recenzije: evidencija odluka + provjera uvezenih) — kod gotov, **backend build + testovi NEPOTVRĐENI** (grana `feat/review-verification`)
+
+Implementiran Zadatak 16 iz `PLAN-PRIORITETI-LANSIRANJE-3.md`. **Nema migracije** (stupci iz Zadatka 13), **nema novih paketa**, nema nove konfiguracije. Zadatak 14 (audit) je mergean i potvrđen — odluke admina nad recenzijama se usput dnevnikuju (akter `admin`).
+
+**Backend:**
+- `Import/ImportRules.cs` — `ReviewKey(slug, autor, tekst, izvor, godina)` = prvih 32 hex znaka SHA-256 nad `slug|Norm(autor)|Norm(tekst)|Norm(izvor)|godina` (neosjetljiv na velika/mala slova, dijakritike i razmake; promjena teksta = nova recenzija).
+- `Import/ImportedReviewMerge.cs` (novo, čista logika kao `ImportMerge`) — upsert: isti ključ → ostaje (status provjere NE dira se; ažurira se samo ocjena + `UpdatedAt`); novi → `ExternalKey`, `CreatedAt`, `unverified`; nema ga u Excelu → za brisanje;
+  stari redaci bez ključa → ključ se izračuna i upari (backfill); duplikati u Excelu → jedan redak (uz upozorenje); kod dvostrukih postojećih ostaje onaj s napredniji statusom (admin rad ima prednost).
+- `Import/ExcelImporter.cs` — `UpsertAsync` umjesto `RemoveRange` + dodavanja zove `ImportedReviewMerge`; izvještaj ispisuje „novih / zadržanih (ocjena ažurirana) / obrisanih / duplikata“ i dodaje odjeljak u `import-report.txt`.
+- `Controllers/AdminController.cs` — `RejectReview` prima neobavezno tijelo `{reason}` (max 500) i bilježi `DecidedBy`/`RejectReason`; `ApproveReview` bilježi `DecidedBy`; `GET /api/admin/reviews` vraća `decidedAt/deciderEmail/rejectReason`;
+  nove rute `GET /api/admin/imported-reviews`, `POST …/{id}/verify`, `POST …/{id}/reject` (tijelo `{evidenceNote}`, max 1000; izostavljeno = ostaje, `""` = briše). Pomoćna `EmailsAsync` (dijeli je i `Audit`).
+- `Controllers/VendorsController.cs` — javno se ne vraćaju `rejected`; `ImportedReviewDto.Verified` (default `false`, na kraj). `Contracts/*` — `AdminReviewDto` (+3 polja na kraj), `AdminImportedReviewDto`, `RejectReviewRequest`, `ImportedReviewDecisionRequest`.
+
+**Frontend:** `lib/types.ts` (`ImportedReview.verified?`, `AdminReview` dopune, `AdminImportedReview`), `lib/api/provider.ts` (`rejectReview(id, reason?)`, `importedReviews`, `verifyImportedReview`, `rejectImportedReview`),
+`components/AdminPanel.tsx` (filter statusa korisničkih recenzija + prompt za razlog + prikaz tko/kada/razlog; sekcija „Uvezene recenzije — provjera izvora“ s napomenom o dokazu), `components/VendorProfile.tsx` (bedž „✓ provjereno“; **ispravljen tekst** koji je tvrdio da je Wediplan provjerio SVE prenesene recenzije),
+`globals.css`. Dokumentacija: `API.md`, `backend/README.md`, `PLAN-ARHITEKTURA.md` §3.1, `DEPLOY.md` (postupak + ručna provjera; napomena o šumu iz Zadatka 14 označena riješenom).
+
+**Odstupanja/napomene:** (1) `AdminController` je trebao `using Microsoft.AspNetCore.Mvc.ModelBinding` (za `EmptyBodyBehavior`) — uhvaćeno stvarnim kompajlerom protiv ASP.NET frameworka, dodano. (2) Mock podaci (`lib/mock/profile.ts`) su vezani uz stare slugove koji više ne postoje u `data/vendors.json`
+(postojeće stanje, nije diran) — pa se bedž u devu ne vidi bez stvarnog backenda. (3) U `ExcelImporter` je uklonjen komentar „upsert dolazi u Zadatku 16“ — ključ/`CreatedAt`/status sada postavlja `ImportedReviewMerge.Apply`.
+
+**Provjera (stvarno pokrenuto):**
+- **Čista logika: 45/45** (25 prijašnjih + 20 novih: 6 `ReviewKey`, 14 spajanja) — stvarni izvori kompilirani i pokrenuti uz xunit shim. **5 mutacija** (status se gubi, bez backfilla, duplikati se ne skupljaju, bez prednosti verified, ključ bez `Norm`) obara testove.
+- **Frontend:** `tsc` + `npm run build` čisti. Headless Chromium uz presretnut API: točna tijela zahtjeva (`{"reason":…}`, `{"evidenceNote":…}`, `""` za brisanje napomene), prikaz razloga i odlučitelja, gumbi ovisno o statusu; profil: bedž samo na provjerenoj recenziji (privremeni mock, vraćen).
+- **NIJE kompilirano/pokrenuto** (nema `api.nuget.org`): izmjene `ExcelImporter.cs`, `AdminController.cs`, `VendorsController.cs`, `Contracts/*`. Nema testova upserta nad pravom bazom — pokriva ga ručna provjera niže.
+
+**Vlasnik (redom):**
+```bash
+cd backend
+dotnet build Wediplan.sln -c Release       # mora proći
+dotnet test                                 # očekivano: 20 NOVIH testova (6 + 14) uz postojeće — sve zeleno
+```
+Zatim ručna provjera po `DEPLOY.md` („Plan prioriteti 3, Zadatak 16“): označi uvezenu recenziju `Provjereno` → **ponovno pokreni isti Excel** (`dotnet run -- --import <xlsx>`) → izvještaj `novih 0 … obrisanih 0`, recenzija je i dalje provjerena; odbijena nestaje s profila.
+**Prvi uvoz nakon deploya:** postojeći retci nemaju ključ; uvoz ih uparuje po sadržaju i dodjeljuje im ključ (stanje se ne gubi ako je Excel isti).
+
+**Sljedeći korak:** Zadatak 15 (moderacija slika) ili 17 (porijeklo/privola) — neovisni.
 
 ## Sesija 2026-10-01 — Zadatak 14 (dnevnik promjena / audit) — kod gotov, **backend build + testovi NEPOTVRĐENI** (grana `feat/audit-log`)
 

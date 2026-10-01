@@ -517,9 +517,27 @@ Ispiše `audit-prune: obrisano N zapisa starijih od 24 mj.` Rok navedi u politic
 4. Brisanje korisničkog računa ostavlja `account_deleted` (bez e-maila) i `owner_unlinked` po profilu koji je korisnik posjedovao.
 5. Opt-out (`POST /api/optout`) → `opt-out (skriven)`, akter `javno (anonimno)`; admin „Vrati u prikaz" → `opt-out poništen`.
 
-**Poznato ponašanje:** dok se ne uvede upsert uvezenih recenzija (Zadatak 16), svaki ponovni Excel uvoz briše i ponovno stvara sve uvezene recenzije pa u dnevniku
-ostavlja po jedan `brisanje` i `stvoreno` za svaku — to je šum, ne greška; nestaje u Zadatku 16. Kaskadno brisanje (FK `ON DELETE CASCADE`) pri brisanju računa
-(korisnikove recenzije, favoriti) se ne dnevnikuje jer ne prolazi kroz EF.
+**Napomena (riješeno u Zadatku 16):** dok je uvoz brisao i ponovno stvarao sve uvezene recenzije, svaki ponovni Excel uvoz ostavljao je u dnevniku po jedan `brisanje` i `stvoreno` za svaku.
+Od Zadatka 16 uvoz radi upsert, pa nepromijenjene recenzije ne ostavljaju tragova. Kaskadno brisanje (FK `ON DELETE CASCADE`) pri brisanju računa (korisnikove recenzije, favoriti) se i dalje ne dnevnikuje jer ne prolazi kroz EF.
 
 **GDPR/backup:** dnevnik je tablica u bazi, pa je u backupu (v. §4). Nakon restorea iz backupa ponovno primijeni brisanja računa i opt-outove iz tog razdoblja —
 njihov izvor su upravo zapisi `account_deleted` i `optout` u `audit_log` (čuvaj ih barem koliko i backupe).
+
+## Plan prioriteti 3, Zadatak 16 — recenzije: evidencija odluka i provjera uvezenih (2026-10-01)
+
+**Nema migracije** (stupci su iz Zadatka 13), **nema novih paketa**, nema nove konfiguracije.
+
+**Što se promijenilo:**
+- Korisničke recenzije: `Objavi`/`Odbij` bilježe tko je odlučio (`DecidedBy`); pri odbijanju se može upisati **interni** razlog (ne prikazuje se javno ni autoru). U `/admin` filter Na čekanju / Objavljene / Odbijene pokazuje tko je odlučio, kada i razlog.
+- Uvezene recenzije („što oni kažu“): u `/admin` nova sekcija **„Uvezene recenzije — provjera izvora“**. `Provjereno` daje bedž „✓ provjereno“ na javnom profilu, `Odbij` skriva recenziju s profila; uz odluku ide napomena o dokazu (npr. gdje je screenshot).
+- **Ponovni Excel uvoz više ne briše uvezene recenzije:** upsert po stabilnom ključu. Odluka (provjereno/odbijeno) i napomena **preživljavaju uvoz**. Promjena teksta/autora/izvora/godine u Excelu = nova (neprovjerena) recenzija; recenzija koje više nema u Excelu se briše.
+  Izvještaj uvoza ispisuje `Uvezene recenzije (baza): novih N, zadržanih N (od toga ocjena ažurirana: N), obrisanih N, duplikata u Excelu preskočeno N.`
+
+**Prvi uvoz nakon deploya (jednokratno):** postojeći retci nemaju ključ (`external_key IS NULL`). Prvi uvoz ih **uparuje** po sadržaju i dodjeljuje im ključ; one koje Excel više ne sadrži briše (kao i prije). Ništa se ne gubi ako je Excel isti kao zadnji put.
+
+**Ručna provjera (kriterij):**
+1. Izvoz stanja prije: `select verification_status, count(*) from imported_reviews group by 1;`
+2. `/admin` → „Uvezene recenzije“ → označi jednu `Provjereno` (uz napomenu) i jednu `Odbij`. Javni profil: prva ima bedž, druga je nestala.
+3. Pokreni **isti Excel** ponovno: `dotnet run -- --import <xlsx>` → izvještaj: `novih 0, … obrisanih 0`; provjerena je i dalje provjerena, odbijena i dalje skrivena.
+4. `/admin` → „Povijest promjena“ za tog pružatelja: nema novih `brisanje`/`stvoreno` zapisa za recenzije od ponovnog uvoza (samo tvoje odluke, akter `admin`).
+5. Odbij korisničku recenziju s razlogom → filter „Odbijene“ pokazuje tebe, vrijeme i razlog.
