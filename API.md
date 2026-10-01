@@ -257,6 +257,15 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
 - `GET /api/admin/reviews?status=pending` → `AdminReviewDto[]`.
 - `POST /api/admin/reviews/{id}/approve` (→ `published`) · `POST …/reject`.
 - `POST /api/admin/vendors/{slug}/unpublish` · `POST …/publish` → toggla `is_published` (§9).
+- `GET /api/admin/audit?slug=&entityType=&limit=100` → `AdminAuditEntryDto[]` — dnevnik promjena (GDPR, Zadatak 14), najnovije prvo,
+  `limit` 1–500 (default 100). Sa `slug`: zapisi o tom pružatelju + o njegovim slikama, recenzijama i claimovima (uključujući
+  OBRISANE — podređeni zapisi nose `note = "vendorId:<guid>"`); nepoznat slug → `404`. Bez `slug`: zadnji zapisi svih entiteta.
+  `entityType` (`vendor | vendor_photo | imported_review | user_review | claim | user`) dodatno sužava.
+  `AdminAuditEntryDto { id, occurredAt, actorType (admin|partner|user|public|import|system), actorEmail?, entityType, entityId, action, changes?, source? }`.
+  `action`: `create | update | delete | optout | optout_restored | account_deleted | owner_unlinked`.
+  `changes` je **JSON kao tekst**: izmjena `{"PriceFrom":{"old":800,"new":950}}`, maskirano polje `{"Phone":{"changed":true}}`,
+  novi entitet `{"Name":"…","Phone":{"set":true}}` (nazivi = C# imena svojstava). Kontakti pružatelja, tekstovi recenzija i poruka uz claim
+  bilježe se **bez vrijednosti**; dugi tekstovi skraćeni na 1000 znakova. `actorEmail` je izostavljen za javne/sistemske radnje i za obrisane korisnike.
 
 **Obavijesti partnerima** (2026-09 · Plan prioriteti 2, Zadatak 7): `approve claim`, `reject claim`
 i `approve review` (samo ako je profil claiman, tj. `vendor.OwnerUserId` postoji) šalju vlasniku

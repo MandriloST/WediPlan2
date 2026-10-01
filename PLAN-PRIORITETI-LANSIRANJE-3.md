@@ -35,8 +35,8 @@ postojati prije bilo kakve migracije nad stvarnim podacima. 13 uvodi SVE nove st
 - [x] **Zadatak 11 — Zeleni pin za točnu lokaciju + legenda karte.** (frontend, bez sheme) — **gotovo na grani `feat/map-exact-pins` (2026-09-30); `tsc` + `npm run build` čisti, provjereno u headless Chromiumu.**
 - [x] **Zadatak 18 — JSON-LD `aggregateRating` samo iz vlastitih recenzija.** (frontend, bez sheme) — **gotovo na grani `fix/jsonld-own-ratings` (2026-09-30); `tsc` + `npm run build` čisti, ponašanje provjereno izvršavanjem.**
 - [x] **Zadatak 12 — Backup: custom format, enkripcija, off-site, testirani restore, slike.** (ops) — **skripte i dokumentacija gotove na grani `ops/backup-hardening` (2026-09-30), provjerene nad Postgresom 16; čeka vlasnikov lokalni backup + `restore-test.sh` (kriterij „gotovo“) i merge.**
-- [~] **Zadatak 13 — Migracija `AuditIModeracija` (sva nova shema odjednom).** (backend, +migracija) — **entiteti/DbContext gotovi na grani `feat/schema-audit-moderation` (2026-09-30); migraciju generira VLASNIK (`dotnet ef migrations add`), čeka `dotnet build/test`, pregled migracije i `database update`.**
-- [ ] **Zadatak 14 — Audit log (interceptor) + admin pregled povijesti.** (backend+frontend, bez nove sheme)
+- [x] **Zadatak 13 — Migracija `AuditIModeracija` (sva nova shema odjednom).** (backend, +migracija) — **entiteti/DbContext gotovi na grani `feat/schema-audit-moderation` (2026-09-30); migraciju generira VLASNIK (`dotnet ef migrations add`), čeka `dotnet build/test`, pregled migracije i `database update`.**
+- [~] **Zadatak 14 — Audit log (interceptor) + admin pregled povijesti.** (backend+frontend, bez nove sheme) — **kod gotov na grani `feat/audit-log` (2026-10-01); frontend potvrđen, backend `dotnet build/test` NEPOTVRĐEN — čeka vlasnika.**
 - [ ] **Zadatak 15 — Moderacija slika (post-moderacija, evidencija admina).** (backend+frontend)
 - [ ] **Zadatak 16 — Recenzije: evidencija odluka + verifikacija uvezenih.** (backend+frontend)
 - [ ] **Zadatak 17 — Porijeklo podataka i privola pružatelja (Excel + import + admin).** (backend+skripta)
@@ -52,7 +52,7 @@ Vlasnik je prihvatio sve preporuke iz analize („sve po tvojim preporukama"):
    Donji lijevi kut; na mobitelu sklopiva.
 3. **Nema nove baze od nule.** Backup → testirani restore → EF migracija nad postojećim podacima. Za postojeće
    retke **ne izmišljati datume**: novi vremenski stupci za staru povijest su `nullable` i ostaju `null`.
-4. **Audit:** jedna append-only tablica `audit_log`, puni se automatski (EF `SaveChangesInterceptor`).
+4. **Audit** (izvedba Zadatka 14 odstupa u jednom: interceptor i `IAuditContext` su SINGLETON, ne scoped — v. STANJE 2026-10-01): jedna append-only tablica `audit_log`, puni se automatski (EF `SaveChangesInterceptor`).
    Kontakt polja (telefon, e-mail, IG, FB) bilježe se **bez vrijednosti** (`{"changed":true}`). Draftovi se ne
    auditiraju (javna promjena se vidi na `Vendor` pri objavi). Rok čuvanja **24 mjeseca**. Kod brisanja računa
    `ActorUserId` ostaje (pseudonimni GUID koji nakon brisanja korisnika više ne pokazuje ni na koga).

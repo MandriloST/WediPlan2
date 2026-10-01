@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { adminApi, providerMessage } from "@/lib/api/provider";
+import { AuthError } from "@/lib/api/auth";
+import { actionLabel, actorLabel, entityLabel, formatWhen, summarizeChanges } from "@/lib/audit";
 import { useAuth } from "@/stores/auth";
-import type { AdminClaim, AdminOptOut, AdminReview } from "@/lib/types";
+import type { AdminAuditEntry, AdminClaim, AdminOptOut, AdminReview } from "@/lib/types";
 
 /** Minimalno admin sučelje (§6): moderacija claimova i korisničkih recenzija. Samo rola admin. */
 export default function AdminPanel() {
@@ -15,6 +17,10 @@ export default function AdminPanel() {
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [optouts, setOptouts] = useState<AdminOptOut[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // §Zadatak 14 — povijest promjena (GDPR). null = još nije učitano.
+  const [auditSlug, setAuditSlug] = useState("");
+  const [audit, setAudit] = useState<AdminAuditEntry[] | null>(null);
+  const [auditBusy, setAuditBusy] = useState(false);
   const isAdmin = !!user?.roles.includes("admin");
 
   const load = useCallback(() => {
@@ -41,6 +47,20 @@ export default function AdminPanel() {
   async function act(fn: () => Promise<unknown>) {
     setError(null);
     try { await fn(); load(); } catch (e) { setError(providerMessage(e)); }
+  }
+
+  async function loadAudit(ev: React.FormEvent) {
+    ev.preventDefault();
+    setError(null);
+    setAuditBusy(true);
+    try {
+      setAudit(await adminApi.audit(auditSlug.trim() || undefined, 100));
+    } catch (e) {
+      setAudit(null);
+      setError(e instanceof AuthError && e.status === 404 ? "Pružatelj s tim slugom ne postoji." : providerMessage(e));
+    } finally {
+      setAuditBusy(false);
+    }
   }
 
   return (
@@ -117,6 +137,52 @@ export default function AdminPanel() {
           ))}
         </div>
       )}
+
+      <h2 className="admin-h2" style={{ marginTop: 28 }}>Povijest promjena</h2>
+      <p className="muted" style={{ fontSize: 13, margin: "0 0 10px" }}>
+        Tko je, kada i što promijenio (GDPR). Unesi slug pružatelja za njegovu povijest (uključuje slike, recenzije i
+        zahtjeve za preuzimanje), ili ostavi prazno za zadnje promjene svih. Kontakti i tekstovi recenzija bilježe se samo kao „promijenjeno“.
+      </p>
+      <form onSubmit={loadAudit} style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        <input
+          className="audit-input"
+          placeholder="slug pružatelja (npr. foto-anic)"
+          value={auditSlug}
+          onChange={(e) => setAuditSlug(e.target.value)}
+          aria-label="Slug pružatelja"
+        />
+        <button className="btn btn-primary btn-sm" type="submit" disabled={auditBusy}>
+          {auditBusy ? "Učitavanje…" : "Prikaži"}
+        </button>
+      </form>
+      {audit !== null &&
+        (audit.length === 0 ? (
+          <p className="muted">Nema zapisa.</p>
+        ) : (
+          <div className="audit-wrap">
+            <table className="audit-table">
+              <thead>
+                <tr><th>Kada</th><th>Tko</th><th>Što</th><th>Akcija</th><th>Promjene</th></tr>
+              </thead>
+              <tbody>
+                {audit.map((a) => (
+                  <tr key={a.id}>
+                    <td className="audit-when">{formatWhen(a.occurredAt)}</td>
+                    <td>{actorLabel(a)}</td>
+                    <td>{entityLabel(a.entityType)}</td>
+                    <td>{actionLabel(a.action)}</td>
+                    <td>
+                      {summarizeChanges(a.changes).map((line, i) => (
+                        <div key={i} className="audit-line">{line}</div>
+                      ))}
+                      {a.source && <div className="muted audit-src">{a.source}</div>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
     </main>
   );
 }

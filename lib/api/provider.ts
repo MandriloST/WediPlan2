@@ -1,5 +1,6 @@
 import { AuthError } from "./auth";
 import type {
+  AdminAuditEntry,
   AdminClaim,
   AdminOptOut,
   AdminReview,
@@ -96,6 +97,13 @@ export const adminApi = {
   optouts: () => call<AdminOptOut[]>("/admin/optouts", "GET"),
   restoreOptout: (slug: string) =>
     call<{ ok: boolean }>(`/admin/vendors/${encodeURIComponent(slug)}/restore-optout`, "POST"),
+
+  // §Zadatak 14 — dnevnik promjena (GDPR). Sa slugom: pružatelj + njegove slike/recenzije/claimovi; bez: zadnji zapisi svih.
+  audit: (slug?: string, limit = 100) => {
+    const q = new URLSearchParams({ limit: String(limit) });
+    if (slug) q.set("slug", slug);
+    return call<AdminAuditEntry[]>(`/admin/audit?${q.toString()}`, "GET");
+  },
 };
 
 /** Javni GDPR opt-out (§9) — neclaimani pružatelj traži skidanje profila. Bez prijave. */

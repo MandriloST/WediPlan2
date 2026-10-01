@@ -14,3 +14,10 @@ backend/**/*.user
 # lokalne env datoteke (API_URL i sl.)
 .env*.local
 *.tsbuildinfo
+
+# GDPR: backupi baze sadrže OSOBNE PODATKE — nikad u git (ops/backup.sh, restore-test, ručni pg_dump).
+*.dump
+*.dump.age
+*.dump.partial
+*.sql.gz
+bk/
