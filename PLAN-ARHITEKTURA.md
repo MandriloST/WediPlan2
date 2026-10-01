@@ -173,6 +173,8 @@ Cilj (GDPR, načelo odgovornosti): za svaku promjenu partnerskih/javnih podataka
   (`unverified|verified|rejected`) koji **preživljava ponovni uvoz** jer se uvoz radi kao upsert po stabilnom ključu `external_key` (SHA-256 od slug|autor|tekst|izvor|godina nad normaliziranim tekstom).
 - **Fotografije (Zadatak 15):** post-moderacija — slika je javna odmah (`moderation_status = unreviewed`), admin je naknadno označi `approved` ili sakrije (`flagged`, uz obavezan razlog koji vidi vlasnik).
   Javni put (`VendorMapper`, `PinsController`) nikad ne vraća `flagged`; naslovna je prva javna po `sort_order`. Upload traži potvrdu prava (`rights_confirmed_at`). Prijelazi statusa: `PhotoModeration` (čista logika).
+- **Porijeklo i privola (Zadatak 17):** `vendors.data_source`, `data_collected_at`, `consent_*`, `google_place_id` — ADMIN-INTERNO, nikad u javnom API-ju ni u `vendors.json`. Pune se iz Excela (prazno ne briše; `refused` → `opt_out = true`;
+  uvoz nikad ne vraća `opt_out` na false; privola preuzetog profila je zaštićena od prepisivanja) i automatski pri odobrenju claima (`granted`, kanal `claim`). Admin ih pregledava/ispravlja i prati kampanju (`consent-summary`).
 - **Rok čuvanja 24 mjeseca:** `dotnet run -- --audit-prune [--months N]` (mjesečni cron, v. `DEPLOY.md`). Pregled: `GET /api/admin/audit`, sekcija „Povijest promjena" u `/admin`.
 
 ---

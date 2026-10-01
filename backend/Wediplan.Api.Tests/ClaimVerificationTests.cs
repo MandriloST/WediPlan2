@@ -188,6 +188,60 @@ public class ClaimVerificationTests
         Assert.Equal(user.Id, reloadedVendor.OwnerUserId);
     }
 
+    // ---------------------------------------------------------------- §Zadatak 17: claim = privola
+
+    /// <summary>Odobri claim preko istog puta kao <c>Verify_ApprovesClaim_…</c> (potvrda e-maila uz auto-odobrenje).</summary>
+    private async Task<Vendor> ApproveViaVerifyAsync(Action<Vendor>? prepare = null)
+    {
+        var (db, users, _, controller) = Build(autoApprove: true);
+        var user = await SeedUserAsync(users);
+        var vendor = SeedVendor(db);
+        if (prepare != null) { prepare(vendor); db.SaveChanges(); }
+        var claim = SeedPendingClaim(db, user.Id, vendor.Id);
+        SetUser(controller, user.Id);
+        var raw = Tokens.NewRaw();
+        db.ClaimVerificationTokens.Add(new ClaimVerificationToken
+        { ClaimId = claim.Id, TokenHash = Tokens.Hash(raw), ExpiresAt = DateTime.UtcNow.AddHours(24) });
+        await db.SaveChangesAsync();
+
+        var result = await controller.Verify(new VerifyClaimRequest(raw), CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        return await db.Vendors.FirstAsync(v => v.Id == vendor.Id);
+    }
+
+    [Fact]
+    public async Task ClaimApproval_GrantsConsent_ViaClaim()
+    {
+        var vendor = await ApproveViaVerifyAsync();
+
+        Assert.Equal("claimed", vendor.ClaimStatus);
+        Assert.Equal("granted", vendor.ConsentStatus);
+        Assert.Equal("claim", vendor.ConsentChannel);
+        Assert.NotNull(vendor.ConsentAt);
+        Assert.Equal(new[] { "data", "photos", "reviews" }, vendor.ConsentScope);
+    }
+
+    [Fact]
+    public async Task ClaimApproval_OverridesRequestedConsentFromExcel()
+    {
+        var vendor = await ApproveViaVerifyAsync(v => { v.ConsentStatus = "requested"; v.ConsentChannel = "email"; });
+
+        Assert.Equal("granted", vendor.ConsentStatus);
+        Assert.Equal("claim", vendor.ConsentChannel);
+    }
+
+    [Fact]
+    public async Task ClaimApproval_DoesNotUndoARefusedConsent()
+    {
+        var vendor = await ApproveViaVerifyAsync(v => { v.ConsentStatus = "refused"; v.ConsentChannel = "email"; });
+
+        Assert.Equal("claimed", vendor.ClaimStatus);   // claim se i dalje odobrava
+        Assert.Equal("refused", vendor.ConsentStatus); // ali odbijena privola se ne poništava tiho
+        Assert.Equal("email", vendor.ConsentChannel);
+        Assert.Null(vendor.ConsentAt);
+    }
+
     [Fact]
     public async Task Verify_StillApproves_WhenPartnerNotificationEmailFails()
     {

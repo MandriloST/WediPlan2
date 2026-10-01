@@ -790,6 +790,17 @@ select option:checked {
 .audit-line { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; word-break: break-word; }
 .audit-src { font-size: 12px; margin-top: 3px; }
 
+/* porijeklo podataka i privola (Zadatak 17) */
+.prov-box { border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); padding: 12px 14px; margin: 0 0 14px; }
+.prov-box-title { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+.prov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px 14px; }
+.prov-grid label, .prov-note { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+.prov-grid .audit-input, .prov-note .audit-input { max-width: 100%; font-weight: 400; }
+.prov-scope { border: 0; padding: 0; margin: 10px 0 0; display: flex; gap: 16px; flex-wrap: wrap; font-size: 13.5px; }
+.prov-scope legend { font-size: 13px; font-weight: 600; padding: 0; margin-bottom: 4px; }
+.prov-scope label { display: inline-flex; gap: 4px; align-items: center; font-weight: 400; cursor: pointer; }
+.prov-note { margin-top: 10px; }
+
 @media (max-width: 640px) {
   .prov-stats { gap: 16px; }
   .admin-item { flex-direction: column; }

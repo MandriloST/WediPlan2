@@ -2,9 +2,11 @@ import { AuthError } from "./auth";
 import type {
   AdminAuditEntry,
   AdminClaim,
+  AdminConsentSummary,
   AdminImportedReview,
   AdminOptOut,
   AdminPhoto,
+  AdminProvenance,
   AdminReview,
   Claim,
   ProviderPhoto,
@@ -100,6 +102,12 @@ export const adminApi = {
   // §Zadatak 16 — provjera uvezenih recenzija ("što oni kažu"): bedž "provjereno" / skrivanje s profila
   importedReviews: (status: "unverified" | "verified" | "rejected" = "unverified", limit = 100) =>
     call<AdminImportedReview[]>(`/admin/imported-reviews?status=${status}&limit=${limit}`, "GET"),
+  // §Zadatak 17 — porijeklo podataka i privola (interno). PUT = puna zamjena svih polja; `refused` uz to skriva profil (opt-out).
+  provenance: (slug: string) => call<AdminProvenance>(`/admin/vendors/${encodeURIComponent(slug)}/provenance`, "GET"),
+  saveProvenance: (slug: string, body: AdminProvenance) =>
+    call<AdminProvenance>(`/admin/vendors/${encodeURIComponent(slug)}/provenance`, "PUT", body),
+  consentSummary: () => call<AdminConsentSummary>("/admin/consent-summary", "GET"),
+
   // §Zadatak 15 — post-moderacija fotografija: slike su javne odmah, admin vodi evidenciju i može sakriti neprimjerene
   photos: (status: "unreviewed" | "approved" | "flagged" = "unreviewed", limit = 60) =>
     call<AdminPhoto[]>(`/admin/photos?status=${status}&limit=${limit}`, "GET"),
@@ -162,6 +170,13 @@ export function providerMessage(e: unknown): string {
         return "Poveznica je nevažeća ili je istekla. Zatražite novu potvrdu iz nadzorne ploče.";
       case "not_your_claim":
         return "Ova poveznica pripada drugom zahtjevu za preuzimanje.";
+      case "invalid_data_source":
+      case "invalid_consent_status":
+      case "invalid_consent_channel":
+      case "invalid_consent_scope":
+        return "Neka od vrijednosti porijekla/privole nije dozvoljena. Osvježite stranicu i pokušajte ponovno.";
+      case "place_id_too_long":
+        return "Google Place ID je predug.";
       case "rights_not_confirmed":
         return "Potvrdite da imate pravo objaviti fotografije.";
       case "invalid_transition":

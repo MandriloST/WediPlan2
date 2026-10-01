@@ -46,6 +46,10 @@ public/sw.js          service worker
    Greške se ispisuju s brojem retka; dok ih ima, ništa se ne piše. Uspješan uvoz generira `data/vendors.json` + `data/profiles.json` koje frontend čita (mock je samo početni sadržaj tih datoteka).
 4. `npm run dev` za pregled → `git commit data/` → podaci su na stranici.
 
+**Porijeklo podataka i privola (zadnjih 9 stupaca lista „Pružatelji“, interno):** `izvor_podataka`, `datum_prikupljanja`, `privola_status` (nepoznato | zatraženo | dano | odbijeno), `privola_zatrazena`, `privola_datum`, `privola_kanal`, `privola_opseg` (podaci, slike, recenzije), `privola_napomena`, `google_place_id`.
+Evidencija za GDPR (mnogi pružatelji su obrtnici, tj. fizičke osobe) — **nikad se ne objavljuje**; frontend uvoz (`npm run import:vendors`) ih ignorira, a .NET uvoz ih sprema u bazu. Prazna ćelija **ne briše** vrijednost u bazi;
+`privola_status = odbijeno` pri .NET uvozu **skriva profil** (opt-out), a uvoz ga nikad ne vraća u prikaz. Preuzimanje profila (claim) automatski znači privolu. U `google_place_id` ide samo Place ID — **ne kopiraj Google ocjene, recenzije ni fotografije** (Googleovi uvjeti). Detalji: list „Upute“ u predlošku.
+
 Kolone `web/telefon/email` su interna evidencija — import ih **ne** objavljuje (Direktan kontakt: zasad ne). Za prenesene ocjene i recenzije `izvor` je obavezan; prikazuje se uz ocjenu na profilu. Isti Excel kasnije postaje seed za .NET bazu — ugovor je isti (API.md).
 
 

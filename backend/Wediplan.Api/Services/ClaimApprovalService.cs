@@ -42,6 +42,10 @@ public class ClaimApprovalService
         vendor.OwnerUserId = claim.UserId;
         vendor.UpdatedAt = DateTime.UtcNow;
 
+        // §Zadatak 17: preuzimanje profila = privola (granted, kanal claim, opseg podaci/slike/recenzije). Izuzetak: već odbijena
+        // privola (refused) se ne poništava tiho. OPS: tekst uvjeta za partnere to mora izričito pokrivati.
+        ConsentRules.GrantViaClaim(vendor, DateTime.UtcNow);
+
         claim.Status = "approved";
         claim.DecidedBy = decidedBy;
         claim.DecidedAt = DateTime.UtcNow;

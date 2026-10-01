@@ -142,6 +142,26 @@ public record FlagPhotoRequest(string? Note);
 /// <summary>Tijelo za <c>POST /api/admin/photos/approve-batch</c> (max 60 id-eva).</summary>
 public record ApprovePhotosRequest(IReadOnlyList<string>? Ids);
 
+/// <summary>
+/// Porijeklo podataka i privola pružatelja (§Zadatak 17) — ADMIN-INTERNO, nikad u javnom API-ju. Isti oblik za <c>GET</c> i <c>PUT</c>
+/// <c>/api/admin/vendors/{slug}/provenance</c>; <c>PUT</c> je PUNA zamjena svih polja (null briše). Vrijednosti:
+/// <c>DataSource</c> google_maps|web|instagram|facebook|partner|preporuka|drugo; <c>ConsentStatus</c> unknown|requested|granted|refused;
+/// <c>ConsentChannel</c> email|instagram|facebook|telefon|osobno|claim; <c>ConsentScope</c> podskup od data|photos|reviews.
+/// </summary>
+public record AdminProvenanceDto(
+    string? DataSource,
+    DateTime? DataCollectedAt,
+    string ConsentStatus,
+    DateTime? ConsentRequestedAt,
+    DateTime? ConsentAt,
+    string? ConsentChannel,
+    IReadOnlyList<string> ConsentScope,
+    string? ConsentNote,
+    string? GooglePlaceId);
+
+/// <summary>Brojevi pružatelja po statusu privole — praćenje kampanje kontaktiranja (<c>GET /api/admin/consent-summary</c>).</summary>
+public record AdminConsentSummaryDto(int Total, int Unknown, int Requested, int Granted, int Refused);
+
 /// <summary>Tijelo za <c>POST /api/admin/imported-reviews/{id}/verify|reject</c> (napomena o dokazu, max 1000 znakova).</summary>
 public record ImportedReviewDecisionRequest(string? EvidenceNote);
 

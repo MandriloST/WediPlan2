@@ -213,6 +213,31 @@ export interface AdminReview {
   rejectReason?: string;
 }
 
+/**
+ * Porijeklo podataka i privola pružatelja (§Zadatak 17) — ADMIN-INTERNO, nikad u javnom API-ju. `PUT` je PUNA zamjena (izostavljeno/null briše).
+ * Datumi su ISO (UTC). Vrijednosti: v. `lib/provenance.ts`.
+ */
+export interface AdminProvenance {
+  dataSource?: string | null;
+  dataCollectedAt?: string | null;
+  consentStatus: "unknown" | "requested" | "granted" | "refused";
+  consentRequestedAt?: string | null;
+  consentAt?: string | null;
+  consentChannel?: string | null;
+  consentScope: string[];
+  consentNote?: string | null;
+  googlePlaceId?: string | null;
+}
+
+/** Brojevi pružatelja po statusu privole (praćenje kampanje kontaktiranja). */
+export interface AdminConsentSummary {
+  total: number;
+  unknown: number;
+  requested: number;
+  granted: number;
+  refused: number;
+}
+
 /** Fotografija pružatelja u admin redu za pregled (§Zadatak 15). Slike su javne odmah; admin vodi evidenciju. */
 export interface AdminPhoto {
   id: string;

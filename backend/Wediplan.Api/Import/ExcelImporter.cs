@@ -47,6 +47,7 @@ public class ExcelImporter
         var parsed = new List<Vendor>();
         var reviewsByName = new Dictionary<string, string>(); // norm(name) → slug
         var seenSlug = new Dictionary<string, int>();
+        var provenanceBySlug = new Dictionary<string, ProvenanceInput>(); // §Zadatak 17: slug → porijeklo/privola iz retka
         int hidden = 0, foreignCount = 0;
 
         for (int i = 0; i < rows.Count; i++)
@@ -189,6 +190,11 @@ public class ExcelImporter
             v.Categories.Add(new VendorCategory { CategorySlug = category, IsPrimary = true });
             foreach (var e in extra) v.Categories.Add(new VendorCategory { CategorySlug = e, IsPrimary = false });
 
+            // §Zadatak 17: porijeklo podataka i privola (INTERNO). Prazna ćelija = ne mijenjaj vrijednost u bazi; neispravno → upozorenje.
+            var provWarnings = new List<string>();
+            provenanceBySlug[slug] = ProvenanceRules.Parse(colName => col(row, colName), provWarnings);
+            foreach (var pw in provWarnings) Warn(rowNo, name, pw);
+
             parsed.Add(v);
             reviewsByName[ImportRules.Norm(name)] = slug;
         }
@@ -238,7 +244,7 @@ public class ExcelImporter
         // Zapis u bazu (upsert po slugu)
         if (!_dryRun)
         {
-            await UpsertAsync(parsed, importedReviews, seenSlug, ct);
+            await UpsertAsync(parsed, importedReviews, seenSlug, provenanceBySlug, ct);
         }
 
         // Izvještaj
@@ -253,7 +259,7 @@ public class ExcelImporter
 
     private async Task UpsertAsync(List<Vendor> parsed,
         List<(string slug, ImportedReview r)> reviews, IReadOnlyDictionary<string, int> rowBySlug,
-        CancellationToken ct)
+        IReadOnlyDictionary<string, ProvenanceInput> provenance, CancellationToken ct)
     {
         var reviewsBySlug = reviews.GroupBy(x => x.slug).ToDictionary(g => g.Key, g => g.Select(x => x.r).ToList());
         var now = DateTime.UtcNow;
@@ -271,6 +277,7 @@ public class ExcelImporter
             {
                 // novi pružatelj: sve recenzije su nove (ključ, CreatedAt, "unverified"); duplikati u Excelu se skupljaju
                 v.ImportedReviews = MergeReviews(v, new List<ImportedReview>(), incomingReviews, rowNum, now).ToAdd.ToList();
+                ApplyProvenance(v, rowNum, provenance);
                 _db.Vendors.Add(v);
                 inserted++;
             }
@@ -283,6 +290,7 @@ public class ExcelImporter
                     Warn(rowNum, v.Name,
                         $"profil preuzet od partnera — polja nisu prepisana iz Excela: {string.Join(", ", skippedFields)}");
                 }
+                ApplyProvenance(existing, rowNum, provenance); // §Zadatak 17 (prazno ne briše; refused → OptOut; privola claima zaštićena)
                 // kategorije se i dalje zamjenjuju
                 _db.VendorCategories.RemoveRange(existing.Categories);
                 existing.Categories = v.Categories;
@@ -304,6 +312,13 @@ public class ExcelImporter
         _reviewSummary = $"Uvezene recenzije (baza): novih {_revAdded}, zadržanih {_revKept} (od toga ocjena ažurirana: {_revRatingUpdated}), " +
                          $"obrisanih {_revRemoved}, duplikata u Excelu preskočeno {_revDuplicates}.";
         Console.WriteLine(_reviewSummary);
+    }
+
+    /// <summary>Primijeni porijeklo/privolu iz Excela (<see cref="ProvenanceMerge"/>); upozorenja o zaštiti privole idu u izvještaj.</summary>
+    private void ApplyProvenance(Vendor target, int rowNum, IReadOnlyDictionary<string, ProvenanceInput> provenance)
+    {
+        if (!provenance.TryGetValue(target.Slug, out var input)) return;
+        foreach (var warning in ProvenanceMerge.Apply(target, input)) Warn(rowNum, target.Name, warning);
     }
 
     /// <summary>Spoji recenzije jednog pružatelja (čista logika u <see cref="ImportedReviewMerge"/>) i zbroji statistiku za izvještaj.</summary>
@@ -347,7 +362,11 @@ public class ExcelImporter
             int idx = 0;
             foreach (var cell in r.Cells(1, header.Count))
             {
-                if (idx < header.Count) dict[header[idx]] = cell.GetString();
+                // §Zadatak 17: prave Excel datume čitamo kao ISO (yyyy-MM-dd) — GetString() bi vratio tekst ovisan o kulturi stroja.
+                if (idx < header.Count)
+                    dict[header[idx]] = cell.DataType == XLDataType.DateTime
+                        ? cell.GetDateTime().ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+                        : cell.GetString();
                 idx++;
             }
             rows.Add(dict);
