@@ -6,6 +6,7 @@ using Wediplan.Api.Auth;
 using Wediplan.Api.Contracts;
 using Wediplan.Api.Data;
 using Wediplan.Api.Domain;
+using Wediplan.Api.Infrastructure.Audit;
 using Wediplan.Api.Services;
 
 namespace Wediplan.Api.Controllers;
@@ -171,6 +172,49 @@ public class AdminController : ControllerBase
         v.OptOut = false;
         await _db.SaveChangesAsync(ct);
         return Ok(new { ok = true });
+    }
+
+    // ---------------------------------------------------------------- dnevnik promjena (§Zadatak 14, GDPR)
+    /// <summary>
+    /// GET /api/admin/audit?slug=&amp;entityType=&amp;limit=100 — povijest promjena, najnovije prvo (limit 1–500).
+    /// Sa <c>slug</c>: zapisi o tom pružatelju + o njegovim slikama, recenzijama i claimovima (i OBRISANIM — podređeni
+    /// zapisi nose <c>Note = "vendorId:…"</c>). Bez <c>slug</c>: zadnji zapisi svih entiteta.
+    /// <c>entityType</c> (vendor | vendor_photo | imported_review | user_review | claim | user) dodatno sužava.
+    /// </summary>
+    [HttpGet("audit")]
+    public async Task<ActionResult<IEnumerable<AdminAuditEntryDto>>> Audit(
+        [FromQuery] string? slug, [FromQuery] string? entityType, [FromQuery] int limit = 100, CancellationToken ct = default)
+    {
+        limit = Math.Clamp(limit, 1, 500);
+        var q = _db.AuditLogs.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(slug))
+        {
+            var vendorId = await _db.Vendors.AsNoTracking().Where(v => v.Slug == slug)
+                .Select(v => (Guid?)v.Id).FirstOrDefaultAsync(ct);
+            if (vendorId == null) return NotFound();
+            var idText = vendorId.Value.ToString();
+            var note = AuditEntryBuilder.VendorNote(vendorId.Value);
+            q = q.Where(a => (a.EntityType == "vendor" && a.EntityId == idText) || a.Note == note);
+        }
+        if (!string.IsNullOrWhiteSpace(entityType)) q = q.Where(a => a.EntityType == entityType);
+
+        var rows = await q.OrderByDescending(a => a.OccurredAt).ThenByDescending(a => a.Id).Take(limit).ToListAsync(ct);
+
+        // E-mail aktera (samo za admin pregled): null kad je korisnik u međuvremenu obrisan ili je radnja javna/sistemska.
+        var actorIds = rows.Where(r => r.ActorUserId != null).Select(r => r.ActorUserId!.Value).Distinct().ToList();
+        var emails = new Dictionary<Guid, string?>();
+        if (actorIds.Count > 0)
+        {
+            var found = await _users.Users.AsNoTracking().Where(u => actorIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.Email }).ToListAsync(ct);
+            foreach (var f in found) emails[f.Id] = f.Email;
+        }
+
+        string? EmailOf(Guid? id) => id != null && emails.TryGetValue(id.Value, out var e) ? e : null;
+        return Ok(rows.Select(r => new AdminAuditEntryDto(
+            r.Id, r.OccurredAt, r.ActorType, EmailOf(r.ActorUserId),
+            r.EntityType, r.EntityId, r.Action, r.Changes, r.Source)));
     }
 
     // ---------------------------------------------------------------- publish/unpublish (§6, §9)

@@ -54,6 +54,11 @@ public class AccountController : ControllerBase
 
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
+        // Dnevnik promjena (§Zadatak 14): ExecuteUpdate/ExecuteDelete i DB cascade zaobilaze ChangeTracker pa ih
+        // audit interceptor NE vidi — zato id-eve pružatelja dohvaćamo PRIJE odvezivanja i zapise dodajemo ručno.
+        var ownedVendorIds = await _db.Vendors.Where(v => v.OwnerUserId == uid)
+            .Select(v => v.Id).ToListAsync(ct);
+
         // Vendor ostaje (poslovni podatak) — samo se odvezuje vlasništvo. Korisnik može biti
         // vlasnik i više profila (npr. lanac dvorana), pa ExecuteUpdate pokriva sve odjednom.
         await _db.Vendors.Where(v => v.OwnerUserId == uid)
@@ -71,6 +76,23 @@ public class AccountController : ControllerBase
             await tx.RollbackAsync(ct);
             return StatusCode(500, new { error = "delete_failed", details = result.Errors.Select(e => e.Description) });
         }
+
+        // Eksplicitni zapisi u istoj transakciji (rollback ih poništava zajedno s brisanjem). BEZ e-maila/PII:
+        // actor_user_id je pseudonimni GUID koji nakon brisanja računa više ne pokazuje ni na koga.
+        const string auditSource = "api:DELETE /api/account";
+        var now = DateTime.UtcNow;
+        foreach (var vid in ownedVendorIds)
+            _db.AuditLogs.Add(new AuditLog
+            {
+                OccurredAt = now, ActorType = "user", ActorUserId = uid, EntityType = "vendor",
+                EntityId = vid.ToString(), Action = "owner_unlinked", Source = auditSource,
+            });
+        _db.AuditLogs.Add(new AuditLog
+        {
+            OccurredAt = now, ActorType = "user", ActorUserId = uid, EntityType = "user",
+            EntityId = uid.ToString(), Action = "account_deleted", Source = auditSource,
+        });
+        await _db.SaveChangesAsync(ct);
 
         await tx.CommitAsync(ct);
 

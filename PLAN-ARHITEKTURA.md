@@ -151,6 +151,28 @@ Napomene:
 
 ---
 
+### 3.1 Dnevnik promjena (`audit_log`) — IMPLEMENTIRANO (Zadatak 14, rujan 2026.)
+
+Cilj (GDPR, načelo odgovornosti): za svaku promjenu partnerskih/javnih podataka znati **tko, kada i što** je promijenio.
+
+- **Automatski, bez izmjena kontrolera:** `AuditSaveChangesInterceptor` (EF `SaveChangesInterceptor`) pri svakom `SaveChanges` prođe
+  praćene entitete i u **isti** context doda `AuditLog` zapise → ista transakcija (nema promjene bez zapisa ni zapisa bez promjene).
+- **Što se prati:** `Vendor`, `VendorPhoto`, `ImportedReview`, `UserReview`, `Claim` (`AuditRules`). **Ne prate se:** `VendorDraft` (javna promjena
+  se vidi na `Vendor` pri objavi), `Favorite`, `BudgetPlan`, `Event`, `DailyStat`, tokeni, Identity tablice, sam `AuditLog`.
+- **Što se bilježi:** samo stvarno promijenjena svojstva (`{"PriceFrom":{"old":800,"new":950}}`); liste se uspoređuju po sadržaju; `UpdatedAt` i `Search` se ignoriraju.
+  **Minimizacija:** kontakti (`Phone/Email/SocialInstagram/SocialFacebook`), `ConsentNote`, tekstovi recenzija i `Claim.Message` bilježe se
+  **bez vrijednosti** (`{"changed":true}` / `{"set":true}`); duži tekstovi skraćeni na 1000 znakova. Podređeni entiteti nose `note = "vendorId:<guid>"`.
+- **Akter** (`IAuditContext`): iz HTTP zahtjeva (`public` anoniman · `admin` · `partner` · `user`), `system` bez zahtjeva, `import` za CLI uvoz (izričito
+  `Set(...)`). `actor_user_id` je pseudonimni GUID bez FK-a — nakon brisanja računa ne pokazuje ni na koga.
+- **Singleton, ne scoped:** interceptor i `IAuditContext` su singletoni jer jedna ista instanca interceptora sprječava da EF za svaki zahtjev gradi novi interni
+  servisni provider; stanje po zahtjevu drži `HttpContext` odnosno `AsyncLocal` (CLI), ne instanca.
+- **Posebne akcije:** promjena `Vendor.OptOut` → `optout` / `optout_restored` (razlog i kontakt zahtjeva se NE bilježe).
+- **Zapisi koje ChangeTracker ne vidi** (`ExecuteUpdate/ExecuteDelete`, DB cascade) su eksplicitni: `AccountController.Delete` piše `owner_unlinked` (po pružatelju) i
+  `account_deleted` u istoj transakciji, **bez e-maila**. Kaskadno brisanje korisnikovih recenzija/favorita (FK cascade) se NE dnevnikuje.
+- **Rok čuvanja 24 mjeseca:** `dotnet run -- --audit-prune [--months N]` (mjesečni cron, v. `DEPLOY.md`). Pregled: `GET /api/admin/audit`, sekcija „Povijest promjena" u `/admin`.
+
+---
+
 ## 4. Import 2500 pružatelja
 
 - Postojeći Excel format (`data/vendors-template.xlsx`) je polazna točka; import skripta

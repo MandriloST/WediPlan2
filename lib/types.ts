@@ -208,6 +208,23 @@ export interface AdminOptOut {
   isPublished: boolean;
 }
 
+/**
+ * Redak dnevnika promjena u admin pregledu (§Zadatak 14, GDPR). `changes` je JSON kao TEKST:
+ * `{"PriceFrom":{"old":800,"new":950}}`, maskirano `{"Phone":{"changed":true}}`, novi entitet `{"Name":"…","Phone":{"set":true}}`.
+ * `actorEmail` je izostavljen za javne/sistemske radnje i za obrisane korisnike.
+ */
+export interface AdminAuditEntry {
+  id: number;
+  occurredAt: string;
+  actorType: "admin" | "partner" | "user" | "public" | "import" | "system" | string;
+  actorEmail?: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  changes?: string;
+  source?: string;
+}
+
 /* ------------------------------------------------------------------ */
 /* Faza 2 — dopune ugovora (API.md)                                    */
 /* ------------------------------------------------------------------ */

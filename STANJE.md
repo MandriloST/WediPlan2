@@ -12,7 +12,50 @@
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 ## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
 
-## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10, 11, 12, 18 (vlasnik napravio lokalni backup + restore-test). Zadatak 13 (shema) — entiteti/DbContext gotovi na grani `feat/schema-audit-moderation`, **migraciju generira vlasnik**. Preostalo: 14 (audit) → 15/16/17. Sve odluke potvrđene s vlasnikom (2026-09-30).
+## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10, 11, 12, 13 (migracija primijenjena), 18. Zadatak 14 (audit) — kod gotov na grani `feat/audit-log`, **čeka vlasnikov `dotnet build/test`**. Preostalo: 15 (moderacija slika) / 16 (recenzije) / 17 (privola) — međusobno neovisni. Sve odluke potvrđene s vlasnikom (2026-09-30).
+
+## Sesija 2026-10-01 — Zadatak 14 (dnevnik promjena / audit) — kod gotov, **backend build + testovi NEPOTVRĐENI** (grana `feat/audit-log`)
+
+Implementiran Zadatak 14 iz `PLAN-PRIORITETI-LANSIRANJE-3.md`. **Nema migracije** (tablica `audit_log` je iz Zadatka 13), **nema novih paketa**, nema nove konfiguracije. Preduvjet (migracija Zadatka 13) je mergean i primijenjen.
+
+**Backend — novo (`Infrastructure/Audit/`):**
+- `AuditRules` (čista statička logika) — praćeni entiteti `Vendor/VendorPhoto/ImportedReview/UserReview/Claim`; ignorira `UpdatedAt`, `Search`; MASKIRA (bilježi samo `changed/set`) `Vendor.Phone/Email/SocialInstagram/SocialFacebook/ConsentNote`,
+  `UserReview.Text`, `ImportedReview.Author/Text` **i `Claim.Message`**; usporedba lista po sadržaju (zamjena liste istim sadržajem NIJE promjena).
+- `AuditEntryBuilder` (čista logika) — gradi `AuditLog` (`create/update/delete`, `optout`/`optout_restored` za `Vendor.OptOut`), JSON `Changes` (`{"PriceFrom":{"old":800,"new":950}}`),
+  skraćuje tekstove na 1000 znakova, podređeni entiteti nose `Note = "vendorId:<guid>"` (admin tako nađe i obrisane).
+- `IAuditContext` / `AuditContext` — akter: `system` (nema zahtjeva) · `public` · `admin` · `partner` · `user`, ili izričito `Set(actorType, userId, source)` (vraća `IDisposable` koji vraća prethodno stanje; `AsyncLocal`).
+- `AuditSaveChangesInterceptor` — pri `SaveChanges` prolazi `ChangeTracker.Entries()`, zapise dodaje u isti context (ista transakcija); AuditLog se ne prati (nema rekurzije).
+
+**Backend — izmijenjeno:** `Program.cs` (registracija; `--audit-prune [--months N]`, default 24; akter `import` u `RunImportAsync`), `AccountController.Delete` (eksplicitni `owner_unlinked` po pružatelju i `account_deleted`,
+bez e-maila, u istoj transakciji — ChangeTracker ne vidi `ExecuteUpdate`), `AdminController` (`GET /api/admin/audit?slug=&entityType=&limit=`), `Contracts/ProviderContracts.cs` (`AdminAuditEntryDto`).
+`OptOutController` i `RestoreOptOut` NISU mijenjani — pokriveni pravilom za `OptOut`. **Frontend:** `lib/types.ts` (`AdminAuditEntry`), `lib/api/provider.ts` (`adminApi.audit`), `lib/audit.ts` (prikaz), `components/AdminPanel.tsx`
+(sekcija „Povijest promjena"), `globals.css`. Dokumentacija: `API.md`, `PLAN-ARHITEKTURA.md` §3.1, `DEPLOY.md` (prune cron + provjera), `.gitignore` (`*.dump`, `*.dump.age`, `*.sql.gz`, `bk/` — backupi sadrže osobne podatke).
+
+**Odstupanja od plana (namjerna):**
+1. **Interceptor i `IAuditContext` su SINGLETON, ne scoped.** Plan ih je tražio scoped uz `AddDbContext((sp, o) => … sp.GetRequiredService<…>())`. Nova instanca interceptora po zahtjevu može natjerati EF da za svaki zahtjev gradi novi interni servisni provider
+   (`ManyServiceProvidersCreatedWarning`) — to nisam mogao provjeriti bez EF-a, pa sam odabrao oblik koji taj rizik isključuje. Stanje po zahtjevu drži `HttpContext` (preko `IHttpContextAccessor`) odnosno `AsyncLocal` (CLI), ne instanca. Ponašanje je isto.
+2. `Set(...)` vraća `IDisposable` (uvijek `using var _ = ctx.Set(…)`) da izričito postavljen akter nikad ne iscuri u tuđi zahtjev ili test.
+3. `Claim.Message` je maskirana (slobodan tekst korisnika) — plan je to nabrajao samo za recenzije.
+4. Dodani čisti testovi (`AuditEntryBuilderTests`, `AuditContextTests`) uz tražene EF testove.
+
+**Provjera (stvarno pokrenuto):**
+- **Čista logika + `AuditContext`: 25/25 testova prolazi** — stvarni izvorni kod (`AuditRules`, `AuditEntryBuilder`, `AuditContext`, entiteti) kompiliran protiv PRAVOG ASP.NET Core frameworka iz SDK-a (`DefaultHttpContext`, `ClaimsPrincipal`),
+  uz minimalni xunit shim. 4 mutacije (maskiranje isključeno, liste po referenci, `UpdatedAt` neignoriran, `optout` isključen) obaraju testove. Ta provjera je uhvatila stvarnu grešku: u testu je `Claim` bio dvosmislen
+  (`Domain.Claim` vs `System.Security.Claims.Claim`) — ispravljeno aliasom (isti obrazac kao `ClaimVerificationTests`).
+- **Frontend:** `tsc` + `npm run build` čisti; `lib/audit.ts` 17 scenarija (tsx); sekcija provjerena u headless Chromiumu uz presretnuti API (admin korisnik, 5 zapisa, 404 poruka) — `PriceFrom: 800 → 950` s akterom `partner` je vidljivo.
+- **NIJE kompilirano/pokrenuto** (nema `api.nuget.org`): `AuditSaveChangesInterceptor`, izmjene `Program.cs`/`AccountController`/`AdminController`, te **11 testova u `AuditInterceptorTests`** (EF InMemory). Diff je ručno pregledan; `dotnet build` i `dotnet test` radi vlasnik.
+
+**Vlasnik (redom):**
+```bash
+cd backend
+dotnet build Wediplan.sln -c Release       # mora proći
+dotnet test                                 # očekivano: 36 NOVIH testova (15 + 10 + 11) uz postojeće — sve zeleno
+```
+Ako padne nešto u `AuditInterceptorTests`, pošalji ispis — to su jedini testovi koje nisam mogao pokrenuti, pa je tu najveća šansa za grešku u PRIPREMI testa (ne nužno u kodu). Zatim ručna provjera po `DEPLOY.md` („Plan prioriteti 3, Zadatak 14"): partner objavi draft → `/admin` → „Povijest promjena" → `PriceFrom: 800 → 950`, akter `partner`; promjena telefona → samo „promijenjeno"; brisanje računa → `account_deleted` bez e-maila.
+
+**Poznato:** dok se ne uvede upsert uvezenih recenzija (Zadatak 16), svaki ponovni Excel uvoz briše i ponovno stvara uvezene recenzije pa u dnevniku ostavlja šum (`brisanje` + `stvoreno` po recenziji). Kaskadno brisanje (FK `ON DELETE CASCADE`) pri brisanju računa se ne dnevnikuje.
+
+**Sljedeći korak:** Zadaci 15, 16, 17 (međusobno neovisni; 16 ujedno uklanja gore navedeni šum). Predlažem 16 prije 15/17.
 
 ## Sesija 2026-09-30 (f) — Zadatak 13 (shema: audit_log + moderacija + privola) — kod gotov, **backend build + migracija NEPOTVRĐENI** (grana `feat/schema-audit-moderation`)
 

@@ -104,3 +104,12 @@ public record OptOutRequest(string Slug, string? Reason, string? Contact);
 
 /// <summary>Skriveni (opt-out) pružatelj u admin pregledu.</summary>
 public record AdminOptOutDto(string Slug, string Name, string Category, bool IsPublished);
+
+/// <summary>
+/// Redak dnevnika promjena u admin pregledu (§Zadatak 14, GDPR). <c>Changes</c> je JSON kao tekst:
+/// <c>{"PriceFrom":{"old":800,"new":950}}</c>, maskirano <c>{"Phone":{"changed":true}}</c> ili novi entitet
+/// <c>{"Name":"…","Phone":{"set":true}}</c>. <c>ActorEmail</c> je null za javne/sistemske radnje i za obrisane korisnike.
+/// </summary>
+public record AdminAuditEntryDto(
+    long Id, DateTime OccurredAt, string ActorType, string? ActorEmail,
+    string EntityType, string EntityId, string Action, string? Changes, string? Source);

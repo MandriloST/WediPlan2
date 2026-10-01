@@ -493,3 +493,33 @@ select count(*) from audit_log;                                              -- 
 ```
 **Povratak:** `dotnet ef database update ClaimVerification` (briše samo nove stupce i `audit_log`) ili restore iz backupa iz koraka 1.
 Migracija ne mijenja ponašanje aplikacije osim što nove fotografije dobivaju `created_at`/`uploaded_by_user_id`/`source`.
+
+## Plan prioriteti 3, Zadatak 14 — dnevnik promjena (audit) (2026-10-01)
+
+Svaka promjena partnerskih/javnih podataka automatski se zapisuje u `audit_log` (tko, kada, što). **Nema nove migracije** (tablica je iz Zadatka 13), **nema novih paketa**,
+nema nove konfiguracije — aktivno je čim se aplikacija pokrene.
+
+**Rok čuvanja (24 mjeseca)** — CLI koji briše starije zapise; pokreći mjesečno, na isti način kao `--rollup` (isti proces/okruženje kao API, tj. isti `WEDIPLAN_DB`):
+```bash
+dotnet run -- --audit-prune                  # default 24 mjeseca
+dotnet run -- --audit-prune --months 12      # kraći rok
+```
+Cron/systemd timer — **primjer, prilagodi putanju i način pokretanja svom deployu** (1. u mjesecu, 04:00):
+```
+0 4 1 * *  cd /putanja/do/backend/Wediplan.Api && dotnet run -c Release -- --audit-prune >> /var/log/wediplan-audit-prune.log 2>&1
+```
+Ispiše `audit-prune: obrisano N zapisa starijih od 24 mj.` Rok navedi u politici privatnosti.
+
+**Što se dnevnikuje i kako provjeriti (ručno):**
+1. Kao admin otvori `/admin` → „Povijest promjena" → upiši slug pružatelja → `Prikaži`.
+2. Partner promijeni cijenu i objavi draft → redak `izmjena` s `PriceFrom: 800 → 950` i akterom `partner: <e-mail>`.
+3. Promjena telefona (kroz uvoz ili uređivanje) pokazuje samo `Phone: promijenjeno` — **nikad broj**.
+4. Brisanje korisničkog računa ostavlja `account_deleted` (bez e-maila) i `owner_unlinked` po profilu koji je korisnik posjedovao.
+5. Opt-out (`POST /api/optout`) → `opt-out (skriven)`, akter `javno (anonimno)`; admin „Vrati u prikaz" → `opt-out poništen`.
+
+**Poznato ponašanje:** dok se ne uvede upsert uvezenih recenzija (Zadatak 16), svaki ponovni Excel uvoz briše i ponovno stvara sve uvezene recenzije pa u dnevniku
+ostavlja po jedan `brisanje` i `stvoreno` za svaku — to je šum, ne greška; nestaje u Zadatku 16. Kaskadno brisanje (FK `ON DELETE CASCADE`) pri brisanju računa
+(korisnikove recenzije, favoriti) se ne dnevnikuje jer ne prolazi kroz EF.
+
+**GDPR/backup:** dnevnik je tablica u bazi, pa je u backupu (v. §4). Nakon restorea iz backupa ponovno primijeni brisanja računa i opt-outove iz tog razdoblja —
+njihov izvor su upravo zapisi `account_deleted` i `optout` u `audit_log` (čuvaj ih barem koliko i backupe).

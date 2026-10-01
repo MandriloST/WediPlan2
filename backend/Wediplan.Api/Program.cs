@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Sentry.AspNetCore;
 using Wediplan.Api.Data;
 using Wediplan.Api.Import;
+using Wediplan.Api.Infrastructure.Audit;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,10 +36,18 @@ var connectionString = Environment.GetEnvironmentVariable("WEDIPLAN_DB")
     ?? builder.Configuration.GetConnectionString("Default")
     ?? "Host=localhost;Port=5433;Database=wediplan;Username=wediplan;Password=wediplan";
 
-builder.Services.AddDbContext<AppDbContext>(o =>
+// Dnevnik promjena (§Zadatak 14, GDPR): SINGLETON interceptor + ambijentni IAuditContext (akter iz HttpContexta ili
+// izričito postavljen za CLI). Singleton je namjeran — jedna ista instanca interceptora za sve zahtjeve, inače EF za
+// svaki zahtjev gradi novi interni servisni provider (ManyServiceProvidersCreatedWarning).
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IAuditContext, AuditContext>();
+builder.Services.AddSingleton<AuditSaveChangesInterceptor>();
+
+builder.Services.AddDbContext<AppDbContext>((sp, o) =>
     o.UseNpgsql(connectionString, npg =>
-        // Više Include kolekcija (Categories+Photos+…) → SplitQuery izbjegava kartezijev umnožak.
-        npg.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
+            // Više Include kolekcija (Categories+Photos+…) → SplitQuery izbjegava kartezijev umnožak.
+            npg.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery))
+     .AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>()));
 
 const string CorsPolicy = "frontend";
 builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
@@ -221,6 +230,29 @@ if (args.Contains("--rollup"))
     return;
 }
 
+// --- CLI način: `dotnet run -- --audit-prune [--months 24]` (mjesečni cron) — rok čuvanja dnevnika promjena (§Zadatak 14) ---
+if (args.Contains("--audit-prune"))
+{
+    var months = 24;
+    if (args.Contains("--months"))
+    {
+        var monthsArg = args.SkipWhile(a => a != "--months").Skip(1).FirstOrDefault();
+        if (!int.TryParse(monthsArg, out months) || months < 1)
+        {
+            Console.Error.WriteLine("Upotreba: dotnet run -- --audit-prune [--months N]   (N = cijeli broj ≥ 1, default 24)");
+            Environment.ExitCode = 1; return;
+        }
+    }
+    using var scope = app.Services.CreateScope();
+    var pdb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (!await EnsureDbAsync(pdb)) { Environment.ExitCode = 1; return; }
+    var cutoff = DateTime.UtcNow.AddMonths(-months);
+    // ExecuteDelete zaobilazi ChangeTracker (pa i interceptor) — i to je ovdje ispravno: brisanje dnevnika se ne dnevnikuje.
+    var removed = await pdb.AuditLogs.Where(a => a.OccurredAt < cutoff).ExecuteDeleteAsync();
+    Console.WriteLine($"audit-prune: obrisano {removed} zapisa starijih od {months} mj. (prije {cutoff:yyyy-MM-dd}).");
+    return;
+}
+
 // --- CLI način: `dotnet run -- --make-admin <email>` (jednokratna dodjela admin role) ---
 if (args.Contains("--make-admin"))
 {
@@ -291,6 +323,10 @@ static async Task RunImportAsync(WebApplication app, string[] args)
 
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // §Zadatak 14: sve promjene importa u dnevniku imaju akter "import" i naziv datoteke (v. IAuditContext.Set).
+    using var auditActor = scope.ServiceProvider.GetRequiredService<IAuditContext>()
+        .Set("import", null, $"import:{Path.GetFileName(path)}");
 
     // Fail-fast: provjeri bazu PRIJE (dugog) geokodiranja.
     if (!dryRun && !await EnsureDbAsync(db)) { Environment.ExitCode = 1; return; }
