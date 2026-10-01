@@ -22,6 +22,9 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
     public DbSet<DailyStat> DailyStats => Set<DailyStat>();
     public DbSet<Sponsorship> Sponsorships => Set<Sponsorship>();
 
+    // Zadatak 13 — dnevnik promjena (GDPR); puni ga interceptor (Zadatak 14)
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
     // Faza 3 — auth pomoćne tablice
     public DbSet<MagicLink> MagicLinks => Set<MagicLink>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
@@ -57,6 +60,15 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.Property(v => v.CoverageRegions).HasColumnType("text[]");
             e.Property(v => v.StyleTags).HasColumnType("text[]");
             e.Property(v => v.Services).HasColumnType("text[]");
+
+            // Zadatak 13 — porijeklo podataka i privola. VAŽNO: mora biti PRIJE bloka "if (!isNpgsql) … return"
+            // ispod (taj return preskače sve iza sebe pod drugim providerom).
+            // HasDefaultValue → migracija postavlja vrijednost i na POSTOJEĆE retke (inače bi dobili "").
+            e.Property(v => v.ConsentStatus).HasDefaultValue("unknown");
+            e.Property(v => v.ConsentScope).HasColumnType("text[]");
+            // Prazan niz kao DB default (robusnije od CLR defaulta u AddColumn za NOT NULL text[]); samo Npgsql.
+            if (isNpgsql) e.Property(v => v.ConsentScope).HasDefaultValueSql("'{}'");
+            e.HasIndex(v => v.GooglePlaceId); // nije unique: isti Place može imati 2 profila
 
             if (!isNpgsql)
             {
@@ -97,6 +109,11 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.ToTable("vendor_photos");
             e.HasKey(p => p.Id);
             e.HasIndex(p => p.VendorId);
+            // Zadatak 13 — evidencija i moderacija slika
+            e.Property(p => p.Source).HasDefaultValue("partner");
+            e.Property(p => p.ModerationStatus).HasDefaultValue("unreviewed");
+            e.Property(p => p.ModerationNote).HasMaxLength(1000);
+            e.HasIndex(p => p.ModerationStatus); // red za pregled: status = unreviewed
             e.HasOne(p => p.Vendor).WithMany(v => v.Photos)
                 .HasForeignKey(p => p.VendorId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -106,8 +123,27 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.ToTable("imported_reviews");
             e.HasKey(r => r.Id);
             e.HasIndex(r => r.VendorId);
+            // Zadatak 13 — stabilni ključ + provjera uvezenih recenzija
+            e.Property(r => r.VerificationStatus).HasDefaultValue("unverified");
+            e.Property(r => r.EvidenceNote).HasMaxLength(1000);
+            if (isNpgsql)
+                // Jedinstven ključ po pružatelju, ali samo za retke koji ga imaju (stari retci imaju NULL).
+                e.HasIndex(r => new { r.VendorId, r.ExternalKey }).IsUnique().HasFilter("external_key IS NOT NULL");
+            else
+                e.HasIndex(r => new { r.VendorId, r.ExternalKey });
             e.HasOne(r => r.Vendor).WithMany(v => v.ImportedReviews)
                 .HasForeignKey(r => r.VendorId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Zadatak 13 — dnevnik promjena. NAMJERNO bez FK-ova (mora preživjeti brisanje korisnika/entiteta).
+        b.Entity<AuditLog>(e =>
+        {
+            e.ToTable("audit_log");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Changes).HasColumnType("jsonb");
+            e.HasIndex(x => new { x.EntityType, x.EntityId, x.OccurredAt }); // povijest jednog entiteta
+            e.HasIndex(x => x.ActorUserId);
+            e.HasIndex(x => x.OccurredAt); // retencija (--audit-prune)
         });
 
         b.Entity<Event>(e =>
@@ -187,6 +223,7 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             e.ToTable("user_reviews");
             e.HasKey(x => x.Id);
             e.Property(x => x.Text).HasMaxLength(4000);
+            e.Property(x => x.RejectReason).HasMaxLength(500); // Zadatak 13
             e.HasIndex(x => x.VendorId);
             e.HasIndex(x => new { x.VendorId, x.Status }); // profil čita samo published
             // Jedna recenzija po (korisnik, pružatelj).

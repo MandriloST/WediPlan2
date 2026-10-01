@@ -76,6 +76,10 @@ public class PhotosController : ControllerBase
             StorageKey = mainUrl,
             SortOrder = maxOrder + 1,
             IsCover = count == 0, // prva fotografija je naslovna
+            // Zadatak 13 — evidencija (eksplicitno, ne oslanjati se na DB default)
+            CreatedAt = DateTime.UtcNow,
+            UploadedByUserId = Uid(),
+            Source = "partner",
         };
         _db.Add(photo);
         await _db.SaveChangesAsync(ct);

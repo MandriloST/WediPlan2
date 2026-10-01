@@ -12,7 +12,44 @@
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 ## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
 
-## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10, 11, 18. Zadatak 12 (backup) — skripte gotove na grani `ops/backup-hardening`, čeka vlasnikov lokalni backup+restore-test i merge. Preostalo: 13 (migracija; **tek nakon uspješnog restore-testa**) → 14 → 15/16/17. Sve odluke potvrđene s vlasnikom (2026-09-30).
+## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10, 11, 12, 18 (vlasnik napravio lokalni backup + restore-test). Zadatak 13 (shema) — entiteti/DbContext gotovi na grani `feat/schema-audit-moderation`, **migraciju generira vlasnik**. Preostalo: 14 (audit) → 15/16/17. Sve odluke potvrđene s vlasnikom (2026-09-30).
+
+## Sesija 2026-09-30 (f) — Zadatak 13 (shema: audit_log + moderacija + privola) — kod gotov, **backend build + migracija NEPOTVRĐENI** (grana `feat/schema-audit-moderation`)
+
+Implementirana shema iz Zadatka 13 (`PLAN-PRIORITETI-LANSIRANJE-3.md`). **Mijenja bazu → treba migracija koju generira vlasnik. Nema novih paketa, nema izmjena javnog API-ja ni frontenda.**
+Zadatak 12 (backup) je mergean i vlasnik je potvrdio restore-test — preduvjet ispunjen.
+
+**Izmijenjeno (samo model + minimalno postavljanje polja; logika je u Zadacima 14–17):**
+- `Domain/AuditEntities.cs` (novo) — `AuditLog` (`long Id`, `OccurredAt`, `ActorType`, `ActorUserId`, `EntityType`, `EntityId`, `Action`, `Changes` jsonb, `Source`, `Note`), BEZ FK-ova.
+- `Domain/Entities.cs` — `Vendor`: `DataSource, DataCollectedAt, ConsentStatus ("unknown"), ConsentRequestedAt, ConsentAt, ConsentChannel, ConsentScope (List<string>), ConsentNote, GooglePlaceId`.
+  `VendorPhoto`: `CreatedAt?, UploadedByUserId?, Source ("partner"), RightsConfirmedAt?, ModerationStatus ("unreviewed"), ReviewedByUserId?, ReviewedAt?, ModerationNote?`.
+  `ImportedReview`: `ExternalKey?, CreatedAt?, UpdatedAt?, VerificationStatus ("unverified"), VerifiedByUserId?, VerifiedAt?, EvidenceNote?`.
+- `Domain/ProviderEntities.cs` — `UserReview`: `DecidedBy?`, `RejectReason?`.
+- `Data/AppDbContext.cs` — `DbSet<AuditLog>`; `HasDefaultValue` za statusne stupce (da migracija postavi vrijednost i na postojeće retke); `consent_scope` default `'{}'` (samo Npgsql);
+  indeksi (`google_place_id`, `moderation_status`, `audit_log` ×3); **parcijalni unique** `(vendor_id, external_key) WHERE external_key IS NOT NULL` samo pod Npgsqlom (pod InMemoryjem obični indeks);
+  `HasMaxLength` na napomene. **Konfiguracija `Vendor` ide PRIJE ranog `return` za ne-Npgsql providere** (inače bi ju testovi preskočili).
+- `Controllers/PhotosController.cs` (`Upload`) — postavlja `CreatedAt`, `UploadedByUserId`, `Source = "partner"`. `Import/ExcelImporter.cs` — `ImportedReview.CreatedAt`.
+- `db/schema.sql` ažuriran (referenca; izvor istine = EF migracija). `PLAN-ARHITEKTURA.md` §3, `API.md` (napomena: API se ne mijenja), `DEPLOY.md` (postupak + checklista migracije).
+
+**Što je provjereno, a što nije (iskreno):**
+- Sandbox nema `api.nuget.org` (HTTP 403) → `AppDbContext`, `PhotosController`, `ExcelImporter` NISU kompilirani; diff je ručno pregledan (mali). `dotnet build/test` i `dotnet ef migrations add` radi vlasnik.
+- Stvarni `Entities.cs` + `ProviderEntities.cs` + `AuditEntities.cs` (uz zamjenu Npgsql tipa) **kompilirani: 0 grešaka, 0 upozorenja** (`Nullable` uključen).
+- **Proba migracije na pravom Postgresu 16:** stara `schema.sql` + 5 pružatelja/5 slika/5 uvezenih recenzija/1 korisnička recenzija → ručno napisan očekivani SQL migracije → svi postojeći retci:
+  `consent_status='unknown'`, `consent_scope='{}'`, `source='partner'`, `moderation_status='unreviewed'`, `verification_status='unverified'`, sve stare vremenske oznake i `external_key`/`decided_by` = NULL.
+  Parcijalni unique indeks radi (dva NULL ključa OK, isti ključ kod drugog pružatelja OK, isti ključ kod istog pružatelja pada). `audit_log` insert s jsonb radi. `pg_dump --schema-only` „stara shema + migracija“
+  je **identičan** ažuriranom `schema.sql`. **Ograničenje:** taj SQL sam napisao ručno — pokazuje da su odabrani tipovi/defaulti/indeksi ispravni, ali NIJE ono što će EF stvarno generirati. Zato vlasnik mora pregledati generiranu migraciju po checklisti u `DEPLOY.md`.
+
+**Što vlasnik radi (redom; puna uputa u `DEPLOY.md` „Plan prioriteti 3, Zadatak 13“):**
+```bash
+ops/backup.sh && ops/restore-test.sh <taj backup>        # backup prije migracije
+cd backend/Wediplan.Api && dotnet build && dotnet ef migrations add AuditIModeracija
+# PREGLEDAJ Migrations/*_AuditIModeracija.cs po checklisti (defaulti, nullable, nema Drop*/AlterColumn)
+cd .. && dotnet test
+cd Wediplan.Api && dotnet ef database update
+```
+Migracijske datoteke (`Migrations/*_AuditIModeracija*.cs` + `AppDbContextModelSnapshot.cs`) commitati u istu granu/PR. Povratak: `dotnet ef database update ClaimVerification` ili restore.
+
+**Sljedeći korak:** Zadatak 14 (audit interceptor + admin pregled povijesti) — tek nakon što je migracija primijenjena i mergeana.
 
 ## Sesija 2026-09-30 (e) — Zadatak 12 (backup: custom format, age, off-site, restore-test, slike) — **skripte PROVJERENE, čeka vlasnikov lokalni test** (grana `ops/backup-hardening`)
 

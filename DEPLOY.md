@@ -446,3 +446,50 @@ učitavanja `next.config.mjs` (build inače puca s "Named export not found").
 
 **Budući, neobavezan korak** (ne blokira): upload source mapova + release marking u
 `.github/workflows/ci.yml` (Sentry CLI akcija) za čitljive stack traceove u produkciji.
+
+## Plan prioriteti 3, Zadatak 13 — migracija `AuditIModeracija` (2026-09-30)
+
+Jedna migracija dodaje sve nove stupce/tablice za audit, moderaciju slika/recenzija i privolu (Zadaci 14–17). **Nova tablica:** `audit_log`.
+**Novi stupci:** `vendors` (porijeklo/privola/`google_place_id`), `vendor_photos` (evidencija + moderacija), `imported_reviews` (ključ + provjera),
+`user_reviews` (`decided_by`, `reject_reason`). Nema novih paketa. Javni API se ne mijenja.
+
+**Redoslijed (obavezno, v. §4 „Runbook: PRIJE svake migracije“):**
+```bash
+# 1) backup + provjera da se vraća (na bazi na koju primjenjuješ migraciju)
+ops/backup.sh
+ops/restore-test.sh <taj backup>          # mora ispisati OK
+
+# 2) generiraj migraciju (model NE piše datoteke migracija)
+cd backend/Wediplan.Api
+dotnet build                               # mora proći
+dotnet ef migrations add AuditIModeracija
+
+# 3) PREGLEDAJ generirane datoteke prije primjene (v. checklistu niže), pa:
+cd ..
+dotnet test                                # mora biti zeleno (postojeći testovi; novih nema)
+cd Wediplan.Api
+dotnet ef database update
+```
+Pregled SQL-a bez primjene: `dotnet ef migrations script <prethodna_migracija> AuditIModeracija`
+(prethodna = `20260923115834_ClaimVerification`, ili zadnja u `Migrations/` ako je došla novija).
+
+**Checklista generirane migracije (`Migrations/*_AuditIModeracija.cs`):**
+- `AddColumn` za `consent_status` ima `defaultValue: "unknown"`; za `consent_scope` `defaultValueSql: "'{}'"` (tip `text[]`, `nullable: false`).
+- `AddColumn` za `vendor_photos.source` ima `defaultValue: "partner"`, `moderation_status` → `"unreviewed"`;
+  `imported_reviews.verification_status` → `"unverified"`. **Bez defaulta postojeći retci dobivaju `""` — tada NE primjenjuj, javi se.**
+- Svi `*_at` stupci za staru povijest (`vendor_photos.created_at`, `imported_reviews.created_at/updated_at`, `data_collected_at`, `consent_*_at`,
+  `reviewed_at`, `verified_at`) su `nullable: true`.
+- `CreateTable audit_log` (`id` bigint identity, `changes` jsonb, **bez** `ForeignKey`-a) + 3 indeksa.
+- Jedinstveni indeks na `imported_reviews (vendor_id, external_key)` s filterom `external_key IS NOT NULL`.
+- Migracija **ne smije** sadržavati `DropColumn`/`DropTable`/`AlterColumn` nad postojećim stupcima. Ako ih ima, nešto je u modelu pomaknuto — javi se prije primjene.
+
+**Provjera nakon `database update`** (psql; svi postojeći retci moraju biti u očekivanom stanju):
+```sql
+select consent_status, count(*) from vendors group by 1;                     -- samo 'unknown'
+select source, moderation_status, count(*) from vendor_photos group by 1,2;  -- samo 'partner' | 'unreviewed'
+select verification_status, count(*) from imported_reviews group by 1;       -- samo 'unverified'
+select count(*) from vendor_photos where created_at is not null;             -- 0 (stara povijest se ne izmišlja)
+select count(*) from audit_log;                                              -- 0 (puni se tek u Zadatku 14)
+```
+**Povratak:** `dotnet ef database update ClaimVerification` (briše samo nove stupce i `audit_log`) ili restore iz backupa iz koraka 1.
+Migracija ne mijenja ponašanje aplikacije osim što nove fotografije dobivaju `created_at`/`uploaded_by_user_id`/`source`.

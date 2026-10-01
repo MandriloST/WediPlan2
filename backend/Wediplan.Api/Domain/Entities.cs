@@ -71,6 +71,29 @@ public class Vendor
     /// <summary>GDPR opt-out (§9) — true skida profil iz javnog prikaza.</summary>
     public bool OptOut { get; set; }
 
+    // ---------------------------------------------------------------------------------------------
+    // POREKLO PODATAKA I PRIVOLA (Zadatak 13; puni ih Zadatak 17). Admin-interno — NIKAD u javni DTO.
+    // Mnogi pružatelji su obrtnici (fizičke osobe), pa evidentiramo odakle podaci i je li (i za što)
+    // dana privola. Postojeći retci: ConsentStatus = "unknown", ostalo null/prazno (ne izmišljamo povijest).
+    // ---------------------------------------------------------------------------------------------
+    /// <summary>google_maps | web | instagram | facebook | partner | preporuka | drugo; null = nepoznato.</summary>
+    public string? DataSource { get; set; }
+    public DateTime? DataCollectedAt { get; set; }
+    /// <summary>unknown | requested | granted | refused.</summary>
+    public string ConsentStatus { get; set; } = "unknown";
+    public DateTime? ConsentRequestedAt { get; set; }
+    public DateTime? ConsentAt { get; set; }
+    /// <summary>email | instagram | facebook | telefon | osobno | claim.</summary>
+    public string? ConsentChannel { get; set; }
+    /// <summary>Za što je privola dana: data | photos | reviews.</summary>
+    public List<string> ConsentScope { get; set; } = new();
+    public string? ConsentNote { get; set; }
+
+    /// <summary>Google Place ID (budući Places API). Smije se trajno spremati; Google ocjene i broj
+    /// recenzija se NIKAD ne spremaju u bazu (Googleovi uvjeti; PLAN-3, Odluka 11). Nije unique:
+    /// isti Place može imati dva profila (npr. sala + catering).</summary>
+    public string? GooglePlaceId { get; set; }
+
     /// <summary>Generirani tsvector (§2.2) — puni ga baza; ne postavljati iz koda.</summary>
     public NpgsqlTsVector? Search { get; set; }
 
@@ -100,6 +123,20 @@ public class VendorPhoto
     public string StorageKey { get; set; } = default!;
     public int SortOrder { get; set; }
     public bool IsCover { get; set; }
+
+    // --- evidencija i moderacija (Zadatak 13; logika u Zadatku 15) ---
+    /// <summary>null = slika prije evidencije (ne izmišljamo datum).</summary>
+    public DateTime? CreatedAt { get; set; }
+    public Guid? UploadedByUserId { get; set; }
+    /// <summary>partner | import. Postojeći retci su partnerski uploadi (import slike su statične datoteke izvan baze).</summary>
+    public string Source { get; set; } = "partner";
+    /// <summary>Trenutak kad je partner potvrdio da ima pravo objaviti fotografiju.</summary>
+    public DateTime? RightsConfirmedAt { get; set; }
+    /// <summary>unreviewed | approved | flagged. Post-moderacija: slika je javna odmah; flagged = skriveno.</summary>
+    public string ModerationStatus { get; set; } = "unreviewed";
+    public Guid? ReviewedByUserId { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? ModerationNote { get; set; }
 }
 
 /// <summary>"Što oni kažu" — prenesene recenzije (feature #4).</summary>
@@ -113,6 +150,19 @@ public class ImportedReview
     public string Text { get; set; } = default!;
     public string Source { get; set; } = default!;
     public int Year { get; set; }
+
+    // --- stabilni ključ, evidencija i provjera (Zadatak 13; logika u Zadatku 16) ---
+    /// <summary>Hash (vendor, autor, tekst, izvor, godina) — omogućuje upsert pri re-importu bez gubitka statusa provjere.
+    /// null = redak prije uvođenja ključa.</summary>
+    public string? ExternalKey { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    /// <summary>unverified | verified | rejected.</summary>
+    public string VerificationStatus { get; set; } = "unverified";
+    public Guid? VerifiedByUserId { get; set; }
+    public DateTime? VerifiedAt { get; set; }
+    /// <summary>Kratka napomena o dokazu (npr. gdje je screenshot).</summary>
+    public string? EvidenceNote { get; set; }
 }
 
 /// <summary>Sirovi event (§A). Bez PII/IP. Rollup → DailyStat, reporti čitaju samo DailyStat.</summary>
