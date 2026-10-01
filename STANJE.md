@@ -12,7 +12,47 @@
 ## Analiza slabosti pred lansiranje (2026-09-21) — **sva 4 zadatka implementirana I POTVRĐENA** (2026-09-22, v. `PLAN-PRIORITETI-LANSIRANJE.md`): CI+testovi, brisanje računa (GDPR), recenzije uz potvrđen email, opt-out odluka. `dotnet build` + `dotnet test` prolaze čisto (4/4 testa). Pushano na `develop`. Preostaje: vlasnik provjeri zeleni GitHub Actions run, zatim merge u `main`.
 ## Drugi val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-2.md`) — **✅ SVIH 5 ZADATAKA (6, 5, 7, 9, 8) MERGEANO U DEVELOP I POTVRĐENO** (2026-09-23, vlasnik: "svi zadatci su prošli u buildu i testu"). `dotnet build` + `dotnet test` zeleno na cijelom develop stablu; frontend `tsc`/`npm run build` čisti. Plan proveden u cijelosti — v. sesije ispod za detalje po zadatku. Preostaje (opcionalno, ne blokira): `npm audit` pregled (Next.js 14.2.15 poznate CVE, spomenuto usput 2026-09-23 — nije uvedeno ovim planom, postojalo je i prije).
 
-## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10–14 i 18. Zadatak 16 (recenzije) — kod gotov na grani `feat/review-verification`, **čeka vlasnikov `dotnet build/test`**. Preostalo: 15 (moderacija slika) i 17 (porijeklo/privola) — neovisni. Sve odluke potvrđene s vlasnikom (2026-09-30).
+## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **u tijeku.** Gotovo i mergeano: Zadaci 10–14, 16 i 18 (vlasnik: 79 testova zeleno). Zadatak 15 (moderacija slika) — kod gotov na grani `feat/photo-moderation`, **čeka vlasnikov `dotnet build/test`**. Preostalo: 17 (porijeklo/privola). Sve odluke potvrđene s vlasnikom (2026-09-30).
+
+## Sesija 2026-10-01 (c) — Zadatak 15 (post-moderacija fotografija) — kod gotov, **backend build + testovi NEPOTVRĐENI** (grana `feat/photo-moderation`)
+
+Implementiran Zadatak 15 iz `PLAN-PRIORITETI-LANSIRANJE-3.md`. **Nema migracije** (stupci iz Zadatka 13), **nema novih paketa**, nema nove konfiguracije. Zadatak 16 je mergean (vlasnik: 79 testova zeleno).
+
+**Model (obvezujuće, odluka #6):** partnerova slika je **javna odmah** (`unreviewed`) — NEMA pred-moderacije. Admin vodi evidenciju: `approved` ili `flagged` (skriveno s profila i karte, razlog obavezan i vidi ga vlasnik). Partner mora potvrditi prava na fotografiju pri svakom uploadu.
+
+**Backend:**
+- `Services/PhotoModeration.cs` (novo, čista logika) — statusi, `CanTransition` (`unreviewed→approved|flagged`, `approved→flagged`, `flagged→approved`), `IsPublic`, `TryApply` (status + `ReviewedByUserId` + `ReviewedAt`; napomena se čuva samo uz `flagged`, a briše pri odobravanju/vraćanju).
+- `PhotosController.Upload` — `[FromForm] bool rightsConfirmed`; bez njega `400 rights_not_confirmed` **prije** obrade slike; postavlja `RightsConfirmedAt`, `ModerationStatus = unreviewed`.
+- Javni prikaz bez `flagged`: `VendorMapper` (jedan izvor za sva tri `Include(v => v.Photos)` u `VendorsController`) i `PinsController` (naslovna na karti, inline upit). Naslovna je prva javna po `SortOrder`, pa kad je sakrivena naslovna javno se vidi sljedeća.
+- `ProviderPhotoDto` + `ModerationStatus, ModerationNote` (na kraj, s defaultima); `ProviderMapper.PhotoDto` ih puni.
+- `AdminController`: `GET /api/admin/photos?status=&limit=` (najstarije prvo, bez datuma na kraj), `POST …/{id}/approve|flag|unflag`, `POST …/approve-batch` (max 60; odobrava samo `unreviewed`, ostale preskače → `{approved, skipped}`); nedozvoljen prijelaz `409 invalid_transition`; `flag` traži napomenu (`note_required`, max 1000).
+- `PartnerEmails.SendPhotoFlagged` — e-mail vlasniku (best-effort, kao objava recenzije); razlog se u HTML-u HtmlEncode-a, u tekstualnoj varijanti ide kakav jest (`Send` dobio neobavezni `textIntro`).
+- Odluke su automatski u dnevniku promjena (Zadatak 14: `vendor_photo`, akter `admin`).
+
+**Frontend:** `lib/types.ts` (`ProviderPhoto` + status/napomena, `AdminPhoto`), `lib/api/provider.ts` (`uploadPhoto(slug, file, rightsConfirmed)` — eksplicitan parametar, ne pretpostavlja se u ime korisnika; `adminApi.photos/approvePhoto/flagPhoto/unflagPhoto/approvePhotosBatch`; HR poruke za nove greške),
+`components/ProviderDashboard.tsx` (checkbox „Potvrđujem da imam pravo…“; upload onemogućen dok nije označen; skrivena slika zasivljena + „Skriveno“ + žuti okvir s razlogom i napomenom o naslovnoj; ostali statusi bez razlike),
+`components/AdminPanel.tsx` (sekcija „Fotografije pružatelja — pregled“: mreža thumbnaila, filter statusa, `U redu` / `Sakrij…` (prompt, razlog obavezan) / `Vrati u prikaz`, `Odobri sve prikazane`), `globals.css`.
+Dokumentacija: `API.md`, `DEPLOY.md` (postupak + ručna provjera), `PLAN-ARHITEKTURA.md` §3.1.
+
+**Odstupanja/napomene:** (1) Javno filtriranje je u `VendorMapper` (plan dopušta mapper ILI filtrirani include) — jedno mjesto za sve čitače; EF filtrirani `Include` nije dodan. (2) `uploadPhoto` prima `rightsConfirmed` kao parametar umjesto da uvijek šalje `true` (plan) — sigurnije jer drugi pozivatelj ne tvrdi pravo u ime korisnika.
+(3) Postojeće slike su sve `unreviewed` bez datuma i bez potvrde prava — u adminu na kraju reda s odgovarajućom oznakom (ne izmišljamo povijest).
+
+**Provjera (stvarno pokrenuto):**
+- **Čista logika + mapper: 59/59** (45 prijašnjih + 14 novih) — stvarni `PhotoModeration`, `VendorMapper`, `Contracts` kompilirani i pokrenuti uz xunit shim; **5 mutacija** (slike se ne skrivaju, dozvoljen `approved→approved`, napomena se ne briše, reviewer se ne upisuje, mapper ne filtrira) obara testove.
+- Potpisi `Upload(string, IFormFile?, [FromForm] bool, CancellationToken)` i admin ruta kompilirani protiv PRAVOG ASP.NET frameworka (build uspješan). Testni PNG generiran i potvrđen dekoderom (PIL).
+- **Frontend:** `tsc` + `npm run build` čisti. Headless Chromium uz presretnut API: partner — checkbox blokira/odblokira upload, multipart sadrži `rightsConfirmed=true` i `file`, skrivena slika označena s razlogom, ostale bez oznake; admin — točna tijela zahtjeva (`{"note":…}`, `{"ids":[…]}`), prazan razlog = poruka bez zahtjeva, odustajanje = bez zahtjeva, gumbi ovisno o statusu.
+  U testu je uhvaćeno i ispravljeno preklapanje znački „Naslovna“/„Skriveno“ u uskoj ćeliji.
+- **NIJE kompilirano/pokrenuto** (nema `api.nuget.org`): izmjene `PhotosController`, `AdminController`, `PinsController`, `ProviderMapper`, `PartnerEmails` i **3 testa u `PhotoUploadTests`** (upload bez potvrde → 400 i ništa pohranjeno; s potvrdom → evidencija + odmah javno; ne-vlasnik → Forbid).
+
+**Vlasnik (redom):**
+```bash
+cd backend
+dotnet build Wediplan.sln -c Release       # mora proći
+dotnet test                                 # očekivano: 17 NOVIH testova (14 + 3) uz postojeće (79) → 96, sve zeleno
+```
+Ako padne nešto u `PhotoUploadTests`, pošalji ispis — to je jedini dio koji nisam mogao pokrenuti (pipeline obrade slike nad stvarnim PNG-om). Zatim ručna provjera po `DEPLOY.md` („Plan prioriteti 3, Zadatak 15“): partner uploada (bez checkboxa ne može), slika je odmah javna, admin je vidi u redu, „Sakrij…“ je makne s profila i karte, partner vidi razlog.
+
+**Sljedeći korak:** Zadatak 17 (porijeklo podataka i privola pružatelja — Excel stupci, import, admin) — posljednji u trećem valu.
 
 ## Sesija 2026-10-01 (b) — Zadatak 16 (recenzije: evidencija odluka + provjera uvezenih) — kod gotov, **backend build + testovi NEPOTVRĐENI** (grana `feat/review-verification`)
 

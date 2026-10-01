@@ -164,6 +164,12 @@ export interface ProviderPhoto {
   thumbUrl: string;
   isCover: boolean;
   sortOrder: number;
+  /**
+   * §Zadatak 15 — status moderacije. Slike su javne ODMAH (`unreviewed`); vlasniku se kao razlika prikazuje samo `flagged`
+   * (skriveno od javnosti), uz `moderationNote` = razlog koji je upisao admin.
+   */
+  moderationStatus?: "unreviewed" | "approved" | "flagged";
+  moderationNote?: string;
 }
 
 /** Jedan pružatelj u nadzornoj ploči partnera. */
@@ -205,6 +211,27 @@ export interface AdminReview {
   deciderEmail?: string;
   /** Interni razlog odbijanja; NE prikazuje se javno ni autoru. */
   rejectReason?: string;
+}
+
+/** Fotografija pružatelja u admin redu za pregled (§Zadatak 15). Slike su javne odmah; admin vodi evidenciju. */
+export interface AdminPhoto {
+  id: string;
+  vendorSlug: string;
+  vendorName: string;
+  url: string;
+  thumbUrl: string;
+  isCover: boolean;
+  /** partner | import */
+  source: string;
+  moderationStatus: "unreviewed" | "approved" | "flagged";
+  /** Izostavljeno za slike iz vremena prije evidencije. */
+  createdAt?: string;
+  /** Kad je partner potvrdio da ima pravo objaviti fotografiju; izostavljeno = nije potvrđeno (starije slike). */
+  rightsConfirmedAt?: string;
+  uploaderEmail?: string;
+  reviewedAt?: string;
+  reviewerEmail?: string;
+  moderationNote?: string;
 }
 
 /** Uvezena recenzija ("što oni kažu") za provjeru u adminu (§Zadatak 16). */

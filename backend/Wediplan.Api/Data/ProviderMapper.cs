@@ -81,7 +81,7 @@ public static class ProviderMapper
         url.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? url[..^5] + "_thumb.webp" : url;
 
     public static ProviderPhotoDto PhotoDto(VendorPhoto p) =>
-        new(p.Id.ToString(), p.StorageKey, ThumbUrl(p.StorageKey), p.IsCover, p.SortOrder);
+        new(p.Id.ToString(), p.StorageKey, ThumbUrl(p.StorageKey), p.IsCover, p.SortOrder, p.ModerationStatus, p.ModerationNote);
 
     /// <summary>Domena iz e-maila (dio iza @, lowercase) ili null.</summary>
     public static string? EmailDomain(string? email)

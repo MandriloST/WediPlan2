@@ -541,3 +541,23 @@ njihov izvor su upravo zapisi `account_deleted` i `optout` u `audit_log` (čuvaj
 3. Pokreni **isti Excel** ponovno: `dotnet run -- --import <xlsx>` → izvještaj: `novih 0, … obrisanih 0`; provjerena je i dalje provjerena, odbijena i dalje skrivena.
 4. `/admin` → „Povijest promjena“ za tog pružatelja: nema novih `brisanje`/`stvoreno` zapisa za recenzije od ponovnog uvoza (samo tvoje odluke, akter `admin`).
 5. Odbij korisničku recenziju s razlogom → filter „Odbijene“ pokazuje tebe, vrijeme i razlog.
+
+## Plan prioriteti 3, Zadatak 15 — post-moderacija fotografija (2026-10-01)
+
+**Nema migracije** (stupci su iz Zadatka 13), **nema novih paketa**, nema nove konfiguracije. Obavijest partneru ide preko postojećeg `IEmailSender` (dev: konzola; produkcija: Resend).
+
+**Model:** partnerove slike su **javne odmah** (status `unreviewed`) — slika NE čeka admina. Admin naknadno vodi evidenciju: `approved` (pregledano, u redu) ili `flagged` (neprimjereno → skriva se s profila i karte).
+Partner mora pri svakom uploadu potvrditi da ima pravo objaviti fotografiju (checkbox; bez njega backend vraća `400 rights_not_confirmed`); trenutak potvrde se sprema (`rights_confirmed_at`) kao dokaz ako se pojavi autor slike.
+
+**Postojeće slike:** sve su `unreviewed`, bez datuma (`created_at` NULL) i bez potvrde prava — u adminu se vide na kraju reda s oznakom „datum nepoznat“ / „prava nisu potvrđena (starija slika)“. Statične slike iz `public/images/vendors/` ostaju izvan ovog sustava.
+
+**Što napraviti nakon deploya:** u `/admin` → „Fotografije pružatelja — pregled“ prođi nepregledane (klik na sliku = puna veličina): `U redu` ili `Odobri sve prikazane`; neprimjerene `Sakrij…` (razlog je **obavezan** i vidi ga vlasnik profila, uz e-mail ako je profil preuzet).
+
+**Ručna provjera (kriterij):**
+1. Kao partner (odobreni vlasnik) u `/partner`: upload je **onemogućen** dok nije označeno „Potvrđujem da imam pravo…“; nakon označavanja slika je odmah javna na profilu i na karti.
+2. Kao admin: slika je u redu „Nepregledane“. `Sakrij…` s razlogom → nestaje s javnog profila **i s karte** (`/karta`); ako je bila naslovna, javno se vidi sljedeća.
+3. Partner u `/partner`: skrivena slika je zasivljena s oznakom „Skriveno“, a u žutom okviru piše razlog; stiže e-mail (ako je profil preuzet). Ostale slike nemaju oznaku.
+4. `Vrati u prikaz` → slika je opet javna. `/admin` → „Povijest promjena“ za tog pružatelja: odluke admina su zabilježene (`vendor_photo`, akter `admin`).
+5. Pokušaj iste radnje dvaput (npr. `U redu` na već odobrenoj) → `409 invalid_transition` (UI poruka „Ta radnja nije moguća…“).
+
+**Napomena (GDPR):** razlog skrivanja je tekst koji čita vlasnik profila — piši ga kao poruku njemu, bez osobnih podataka trećih osoba. Odluke se dnevnikuju u `audit_log`.

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { providerApi, providerMessage } from "@/lib/api/provider";
+import { AuthError } from "@/lib/api/auth";
 import { useAuth } from "@/stores/auth";
 import type { PriceModel, ProviderPhoto, ProviderVendor, VendorDraft } from "@/lib/types";
 import { CATEGORY_BY_SLUG } from "@/lib/data";
@@ -173,15 +174,18 @@ function PhotoManager({ slug, initial }: { slug: string; initial: ProviderPhoto[
   );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // §Zadatak 15 — potvrda prava na fotografiju je OBAVEZNA prije svakog uploada (backend inače vraća 400)
+  const [rights, setRights] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
+    if (!rights) { setErr(providerMessage(new AuthError("rights_not_confirmed", 400))); return; }
     setBusy(true); setErr(null);
     try {
       for (const f of files) {
-        const p = await providerApi.uploadPhoto(slug, f);
+        const p = await providerApi.uploadPhoto(slug, f, rights);
         setPhotos((cur) => [...cur, p]);
       }
     } catch (e2) { setErr(providerMessage(e2)); }
@@ -222,25 +226,45 @@ function PhotoManager({ slug, initial }: { slug: string; initial: ProviderPhoto[
     persistOrder(next, cover);
   }
 
+  const flagged = photos.filter((p) => p.moderationStatus === "flagged");
+
   return (
     <div className="prov-photos">
       <div className="prov-photos-head">
         <strong>Fotografije ({photos.length})</strong>
-        <label className="btn btn-sm">
+        <label className="btn btn-sm" aria-disabled={busy || !rights} title={rights ? undefined : "Prvo potvrdite pravo na fotografije"}>
           {busy ? "…" : "+ Dodaj fotografije"}
-          <input ref={fileRef} type="file" accept="image/*" multiple hidden disabled={busy} onChange={onUpload} />
+          <input ref={fileRef} type="file" accept="image/*" multiple hidden disabled={busy || !rights} onChange={onUpload} />
         </label>
       </div>
+      <label className="photo-rights">
+        <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} />
+        <span>Potvrđujem da imam pravo objaviti ove fotografije (autor sam ili imam dozvolu autora).</span>
+      </label>
       {err && <p className="auth-error">{err}</p>}
+      {flagged.length > 0 && (
+        <div className="photo-flag-box" role="alert">
+          <strong>Skriveno od administratora ({flagged.length})</strong>
+          <p>
+            Označene fotografije nisu vidljive na javnom profilu ni na karti.
+            {flagged.some((p) => p.isCover) && " Naslovna je skrivena, pa se javno prikazuje sljedeća fotografija."}{" "}
+            Možete ih ukloniti ili zamijeniti drugima.
+          </p>
+          <ul>
+            {flagged.map((p) => <li key={p.id}>{p.moderationNote || "Razlog nije naveden."}</li>)}
+          </ul>
+        </div>
+      )}
       {photos.length === 0 ? (
         <p className="muted" style={{ fontSize: 13.5 }}>Još nema fotografija. Dodajte ih da profil bude privlačniji.</p>
       ) : (
         <ul className="photo-grid">
           {photos.map((p, i) => (
-            <li key={p.id} className={`photo-cell${p.isCover ? " cover" : ""}`}>
+            <li key={p.id} className={`photo-cell${p.isCover ? " cover" : ""}${p.moderationStatus === "flagged" ? " flagged" : ""}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.thumbUrl} alt="" loading="lazy" />
               {p.isCover && <span className="cover-badge">Naslovna</span>}
+              {p.moderationStatus === "flagged" && <span className="flag-badge">Skriveno</span>}
               <div className="photo-tools">
                 <button type="button" title="Lijevo" disabled={busy || i === 0} onClick={() => move(p.id, -1)}>←</button>
                 <button type="button" title="Desno" disabled={busy || i === photos.length - 1} onClick={() => move(p.id, 1)}>→</button>

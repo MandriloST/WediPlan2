@@ -259,6 +259,13 @@ Sve rute traže sesiju (cookie). Admin rute dodatno traže rolu `admin`
   (Zadatak 16): `decidedAt?`, `deciderEmail?` (izostavljen ako je račun admina obrisan), `rejectReason?`.
 - `POST /api/admin/reviews/{id}/approve` (→ `published`) · `POST …/reject` s **neobaveznim** tijelom `{"reason":"…"}` (max 500 znakova → `400 reason_too_long`).
   Obje bilježe `DecidedBy`/`DecidedAt`; razlog je **interni** — ne prikazuje se javno ni autoru. Bez tijela radi kao prije.
+- `GET /api/admin/photos?status=unreviewed&limit=60` → `AdminPhotoDto[]` — fotografije pružatelja za pregled (`status`: `unreviewed | approved | flagged`, inače `400 invalid_status`;
+  `limit` 1–200). Poredak: najstarije prvo, slike bez datuma (iz vremena prije evidencije) na kraj.
+  `AdminPhotoDto { id, vendorSlug, vendorName, url, thumbUrl, isCover, source (partner|import), moderationStatus, createdAt?, rightsConfirmedAt?, uploaderEmail?, reviewedAt?, reviewerEmail?, moderationNote? }`.
+- `POST /api/admin/photos/{id}/approve` (`unreviewed → approved`, samo evidencija) · `POST …/flag` tijelo `{"note":"…"}` **obavezno** (`400 note_required`, max 1000 → `400 note_too_long`) → sakriva sliku;
+  razlog vidi vlasnik profila, a ako je profil preuzet, dobiva i e-mail (best-effort) · `POST …/unflag` (`flagged → approved`, briše napomenu).
+  Dozvoljeni prijelazi: `unreviewed→approved|flagged`, `approved→flagged`, `flagged→approved`; sve ostalo `409 invalid_transition`. Svaka akcija bilježi `reviewedBy`/`reviewedAt`.
+- `POST /api/admin/photos/approve-batch` tijelo `{"ids":["…"]}` (max 60 → `400 too_many_ids`; neispravan id → `400 invalid_ids`) → `{approved, skipped}`; odobrava samo još `unreviewed`, ostale preskače.
 - `GET /api/admin/imported-reviews?status=unverified&limit=100` → `AdminImportedReviewDto[]` — uvezene recenzije ("što oni kažu") za provjeru
   (`status`: `unverified | verified | rejected`, inače `400 invalid_status`; `limit` 1–500). `AdminImportedReviewDto { id, vendorSlug, vendorName, author, rating, text, source, year, verificationStatus, verifiedAt?, verifierEmail?, evidenceNote? }`.
 - `POST /api/admin/imported-reviews/{id}/verify` · `POST …/reject` — tijelo (neobavezno) `{"evidenceNote":"…"}` (max 1000 → `400 note_too_long`; izostavljeno = ostaje prijašnja napomena,
@@ -302,13 +309,18 @@ Bazna ruta: `/api/provider/vendors/{slug}/photos`.
 
 | Metoda | Ruta | Tijelo | Odgovor |
 |---|---|---|---|
-| POST | `…/photos` | multipart, polje `file` (slika, ≤10 MB) | `200 ProviderPhoto` |
+| POST | `…/photos` | multipart: polje `file` (slika, ≤10 MB) + **obavezno** `rightsConfirmed=true` | `200 ProviderPhoto` |
 | DELETE | `…/photos/{id}` | — | `204` |
 | PUT | `…/photos/order` | `{ orderedIds: string[], coverId: string\|null }` | `204` |
 
-`ProviderPhoto = { id, url, thumbUrl, isCover, sortOrder }`. `url`/`thumbUrl` su apsolutni
+`ProviderPhoto = { id, url, thumbUrl, isCover, sortOrder, moderationStatus, moderationNote? }` (Zadatak 15). `url`/`thumbUrl` su apsolutni
 (R2/CDN u produkciji, `/uploads/…` u dev-u). Prva uploadana fotografija automatski je naslovna.
-Greške (400): `no_file`, `file_too_large`, `not_an_image`, `invalid_image`, `too_many_photos`.
+Greške (400): `rights_not_confirmed` (nije poslano `rightsConfirmed=true` — provjera je PRIJE obrade slike), `no_file`, `file_too_large`, `not_an_image`, `invalid_image`, `too_many_photos`.
+
+**Post-moderacija (Zadatak 15):** uploadana slika je **javna odmah** sa statusom `unreviewed`; admin naknadno vodi evidenciju. `moderationStatus`:
+`unreviewed` | `approved` (pregledano, u redu) | `flagged` (skriveno). Server pri uploadu bilježi `rightsConfirmedAt` (potvrda da partner ima pravo objaviti fotografiju), `uploadedByUserId`, `createdAt`.
+`flagged` slika se **ne vraća** u javnom API-ju (`/api/vendors`, `/api/vendors/{slug}`, `/api/pins`); naslovna je prva javna po `sortOrder`, pa kad je skrivena naslovna, javno se vidi sljedeća.
+Vlasnik je i dalje vidi u `GET /api/provider/vendors` s `moderationStatus: "flagged"` i razlogom `moderationNote`; može je ukloniti. `unreviewed`/`approved` se vlasniku ne prikazuju kao razlika.
 
 Upload prolazi kroz obradu: auto-orijentacija → smanjivanje (glavna ≤1600px, thumb ≤400px) →
 WebP → opcionalni tekstualni žig. `GET /api/provider/vendors` sada vraća i `photos: ProviderPhoto[]`.

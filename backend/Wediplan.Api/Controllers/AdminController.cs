@@ -239,6 +239,108 @@ public class AdminController : ControllerBase
         return Ok(new { status });
     }
 
+    // ---------------------------------------------------------------- fotografije — post-moderacija (§Zadatak 15)
+    /// <summary>
+    /// GET /api/admin/photos?status=unreviewed&amp;limit=60 — fotografije pružatelja za pregled (status: unreviewed | approved | flagged).
+    /// Slike su javne odmah; ovo je admin evidencija. Poredak: najstarije prvo (slike bez datuma, iz vremena prije evidencije, na kraj).
+    /// </summary>
+    [HttpGet("photos")]
+    public async Task<ActionResult<IEnumerable<AdminPhotoDto>>> Photos(
+        [FromQuery] string status = PhotoModeration.Unreviewed, [FromQuery] int limit = 60, CancellationToken ct = default)
+    {
+        if (!PhotoModeration.IsValidStatus(status)) return BadRequest(new { error = "invalid_status" });
+        limit = Math.Clamp(limit, 1, 200);
+
+        var rows = await (
+            from p in _db.VendorPhotos.AsNoTracking().Where(p => p.ModerationStatus == status)
+            join v in _db.Vendors.AsNoTracking() on p.VendorId equals v.Id
+            orderby p.CreatedAt == null, p.CreatedAt, p.Id
+            select new
+            {
+                p.Id, v.Slug, VendorName = v.Name, Url = p.StorageKey, p.IsCover, p.Source, p.ModerationStatus,
+                p.CreatedAt, p.RightsConfirmedAt, p.UploadedByUserId, p.ReviewedAt, p.ReviewedByUserId, p.ModerationNote,
+            }
+        ).Take(limit).ToListAsync(ct);
+
+        var userIds = rows.Select(x => x.UploadedByUserId).Concat(rows.Select(x => x.ReviewedByUserId))
+            .Where(id => id != null).Select(id => id!.Value);
+        var emails = await EmailsAsync(userIds, ct);
+        string? EmailOf(Guid? id) => id != null && emails.TryGetValue(id.Value, out var e) ? e : null;
+
+        return Ok(rows.Select(x => new AdminPhotoDto(
+            x.Id.ToString(), x.Slug, x.VendorName, x.Url, ProviderMapper.ThumbUrl(x.Url), x.IsCover, x.Source, x.ModerationStatus,
+            x.CreatedAt, x.RightsConfirmedAt, EmailOf(x.UploadedByUserId), x.ReviewedAt, EmailOf(x.ReviewedByUserId), x.ModerationNote)));
+    }
+
+    /// <summary>POST /api/admin/photos/{id}/approve — pregledano, u redu (unreviewed → approved).</summary>
+    [HttpPost("photos/{id:guid}/approve")]
+    public Task<IActionResult> ApprovePhoto(Guid id, CancellationToken ct) => ModeratePhoto(id, PhotoModeration.Approved, null, ct);
+
+    /// <summary>
+    /// POST /api/admin/photos/{id}/flag — neprimjereno: skriva sliku s javnog profila i karte. Tijelo <c>{"note":"…"}</c> je OBAVEZNO
+    /// (max 1000): razlog vidi vlasnik profila (i dobiva e-mail ako je profil preuzet).
+    /// </summary>
+    [HttpPost("photos/{id:guid}/flag")]
+    public async Task<IActionResult> FlagPhoto(Guid id, [FromBody] FlagPhotoRequest req, CancellationToken ct)
+    {
+        var note = req.Note?.Trim();
+        if (string.IsNullOrEmpty(note)) return BadRequest(new { error = "note_required" });
+        if (note.Length > 1000) return BadRequest(new { error = "note_too_long" });
+        return await ModeratePhoto(id, PhotoModeration.Flagged, note, ct);
+    }
+
+    /// <summary>POST /api/admin/photos/{id}/unflag — vrati sakrivenu sliku u javni prikaz (flagged → approved).</summary>
+    [HttpPost("photos/{id:guid}/unflag")]
+    public Task<IActionResult> UnflagPhoto(Guid id, CancellationToken ct) => ModeratePhoto(id, PhotoModeration.Approved, null, ct);
+
+    /// <summary>
+    /// POST /api/admin/photos/approve-batch — tijelo <c>{"ids":["…"]}</c> (max 60). Odobrava samo one koje su još <c>unreviewed</c>;
+    /// ostale preskače (ne smatra se greškom) i vraća <c>{approved, skipped}</c>.
+    /// </summary>
+    [HttpPost("photos/approve-batch")]
+    public async Task<IActionResult> ApprovePhotosBatch([FromBody] ApprovePhotosRequest req, CancellationToken ct)
+    {
+        var parsed = (req.Ids ?? Array.Empty<string>()).Select(x => Guid.TryParse(x, out var one) ? one : (Guid?)null).ToList();
+        if (parsed.Count == 0 || parsed.Any(item => item == null)) return BadRequest(new { error = "invalid_ids" });
+        var unique = parsed.Select(item => item!.Value).Distinct().ToList();
+        if (unique.Count > 60) return BadRequest(new { error = "too_many_ids" });
+
+        var photos = await _db.VendorPhotos.Where(p => unique.Contains(p.Id)).ToListAsync(ct);
+        var uid = Uid();
+        var now = DateTime.UtcNow;
+        var approved = photos.Count(p => PhotoModeration.TryApply(p, PhotoModeration.Approved, uid, null, now));
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { approved, skipped = unique.Count - approved });
+    }
+
+    private async Task<IActionResult> ModeratePhoto(Guid id, string to, string? note, CancellationToken ct)
+    {
+        var photo = await _db.VendorPhotos.FirstOrDefaultAsync(p => p.Id == id, ct);
+        if (photo == null) return NotFound();
+        if (!PhotoModeration.TryApply(photo, to, Uid(), note, DateTime.UtcNow))
+            return Conflict(new { error = "invalid_transition" });
+        await _db.SaveChangesAsync(ct);
+
+        // Obavijest vlasniku kad se slika SAKRIJE — best-effort (isti obrazac kao objava recenzije): pad slanja se samo logira.
+        if (to == PhotoModeration.Flagged)
+        {
+            try
+            {
+                var vendor = await _db.Vendors.AsNoTracking().FirstOrDefaultAsync(v => v.Id == photo.VendorId, ct);
+                if (vendor?.OwnerUserId != null)
+                {
+                    var owner = await _users.FindByIdAsync(vendor.OwnerUserId.Value.ToString());
+                    if (owner?.Email != null) await _emails.SendPhotoFlagged(owner.Email, vendor.Name, note ?? "", ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Slanje obavijesti o skrivenoj fotografiji {PhotoId} nije uspjelo.", photo.Id);
+            }
+        }
+        return Ok(new { status = to });
+    }
+
     // ---------------------------------------------------------------- GDPR opt-out (§9, faza 6)
     /// <summary>GET /api/admin/optouts — skriveni profili (opt-out), za pregled i eventualno vraćanje.</summary>
     [HttpGet("optouts")]
