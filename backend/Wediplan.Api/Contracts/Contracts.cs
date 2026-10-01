@@ -102,7 +102,9 @@ public record ImportedReviewDto(
     int Rating,
     string Text,
     string Source,
-    int Year);
+    int Year,
+    // true = admin je provjerio izvor (screenshot) — prikazuje se bedž "provjereno" (§Zadatak 16)
+    bool Verified = false);
 
 // ============================================================================
 // Faza 2 — dopune ugovora (API.md; frontend lib/types.ts)

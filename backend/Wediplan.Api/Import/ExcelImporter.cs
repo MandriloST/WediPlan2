@@ -18,6 +18,9 @@ public class ExcelImporter
     private readonly Geocoder? _geocoder;
     private readonly bool _dryRun;
     private readonly List<string> _skipped = new();
+    // §Zadatak 16 — statistika upserta uvezenih recenzija (ispis + import-report.txt)
+    private int _revAdded, _revKept, _revRemoved, _revRatingUpdated, _revDuplicates;
+    private string? _reviewSummary;
     private readonly List<string> _warnings = new();
 
     public ExcelImporter(AppDbContext db, Geocoder? geocoder, bool dryRun)
@@ -213,7 +216,7 @@ public class ExcelImporter
                     Author = Nullify(col(row, "autor")) ?? "Anonimno",
                     Rating = (int)rr, Text = text, Source = source,
                     Year = (int)(ParseNum(col(row, "godina")) is var y && y > 0 ? y : DateTime.UtcNow.Year),
-                    CreatedAt = DateTime.UtcNow, // Zadatak 13 (ExternalKey/upsert dolazi u Zadatku 16)
+                    // ExternalKey, CreatedAt i VerificationStatus postavlja ImportedReviewMerge.Apply pri upisu u bazu (§Zadatak 16)
                 }));
             }
         }
@@ -253,6 +256,7 @@ public class ExcelImporter
         CancellationToken ct)
     {
         var reviewsBySlug = reviews.GroupBy(x => x.slug).ToDictionary(g => g.Key, g => g.Select(x => x.r).ToList());
+        var now = DateTime.UtcNow;
         int inserted = 0, updated = 0;
         foreach (var v in parsed)
         {
@@ -260,9 +264,13 @@ public class ExcelImporter
                 .Include(x => x.Categories).Include(x => x.ImportedReviews)
                 .FirstOrDefaultAsync(x => x.Slug == v.Slug, ct);
 
+            var rowNum = rowBySlug.TryGetValue(v.Slug, out var rn) ? rn : 0;
+            var incomingReviews = reviewsBySlug.TryGetValue(v.Slug, out var inc) ? inc : new List<ImportedReview>();
+
             if (existing == null)
             {
-                if (reviewsBySlug.TryGetValue(v.Slug, out var rv)) v.ImportedReviews = rv;
+                // novi pružatelj: sve recenzije su nove (ključ, CreatedAt, "unverified"); duplikati u Excelu se skupljaju
+                v.ImportedReviews = MergeReviews(v, new List<ImportedReview>(), incomingReviews, rowNum, now).ToAdd.ToList();
                 _db.Vendors.Add(v);
                 inserted++;
             }
@@ -272,19 +280,45 @@ public class ExcelImporter
                 var skippedFields = ImportMerge.Apply(existing, v);
                 if (skippedFields.Count > 0)
                 {
-                    Warn(rowBySlug.TryGetValue(v.Slug, out var rowNo) ? rowNo : 0, v.Name,
+                    Warn(rowNum, v.Name,
                         $"profil preuzet od partnera — polja nisu prepisana iz Excela: {string.Join(", ", skippedFields)}");
                 }
-                // zamijeni kategorije i recenzije
+                // kategorije se i dalje zamjenjuju
                 _db.VendorCategories.RemoveRange(existing.Categories);
                 existing.Categories = v.Categories;
-                _db.ImportedReviews.RemoveRange(existing.ImportedReviews);
-                existing.ImportedReviews = reviewsBySlug.TryGetValue(v.Slug, out var rv) ? rv : new();
+
+                // recenzije: UPSERT po stabilnom ključu (§Zadatak 16) — status provjere preživljava ponovni uvoz,
+                // a nepromijenjene recenzije se ne brišu i ne stvaraju ponovno (nema šuma u dnevniku promjena)
+                var res = MergeReviews(v, existing.ImportedReviews, incomingReviews, rowNum, now);
+                _db.ImportedReviews.RemoveRange(res.ToRemove);
+                foreach (var r in res.ToAdd)
+                {
+                    r.VendorId = existing.Id;
+                    existing.ImportedReviews.Add(r);
+                }
                 updated++;
             }
         }
         await _db.SaveChangesAsync(ct);
         Console.WriteLine($"Baza: novih {inserted}, ažurirano {updated}.");
+        _reviewSummary = $"Uvezene recenzije (baza): novih {_revAdded}, zadržanih {_revKept} (od toga ocjena ažurirana: {_revRatingUpdated}), " +
+                         $"obrisanih {_revRemoved}, duplikata u Excelu preskočeno {_revDuplicates}.";
+        Console.WriteLine(_reviewSummary);
+    }
+
+    /// <summary>Spoji recenzije jednog pružatelja (čista logika u <see cref="ImportedReviewMerge"/>) i zbroji statistiku za izvještaj.</summary>
+    private ReviewMergeResult MergeReviews(Vendor v, IEnumerable<ImportedReview> existing,
+        List<ImportedReview> incoming, int rowNum, DateTime now)
+    {
+        var res = ImportedReviewMerge.Apply(v.Slug, existing, incoming, now);
+        _revAdded += res.ToAdd.Count;
+        _revKept += res.Kept;
+        _revRemoved += res.ToRemove.Count;
+        _revRatingUpdated += res.RatingUpdated;
+        _revDuplicates += res.DuplicatesInExcel;
+        if (res.DuplicatesInExcel > 0)
+            Warn(rowNum, v.Name, $"Recenzije: {res.DuplicatesInExcel} duplikat(a) u Excelu preskočeno (isti autor, tekst, izvor i godina)");
+        return res;
     }
 
     // ---- pomoćne ----
@@ -327,6 +361,7 @@ public class ExcelImporter
         lines.AddRange(_skipped.Count > 0 ? _skipped : new List<string> { "(nema)" });
         lines.Add(""); lines.Add("## Upozorenja");
         lines.AddRange(_warnings.Count > 0 ? _warnings : new List<string> { "(nema)" });
+        if (_reviewSummary != null) { lines.Add(""); lines.Add("## Uvezene recenzije"); lines.Add(_reviewSummary); }
         var p = Path.Combine(Directory.GetCurrentDirectory(), "import-report.txt");
         File.WriteAllText(p, string.Join("\n", lines));
         Console.WriteLine($"Izvještaj: {p}");

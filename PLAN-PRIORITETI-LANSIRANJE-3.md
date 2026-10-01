@@ -36,9 +36,9 @@ postojati prije bilo kakve migracije nad stvarnim podacima. 13 uvodi SVE nove st
 - [x] **Zadatak 18 — JSON-LD `aggregateRating` samo iz vlastitih recenzija.** (frontend, bez sheme) — **gotovo na grani `fix/jsonld-own-ratings` (2026-09-30); `tsc` + `npm run build` čisti, ponašanje provjereno izvršavanjem.**
 - [x] **Zadatak 12 — Backup: custom format, enkripcija, off-site, testirani restore, slike.** (ops) — **skripte i dokumentacija gotove na grani `ops/backup-hardening` (2026-09-30), provjerene nad Postgresom 16; čeka vlasnikov lokalni backup + `restore-test.sh` (kriterij „gotovo“) i merge.**
 - [x] **Zadatak 13 — Migracija `AuditIModeracija` (sva nova shema odjednom).** (backend, +migracija) — **entiteti/DbContext gotovi na grani `feat/schema-audit-moderation` (2026-09-30); migraciju generira VLASNIK (`dotnet ef migrations add`), čeka `dotnet build/test`, pregled migracije i `database update`.**
-- [~] **Zadatak 14 — Audit log (interceptor) + admin pregled povijesti.** (backend+frontend, bez nove sheme) — **kod gotov na grani `feat/audit-log` (2026-10-01); frontend potvrđen, backend `dotnet build/test` NEPOTVRĐEN — čeka vlasnika.**
+- [x] **Zadatak 14 — Audit log (interceptor) + admin pregled povijesti.** (backend+frontend, bez nove sheme) — **kod gotov na grani `feat/audit-log` (2026-10-01); frontend potvrđen, backend `dotnet build/test` NEPOTVRĐEN — čeka vlasnika.**
 - [ ] **Zadatak 15 — Moderacija slika (post-moderacija, evidencija admina).** (backend+frontend)
-- [ ] **Zadatak 16 — Recenzije: evidencija odluka + verifikacija uvezenih.** (backend+frontend)
+- [~] **Zadatak 16 — Recenzije: evidencija odluka + verifikacija uvezenih.** (backend+frontend) — **kod gotov na grani `feat/review-verification` (2026-10-01); frontend i čista logika potvrđeni, backend `dotnet build/test` NEPOTVRĐEN — čeka vlasnika.**
 - [ ] **Zadatak 17 — Porijeklo podataka i privola pružatelja (Excel + import + admin).** (backend+skripta)
 
 ## Odluke potvrđene s vlasnikom (2026-09-30) — obvezujuće za izvedbu

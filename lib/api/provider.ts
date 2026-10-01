@@ -2,6 +2,7 @@ import { AuthError } from "./auth";
 import type {
   AdminAuditEntry,
   AdminClaim,
+  AdminImportedReview,
   AdminOptOut,
   AdminReview,
   Claim,
@@ -86,7 +87,18 @@ export const adminApi = {
   reviews: (status = "pending") =>
     call<AdminReview[]>(`/admin/reviews?status=${encodeURIComponent(status)}`, "GET"),
   approveReview: (id: string) => call<{ status: string }>(`/admin/reviews/${id}/approve`, "POST"),
-  rejectReview: (id: string) => call<{ status: string }>(`/admin/reviews/${id}/reject`, "POST"),
+  /** §Zadatak 16 — neobavezan interni razlog (max 500 znakova); ne prikazuje se javno ni autoru. */
+  rejectReview: (id: string, reason?: string) =>
+    call<{ status: string }>(`/admin/reviews/${id}/reject`, "POST", reason?.trim() ? { reason: reason.trim() } : undefined),
+
+  // §Zadatak 16 — provjera uvezenih recenzija ("što oni kažu"): bedž "provjereno" / skrivanje s profila
+  importedReviews: (status: "unverified" | "verified" | "rejected" = "unverified", limit = 100) =>
+    call<AdminImportedReview[]>(`/admin/imported-reviews?status=${status}&limit=${limit}`, "GET"),
+  // evidenceNote: izostavljeno = ostaje prijašnja napomena; "" = obriši napomenu; tekst = nova napomena
+  verifyImportedReview: (id: string, evidenceNote?: string) =>
+    call<{ status: string }>(`/admin/imported-reviews/${id}/verify`, "POST", evidenceNote === undefined ? undefined : { evidenceNote: evidenceNote.trim() }),
+  rejectImportedReview: (id: string, evidenceNote?: string) =>
+    call<{ status: string }>(`/admin/imported-reviews/${id}/reject`, "POST", evidenceNote === undefined ? undefined : { evidenceNote: evidenceNote.trim() }),
 
   unpublish: (slug: string) =>
     call<{ slug: string; isPublished: boolean }>(`/admin/vendors/${encodeURIComponent(slug)}/unpublish`, "POST"),

@@ -138,6 +138,12 @@ Svaki takav slučaj (samo ako se Excel stvarno razlikuje od baze) ide kao upozor
 `--dry-run` ne spaja se na bazu, pa ta upozorenja prikazuje tek pravi uvoz. Logika je u `Import/ImportMerge.cs`;
 ako se u `ProviderMapper.ApplyToVendor` doda novo partnersko polje, dodati ga i tamo.
 
+**Re-import i uvezene recenzije (§Zadatak 16):** list „Recenzije“ se pri ponovnom uvozu **upserta** (ne briše se sve pa dodaje). Svaka recenzija ima stabilan ključ
+(`ImportRules.ReviewKey`: slug + autor + tekst + izvor + godina, bez obzira na velika/mala slova, dijakritike i razmake). Ista recenzija ostaje (status provjere
+koji je admin postavio **se čuva**; ažurira se samo ocjena ako se promijenila), nova se dodaje kao „neprovjerena“, a ona koje više nema u Excelu se briše (Excel je izvor istine).
+**Izmjena teksta, autora, izvora ili godine = nova recenzija** (admin je provjerio konkretan tekst) i treba se ponovno provjeriti. Duplikati u Excelu se skupljaju u jedan
+redak (uz upozorenje). Izvještaj ispisuje „novih / zadržanih / obrisanih“. Logika je u `Import/ImportedReviewMerge.cs`.
+
 **Analitika (§A):** `POST /api/events` (batch ≤20, whitelist, tihi 204, IP se ne pohranjuje).
 Dnevni rollup: `dotnet run -- --rollup [YYYY-MM-DD]` (default: jučer) → `daily_stats`.
 Postavi noćni cron/systemd timer da ga zove.

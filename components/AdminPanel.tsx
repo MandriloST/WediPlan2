@@ -7,7 +7,7 @@ import { adminApi, providerMessage } from "@/lib/api/provider";
 import { AuthError } from "@/lib/api/auth";
 import { actionLabel, actorLabel, entityLabel, formatWhen, summarizeChanges } from "@/lib/audit";
 import { useAuth } from "@/stores/auth";
-import type { AdminAuditEntry, AdminClaim, AdminOptOut, AdminReview } from "@/lib/types";
+import type { AdminAuditEntry, AdminClaim, AdminImportedReview, AdminOptOut, AdminReview } from "@/lib/types";
 
 /** Minimalno admin sučelje (§6): moderacija claimova i korisničkih recenzija. Samo rola admin. */
 export default function AdminPanel() {
@@ -15,6 +15,11 @@ export default function AdminPanel() {
   const router = useRouter();
   const [claims, setClaims] = useState<AdminClaim[]>([]);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
+  // §Zadatak 16 — filter korisničkih recenzija, te provjera uvezenih recenzija ("što oni kažu")
+  const [reviewStatus, setReviewStatus] = useState<"pending" | "published" | "rejected">("pending");
+  const [imported, setImported] = useState<AdminImportedReview[]>([]);
+  const [impStatus, setImpStatus] = useState<"unverified" | "verified" | "rejected">("unverified");
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [optouts, setOptouts] = useState<AdminOptOut[]>([]);
   const [error, setError] = useState<string | null>(null);
   // §Zadatak 14 — povijest promjena (GDPR). null = još nije učitano.
@@ -24,10 +29,15 @@ export default function AdminPanel() {
   const isAdmin = !!user?.roles.includes("admin");
 
   const load = useCallback(() => {
-    Promise.all([adminApi.claims("pending"), adminApi.reviews("pending"), adminApi.optouts()])
-      .then(([c, r, o]) => { setClaims(c); setReviews(r); setOptouts(o); })
+    Promise.all([
+      adminApi.claims("pending"),
+      adminApi.reviews(reviewStatus),
+      adminApi.optouts(),
+      adminApi.importedReviews(impStatus),
+    ])
+      .then(([c, r, o, i]) => { setClaims(c); setReviews(r); setOptouts(o); setImported(i); })
       .catch((e) => setError(providerMessage(e)));
-  }, []);
+  }, [reviewStatus, impStatus]);
 
   useEffect(() => {
     if (loading) return;
@@ -95,9 +105,24 @@ export default function AdminPanel() {
         </div>
       )}
 
-      <h2 className="admin-h2" style={{ marginTop: 28 }}>Recenzije za provjeru ({reviews.length})</h2>
+      <h2 className="admin-h2" style={{ marginTop: 28 }}>
+        Recenzije korisnika ({reviews.length})
+      </h2>
+      <p style={{ margin: "0 0 10px" }}>
+        <select
+          className="audit-input"
+          style={{ maxWidth: 220 }}
+          value={reviewStatus}
+          onChange={(e) => setReviewStatus(e.target.value as typeof reviewStatus)}
+          aria-label="Status recenzija korisnika"
+        >
+          <option value="pending">Na čekanju</option>
+          <option value="published">Objavljene</option>
+          <option value="rejected">Odbijene</option>
+        </select>
+      </p>
       {reviews.length === 0 ? (
-        <p className="muted">Nema recenzija na čekanju.</p>
+        <p className="muted">Nema recenzija u ovom statusu.</p>
       ) : (
         <div className="admin-list">
           {reviews.map((r) => (
@@ -109,10 +134,95 @@ export default function AdminPanel() {
                 </div>
                 <p className="muted" style={{ fontSize: 13 }}>{r.userEmail}</p>
                 <p className="admin-msg">{r.text}</p>
+                {r.status !== "pending" && (
+                  <p className="muted" style={{ fontSize: 12.5, margin: "6px 0 0" }}>
+                    {r.status === "rejected" ? "Odbio/la" : "Objavio/la"}: {r.deciderEmail ?? "— (nepoznato)"}
+                    {r.decidedAt ? ` · ${formatWhen(r.decidedAt)}` : ""}
+                    {r.status === "rejected" && r.rejectReason ? ` · razlog: ${r.rejectReason}` : ""}
+                  </p>
+                )}
+              </div>
+              {r.status === "pending" && (
+                <div className="admin-actions">
+                  <button className="btn btn-primary btn-sm" onClick={() => act(() => adminApi.approveReview(r.id))}>Objavi</button>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => {
+                      // razlog je interni (ne prikazuje se javno ni autoru); Odustani = ne odbijaj
+                      const reason = window.prompt("Razlog odbijanja (neobavezno; interno, ne prikazuje se autoru):");
+                      if (reason === null) return;
+                      act(() => adminApi.rejectReview(r.id, reason));
+                    }}
+                  >
+                    Odbij
+                  </button>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+
+      <h2 className="admin-h2" style={{ marginTop: 28 }}>Uvezene recenzije — provjera izvora ({imported.length})</h2>
+      <p className="muted" style={{ fontSize: 13, margin: "0 0 10px" }}>
+        Recenzije koje je Wediplan prenio iz vanjskih izvora. „Provjereno“ daje bedž na profilu; „Odbij“ ih skriva s profila.
+        Napomena o dokazu (npr. gdje je screenshot) čuva se uz odluku. Odluka ostaje i nakon ponovnog Excel uvoza.
+      </p>
+      <p style={{ margin: "0 0 10px" }}>
+        <select
+          className="audit-input"
+          style={{ maxWidth: 220 }}
+          value={impStatus}
+          onChange={(e) => setImpStatus(e.target.value as typeof impStatus)}
+          aria-label="Status uvezenih recenzija"
+        >
+          <option value="unverified">Neprovjerene</option>
+          <option value="verified">Provjerene</option>
+          <option value="rejected">Odbijene</option>
+        </select>
+      </p>
+      {imported.length === 0 ? (
+        <p className="muted">Nema uvezenih recenzija u ovom statusu.</p>
+      ) : (
+        <div className="admin-list">
+          {imported.map((r) => (
+            <article key={r.id} className="admin-item">
+              <div className="admin-item-main" style={{ flex: 1 }}>
+                <div>
+                  <Link href={`/pruzatelj/${r.vendorSlug}`}>{r.vendorName}</Link>{" "}
+                  <span className="star" style={{ color: "#d9a514" }}>{"★".repeat(Math.round(r.rating))}</span>
+                </div>
+                <p className="muted" style={{ fontSize: 13 }}>{r.author} · {r.source}, {r.year}.</p>
+                <p className="admin-msg">{r.text}</p>
+                {r.verificationStatus !== "unverified" && (
+                  <p className="muted" style={{ fontSize: 12.5, margin: "6px 0 0" }}>
+                    {r.verificationStatus === "verified" ? "Provjerio/la" : "Odbio/la"}: {r.verifierEmail ?? "— (nepoznato)"}
+                    {r.verifiedAt ? ` · ${formatWhen(r.verifiedAt)}` : ""}
+                  </p>
+                )}
+                <input
+                  className="audit-input"
+                  style={{ maxWidth: "100%", marginTop: 8 }}
+                  placeholder="Napomena o dokazu (npr. screenshot u Driveu / Recenzije / …)"
+                  maxLength={1000}
+                  value={notes[r.id] ?? r.evidenceNote ?? ""}
+                  onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
+                  aria-label="Napomena o dokazu"
+                />
               </div>
               <div className="admin-actions">
-                <button className="btn btn-primary btn-sm" onClick={() => act(() => adminApi.approveReview(r.id))}>Objavi</button>
-                <button className="btn btn-sm" onClick={() => act(() => adminApi.rejectReview(r.id))}>Odbij</button>
+                {r.verificationStatus !== "verified" && (
+                  <button className="btn btn-primary btn-sm"
+                    onClick={() => act(() => adminApi.verifyImportedReview(r.id, notes[r.id] ?? r.evidenceNote))}>
+                    Provjereno
+                  </button>
+                )}
+                {r.verificationStatus !== "rejected" && (
+                  <button className="btn btn-sm"
+                    onClick={() => act(() => adminApi.rejectImportedReview(r.id, notes[r.id] ?? r.evidenceNote))}>
+                    Odbij
+                  </button>
+                )}
               </div>
             </article>
           ))}

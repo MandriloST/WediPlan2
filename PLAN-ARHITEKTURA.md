@@ -169,6 +169,8 @@ Cilj (GDPR, načelo odgovornosti): za svaku promjenu partnerskih/javnih podataka
 - **Posebne akcije:** promjena `Vendor.OptOut` → `optout` / `optout_restored` (razlog i kontakt zahtjeva se NE bilježe).
 - **Zapisi koje ChangeTracker ne vidi** (`ExecuteUpdate/ExecuteDelete`, DB cascade) su eksplicitni: `AccountController.Delete` piše `owner_unlinked` (po pružatelju) i
   `account_deleted` u istoj transakciji, **bez e-maila**. Kaskadno brisanje korisnikovih recenzija/favorita (FK cascade) se NE dnevnikuje.
+- **Recenzije (Zadatak 16):** odluke admina nad korisničkim recenzijama nose `decided_by` i interni `reject_reason`; uvezene recenzije imaju `verification_status`
+  (`unverified|verified|rejected`) koji **preživljava ponovni uvoz** jer se uvoz radi kao upsert po stabilnom ključu `external_key` (SHA-256 od slug|autor|tekst|izvor|godina nad normaliziranim tekstom).
 - **Rok čuvanja 24 mjeseca:** `dotnet run -- --audit-prune [--months N]` (mjesečni cron, v. `DEPLOY.md`). Pregled: `GET /api/admin/audit`, sekcija „Povijest promjena" u `/admin`.
 
 ---

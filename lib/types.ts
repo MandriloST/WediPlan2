@@ -107,6 +107,8 @@ export interface ImportedReview {
   text: string;
   source: string; // npr. "Google recenzije"
   year: number;
+  /** true = admin je provjerio izvor (screenshot) → bedž "provjereno" (§Zadatak 16). Izostavljeno = nije provjereno. */
+  verified?: boolean;
 }
 
 export interface VendorProfileData {
@@ -198,6 +200,28 @@ export interface AdminReview {
   text: string;
   status: string;
   createdAt: string;
+  /** §Zadatak 16 — evidencija odluke (izostavljeno dok je recenzija pending / za odluke prije evidencije). */
+  decidedAt?: string;
+  deciderEmail?: string;
+  /** Interni razlog odbijanja; NE prikazuje se javno ni autoru. */
+  rejectReason?: string;
+}
+
+/** Uvezena recenzija ("što oni kažu") za provjeru u adminu (§Zadatak 16). */
+export interface AdminImportedReview {
+  id: string;
+  vendorSlug: string;
+  vendorName: string;
+  author: string;
+  rating: number;
+  text: string;
+  source: string;
+  year: number;
+  verificationStatus: "unverified" | "verified" | "rejected";
+  verifiedAt?: string;
+  verifierEmail?: string;
+  /** Kratka napomena o dokazu (npr. gdje je screenshot). */
+  evidenceNote?: string;
 }
 
 /** Skriveni (GDPR opt-out) pružatelj u admin pregledu (Faza 6). */
