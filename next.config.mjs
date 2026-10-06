@@ -62,11 +62,24 @@ const nextConfig = {
 // SENTRY_ORG/SENTRY_PROJECT/SENTRY_AUTH_TOKEN (CI/Vercel env, nikad u git) kad to zatreba.
 // Za Next 14 (ova verzija) withSentryConfig automatski uključuje experimental.instrumentationHook
 // (potrebno da se instrumentation.ts uopće izvrši) — ništa dodatno ovdje nije potrebno postaviti.
-export default withSentryConfig(nextConfig, {
+// export default withSentryConfig(nextConfig, {
+  // org: process.env.SENTRY_ORG,
+  // project: process.env.SENTRY_PROJECT,
+  // authToken: process.env.SENTRY_AUTH_TOKEN,
+  // silent: true, // bez build-log šuma kad org/token nisu postavljeni (dev/CI bez Sentryja)
+  // tunnelRoute: "/monitoring", // events idu kroz vlastitu domenu — ad-block ne guši Sentry pozive
+  // disableLogger: true, // manji client bundle (uklanja Sentry-ev interni debug logger iz koda)
+// });
+
+const sentryOptions = {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: true, // bez build-log šuma kad org/token nisu postavljeni (dev/CI bez Sentryja)
-  tunnelRoute: "/monitoring", // events idu kroz vlastitu domenu — ad-block ne guši Sentry pozive
-  disableLogger: true, // manji client bundle (uklanja Sentry-ev interni debug logger iz koda)
-});
+  silent: true,
+  tunnelRoute: "/monitoring",
+  disableLogger: true,
+};
+
+export default process.env.NODE_ENV === "production"
+  ? withSentryConfig(nextConfig, sentryOptions)
+  : nextConfig;
