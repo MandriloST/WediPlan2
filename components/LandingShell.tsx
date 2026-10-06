@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import SearchBar from "./SearchBar";
 import VendorCard from "./VendorCard";
+import FeaturedSection from "./FeaturedSection";
 import { REGIONS } from "@/lib/data";
 import { api } from "@/lib/api/client";
 import { track } from "@/lib/analytics";
@@ -13,6 +14,7 @@ import { useBudget } from "@/stores";
 import CategoryTile, { providersLabel } from "./CategoryTile";
 import { HERO_IMAGE, LANDING_CATEGORIES, LANDING_TEXT as T } from "@/lib/landing";
 import type { CategoryWithCount, RegionId, Vendor } from "@/lib/types";
+import type { FeaturedItem } from "@/lib/featured";
 
 const CroatiaMap = dynamic(() => import("./CroatiaMap"), {
   ssr: false,
@@ -24,15 +26,17 @@ interface Props {
   initialCategories?: CategoryWithCount[];
   /** SSR: najbolje ocijenjeni (po jedan iz lib/landing TOP_RATED_CATEGORIES) */
   topRated: Vendor[];
+  /** SSR: izdvojeni (data/featured.json, aktivni danas) — prazno = sekcija se ne prikazuje */
+  featured?: FeaturedItem[];
 }
 
 /**
  * Naslovnica — redizajn prema wireframeu 3a (bez sekcija stil / brojke / inspiracija /
  * newsletter, dodaju se nakon MVP-a). Hero s tražilicom → 6 foto-kategorija →
- * najbolje ocijenjeni → karta Hrvatske s regijama (primarni cilj #3).
+ * najbolje ocijenjeni → izdvajamo → karta Hrvatske s regijama (primarni cilj #3).
  * Usporedba (#1) i budžet (#2) su nenametljivo dostupni iz heroa.
  */
-export default function LandingShell({ initialCategories, topRated }: Props) {
+export default function LandingShell({ initialCategories, topRated, featured = [] }: Props) {
   const router = useRouter();
   const openDrawer = useBudget((s) => s.openDrawer);
 
@@ -124,6 +128,9 @@ export default function LandingShell({ initialCategories, topRated }: Props) {
             </div>
           </section>
         )}
+
+        {/* ---------------- izdvajamo (data/featured.json) ---------------- */}
+        <FeaturedSection items={featured} />
 
         {/* ---------------- karta ---------------- */}
         <section className="lp-sec lp-map-sec" aria-labelledby="lp-map-title">

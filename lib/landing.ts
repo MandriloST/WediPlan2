@@ -45,6 +45,13 @@ export const LANDING_TEXT = {
   categoriesMore: `Sve kategorije (${CATEGORIES.length})`,
   topTitle: "Najbolje ocijenjeni",
   topNote: "prvi po ocjeni među dvoranama, fotografima i bendovima",
+  featuredTitle: "Izdvajamo",
+  /** napomena uz naslov kad su svi izdvojeni naš besplatni odabir (kind "editorial") */
+  featuredNoteEditorial: "odabir Wediplana",
+  /** napomena kad je barem jedan plaćen (kind "sponsored") — plaćeno isticanje mora biti jasno označeno */
+  featuredNoteSponsored: "odabir Wediplana i sponzorirani partneri",
+  featuredBadge: "Izdvojeno",
+  sponsoredBadge: "Sponzorirano",
   mapTitle: "Istražite Hrvatsku",
   mapLead:
     "Kliknite regiju na karti ili na popisu — vidjet ćete sve kategorije i koliko pružatelja radi u toj regiji.",

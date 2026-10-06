@@ -53,6 +53,10 @@ Evidencija za GDPR (mnogi pružatelji su obrtnici, tj. fizičke osobe) — **nik
 Kolone `web/telefon/email` su interna evidencija — import ih **ne** objavljuje (Direktan kontakt: zasad ne). Za prenesene ocjene i recenzije `izvor` je obavezan; prikazuje se uz ocjenu na profilu. Isti Excel kasnije postaje seed za .NET bazu — ugovor je isti (API.md).
 
 
+## Izdvojeni pružatelji na naslovnici
+
+Sekcija „Izdvajamo“ (1 veliki + 2 srednja + 3 mala) čita `data/featured.json` — tko, na kojoj poziciji i od kada do kada. Upute za uređivanje i prijedlog budućeg sustava sponzoriranja: **`IZDVOJENI.md`**. Provjera: `npm run featured:check` (Node ≥ 22.18).
+
 ## Slike pružatelja
 
 Konvencija (ista danas u repou i sutra na Bunny CDN-u):

@@ -1,0 +1,53 @@
+{
+  "_upute": "Izdvojeni pružatelji na naslovnici (sekcija Izdvajamo). Upute: IZDVOJENI.md. Provjera: npm run featured:check",
+  "placements": [
+    {
+      "slug": "lazareti-complex",
+      "position": 1,
+      "from": "2026-10-06",
+      "to": "2026-12-31",
+      "kind": "editorial",
+      "note": "Početni odabir — besplatno"
+    },
+    {
+      "slug": "studio-simba",
+      "position": 2,
+      "from": "2026-10-06",
+      "to": "2026-12-31",
+      "kind": "editorial",
+      "note": "Početni odabir — besplatno"
+    },
+    {
+      "slug": "grupa-status-zagreb",
+      "position": 3,
+      "from": "2026-10-06",
+      "to": "2026-12-31",
+      "kind": "editorial",
+      "note": "Početni odabir — besplatno"
+    },
+    {
+      "slug": "monte-rosso",
+      "position": 4,
+      "from": "2026-10-06",
+      "to": "2026-12-31",
+      "kind": "editorial",
+      "note": "Početni odabir — besplatno"
+    },
+    {
+      "slug": "zvona-catering",
+      "position": 5,
+      "from": "2026-10-06",
+      "to": "2026-12-31",
+      "kind": "editorial",
+      "note": "Početni odabir — besplatno"
+    },
+    {
+      "slug": "vintage-empire-zagreb",
+      "position": 6,
+      "from": "2026-10-06",
+      "to": "2026-12-31",
+      "kind": "editorial",
+      "note": "Početni odabir — besplatno"
+    }
+  ]
+}

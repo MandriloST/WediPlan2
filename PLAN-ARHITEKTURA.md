@@ -339,6 +339,11 @@ bolje.** Prazni profili štete platformi, ne pružatelju — zato je osnovno uvi
   rezultati su 100% organski. Isti proizvod i u "Slični pružatelji" (1 slot).
 - **Izlog na naslovnici** ("Izdvojeno ovaj mjesec", 4–6 kartica, mjesečna rotacija) —
   kad landing dobije konačni oblik.
+  **Implementirano 2026-10-06 (frontend, bez backenda):** sekcija „Izdvajamo“ (1 veliki + 2 srednja + 3 mala)
+  između „Najbolje ocijenjeni“ i karte; raspored s datumima u `data/featured.json`, logika `lib/featured.ts`,
+  upute `IZDVOJENI.md`. `kind: "editorial"` (besplatni odabir, oznaka „Izdvojeno“) vs `"sponsored"`
+  (plaćeno, oznaka „Sponzorirano“ — plaćeno se uvijek jasno označava). Kad krene naplata → tablica u bazi
+  + `GET /api/featured` (prijedlog u `IZDVOJENI.md`).
 - Sezonske cijene sponzorstva (npr. skuplje u mjesecima vršne aktivnosti) — TEK nakon
   ≥ 12 mjeseci podataka iz §A; do tada flat cjenik.
 
@@ -434,7 +439,7 @@ Napomena SEO: Google od 2019. ne koristi `rel=next/prev` kao signal — bitni su
 i SSR sadržaj, što je implementirano.
 
 **Redizajn naslovnice (3a, 2026-09-19, na zahtjev vlasnika):** `/` više nije grid kategorija nego
-landing (hero + tražilica → 6 pločica kategorija → najbolje ocijenjeni → karta s regijama); pravilo §L
+landing (hero + tražilica → 6 pločica kategorija → najbolje ocijenjeni → izdvajamo (2026-10-06) → karta s regijama); pravilo §L
 ostaje: naslovnica ne izlistava sve pružatelje (samo 3 kartice, `pageSize=1` po kategoriji) i karta
 nema pinova bez kategorije. Puni grid 29 kategorija živi na `/kategorije` (i `/regija`).
 

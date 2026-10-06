@@ -6,6 +6,7 @@ import { TOP_RATED_CATEGORIES } from "@/lib/landing";
 import { pathFor, PAGE_SIZE, type ExploreFilters } from "@/lib/paths";
 import { CATEGORY_BY_SLUG, REGION_BY_ID } from "@/lib/data";
 import { getCategories, getVendors } from "@/lib/api/server";
+import { getFeatured } from "@/lib/featured-server";
 import type { CategoryWithCount, Paged, RegionId, Vendor } from "@/lib/types";
 
 interface Props {
@@ -60,11 +61,17 @@ export function generateMetadata({ params, searchParams }: Props): Metadata {
   };
 }
 
-/** Naslovnica (3a): kategorije za pločice + najbolji po ocjeni. Greške API-ja ne ruše stranicu. */
+/** Naslovnica (3a): kategorije za pločice + najbolji po ocjeni + izdvojeni. Greške API-ja ne ruše stranicu. */
 async function renderLanding() {
-  const [cats, ...tops] = await Promise.allSettled([
-    getCategories(),
-    ...TOP_RATED_CATEGORIES.map((category) => getVendors({ category, pageSize: 1 })),
+  const [[cats, ...tops], featured] = await Promise.all([
+    Promise.allSettled([
+      getCategories(),
+      ...TOP_RATED_CATEGORIES.map((category) => getVendors({ category, pageSize: 1 })),
+    ]),
+    getFeatured().catch((e) => {
+      console.error("[landing] izdvojeni nisu dohvaćeni:", e);
+      return [];
+    }),
   ]);
   if (cats.status === "rejected") console.error("[landing] kategorije nisu dohvaćene:", cats.reason);
   const topRated = tops.flatMap((r) => (r.status === "fulfilled" ? r.value.items.slice(0, 1) : []));
@@ -72,6 +79,7 @@ async function renderLanding() {
     <LandingShell
       initialCategories={cats.status === "fulfilled" ? (cats.value as CategoryWithCount[]) : undefined}
       topRated={topRated as Vendor[]}
+      featured={featured}
     />
   );
 }

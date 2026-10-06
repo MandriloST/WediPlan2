@@ -21,7 +21,19 @@ function homeLabelShort(v: Vendor): string {
 }
 import { canAddToCompare, COMPARE_INCOMPATIBLE_HINT } from "@/lib/categories";
 
-export default function VendorCard({ vendor }: { vendor: Vendor }) {
+/**
+ * highlight: neobavezna istaknuta oznaka na prvom mjestu u bedževima (npr. "Izdvojeno" /
+ * "Sponzorirano" u sekciji Izdvajamo). highlightClass bira stil (badge feat | badge sponsored).
+ */
+export default function VendorCard({
+  vendor,
+  highlight,
+  highlightClass = "feat",
+}: {
+  vendor: Vendor;
+  highlight?: string;
+  highlightClass?: "feat" | "sponsored";
+}) {
   const { ids, meta, toggle } = useCompare();
   const cats = useMemo(() => catsOf(meta), [meta]);
   const favorites = useFavorites();
@@ -57,6 +69,7 @@ export default function VendorCard({ vendor }: { vendor: Vendor }) {
           )}
         </div>
         <div className="badges">
+          {highlight && <span className={`badge ${highlightClass}`}>{highlight}</span>}
           {vendorBadges(vendor).map((b) => (
             <span key={b.id} className={`badge ${b.className}`} title={b.tooltip}>
               {b.label}

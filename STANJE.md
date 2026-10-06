@@ -14,6 +14,24 @@
 
 ## Treći val prioriteta (v. `PLAN-PRIORITETI-LANSIRANJE-3.md`) — **gotovo osim potvrde zadnjeg zadatka.** Mergeano: Zadaci 10–16 i 18 (vlasnik: testovi zeleno). Zadatak 17 (porijeklo i privola) — kod gotov na grani `feat/data-provenance`, **čeka vlasnikov `dotnet build/test`**. Nakon toga je treći val zatvoren; ostaje OPS (v. dolje) i „Budući rad“ u planu (Google Places API, statične slike → moderacija).
 
+## Sesija 2026-10-06 — Sekcija „Izdvajamo“ na naslovnici + dev OOM popravak (grana `feat/featured`, samo frontend)
+
+**Dev OOM (već na `develop`, commit `02f8fee`):** `next dev` je padao s `Fatal process out of memory: Zone`. Uzrok: Sentry (`withSentryConfig` + instrumentationHook) je u devu udvostručavao kompilaciju (2309 → 859 modula za `/`, ~1,2 GB → ~0,6 GB RAM), uz stari Node 20.10 preko nodista. Rješenje: `next.config.mjs` uključuje Sentry samo kad je `NODE_ENV === "production"`; vlasnik prešao na Node 24 (x64, službeni installer). **Poznato:** lokalni `npm run build` na Windowsu pada na `/opengraph-image` (`TypeError: Invalid URL` — `path.join` nad `import.meta.url` u Next 14 ugrađenom `@vercel/og`; isti kod i u 14.2.35). Nije bug projekta; na Linuxu (CI, Vercel) build prolazi.
+
+**Izdvajamo (novo, bez backenda, bez migracije, bez novih paketa):**
+- `data/featured.json` — ručna „tablica“: `slug, position, from, to, kind (editorial|sponsored), note`. Početno 6 besplatnih (`editorial`) unosa 2026-10-06 → 2026-12-31.
+- `lib/featured.ts` (čista logika, bez importa osim tipova): validacija, `todayInZagreb` (Europe/Zagreb), aktivni po datumu (oba kraja uključiva, `to: null` = bez kraja), sort po poziciji pa `from`, dedupe sluga, max 6, `splitTiers` (1/2/3 bez rupa).
+- `lib/featured-server.ts` — `getFeatured()`: aktivni + `getProfile` po slugu (radi nad mockom i pravim API-jem; skriven/opt-out/nepostojeći se preskače, greška jednog ne ruši ostale).
+- `app/[[...filters]]/page.tsx` — `getFeatured()` paralelno s postojećim dohvatima, greška → prazno. `components/LandingShell.tsx` — sekcija između „Najbolje ocijenjeni“ i karte.
+- `components/FeaturedSection.tsx` — veliki (slika 400px + bijeli panel preko slike, opis iz `about`), srednji (slika 240px), mali = postojeća `VendorCard` s novim neobaveznim propom `highlight`. Oznaka **Izdvojeno** / **Sponzorirano** (tamna, puna — namjerno različita od bedževa kvalitete); napomena uz naslov se mijenja kad postoji `sponsored`. Tekstovi u `lib/landing.ts`. CSS na kraju `globals.css` (`.fcard*`, `.lp-feat-*`, `.badge.feat|sponsored`).
+- `scripts/check-featured.mjs` + `npm run featured:check [YYYY-MM-DD]` — validacija i ispis tko je izdvojen na dan (uvozi `lib/featured.ts`; Node ≥ 22.18). Provjerava i postoji li slug u `data/vendors.json`.
+- Dokumentacija: `IZDVOJENI.md` (upute vlasniku + prijedlog budućeg sustava sponzoriranja), `README.md`, `PLAN-ARHITEKTURA.md` §M.2 i redizajn naslovnice.
+
+**Provjera (stvarno pokrenuto):** `tsc --noEmit` i `npm run build` čisti (Linux). Logika: 8 scenarija (granice datuma, Zagreb ponoć/DST, validacija, sort/dedupe/max 6, bez rupa). `featured:check` nad stvarnim podacima. Headless Chromium nad `next start`: sekcija se prikazuje, desktop 1 + 2 + 3, mobitel u jednom stupcu.
+**Nije:** nema analitike klikova (traži backend whitelist — u prijedlogu), nema admin UI-ja. Mock profili nemaju `about`, pa veliki u devu nema opis.
+
+**Vlasnik:** `npm run featured:check`, `npm run dev` → naslovnica; po želji promijeni unose u `data/featured.json`. Merge `feat/featured` → `develop` kad CI prođe.
+
 ## Sesija 2026-10-01 (d) — Zadatak 17 (porijeklo podataka i privola pružatelja) — kod gotov, **backend build + testovi NEPOTVRĐENI** (grana `feat/data-provenance`)
 
 Implementiran Zadatak 17 iz `PLAN-PRIORITETI-LANSIRANJE-3.md` — **posljednji u trećem valu**. **Nema migracije** (stupci iz Zadatka 13), **nema novih paketa**, nema nove konfiguracije. Zadatak 15 je mergean (vlasnik: testovi zeleno).
