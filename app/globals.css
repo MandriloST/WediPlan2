@@ -1009,3 +1009,62 @@ select option:checked {
   .pager-step { min-width: 56px; min-height: 48px; justify-content: center; padding: 0; }
   .pager-step > span[aria-hidden], .pager-step > span:not(.pager-step-txt) { font-size: 26px; }
 }
+
+/* ---------------- naslovnica: Izdvajamo (data/featured.json, IZDVOJENI.md) ---------------- */
+/* oznaka izdvojenog: tamna i puna — namjerno drugačija od bedževa kvalitete (verified/top) */
+.badge.feat, .badge.sponsored {
+  border-color: var(--ink); background: var(--ink); color: #fff;
+  text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; font-weight: 700;
+}
+.badge.sponsored { border-color: var(--primary-deep); background: var(--primary-deep); }
+
+.fcard {
+  position: relative; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-card); overflow: hidden; transition: box-shadow 0.15s, border-color 0.15s;
+}
+.fcard:hover { box-shadow: var(--shadow-1); border-color: var(--border-strong); }
+.fcard-img { position: relative; display: block; background: var(--surface-2); }
+.fcard-hero .fcard-img { height: 400px; }
+.fcard-medium .fcard-img { height: 240px; }
+.fcard-fav {
+  position: absolute; top: 12px; right: 12px; z-index: 2; width: 44px; height: 44px;
+  border-radius: var(--r-pill); border: 0; background: var(--surface); color: var(--muted);
+  font-size: 19px; line-height: 1; box-shadow: var(--shadow-1);
+}
+.fcard-fav.on { color: var(--danger); }
+.fcard-body { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px 12px; font-size: 14px; line-height: 1.42; }
+.fcard-hero .fcard-body {
+  position: absolute; left: 24px; bottom: 24px; width: min(460px, calc(100% - 48px)); box-sizing: border-box;
+  background: var(--surface); border-radius: var(--r-card); padding: 22px 24px 14px; box-shadow: var(--shadow-2); gap: 10px;
+}
+.fcard-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; font-size: 13.5px; }
+.fcard-name { font-family: var(--font-display); font-weight: 550; margin: 0; line-height: 1.12; letter-spacing: -0.01em; font-size: 23px; }
+.fcard-hero .fcard-name { font-size: 32px; }
+.fcard-name a { color: var(--ink); }
+.fcard-name a:hover { color: var(--primary-deep); }
+.fcard-about {
+  margin: 0; color: var(--muted); font-size: 15px; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.fcard .rating .star { color: #d9a514; }
+.fcard .badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.fcard-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 18px; }
+.fcard-medium .fcard-actions { justify-content: space-between; flex-direction: row-reverse; }
+.fcard-more { font-weight: 600; font-size: 14.5px; min-height: 44px; display: inline-flex; align-items: center; }
+.fcard .compare-box { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; font-size: 13.5px; cursor: pointer; color: var(--muted); }
+.fcard .compare-box input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+
+.lp-feat-mid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.lp-feat-small { margin-top: 14px; }
+
+@media (max-width: 900px) {
+  .fcard-hero .fcard-img { height: 320px; }
+}
+@media (max-width: 700px) {
+  .fcard-hero .fcard-img { height: 220px; }
+  .fcard-medium .fcard-img { height: 180px; }
+  .fcard-hero .fcard-body { position: static; width: auto; box-shadow: none; border-radius: 0; padding: 16px 16px 10px; }
+  .fcard-hero .fcard-name { font-size: 26px; }
+  .fcard-hero .fcard-actions .btn { flex: 1; }
+  .lp-feat-mid { grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
+}
