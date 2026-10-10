@@ -37,7 +37,7 @@ export const TOP_RATED_CATEGORIES = ["restorani-i-sale", "foto-i-video", "glazba
 export const LANDING_TEXT = {
   heroTitle: "Pronađite sve za vaše vjenčanje",
   heroLeadBold: "3000+",
-  heroLeadRest: " pružatelja usluga! Od dvorane do fotografa.",
+  heroLeadRest: " pružatelja usluga! Od dvorane do zahvalnica.",
   // perkPrice: "Cijena uvijek vidljiva",
   perkCompare: "Usporedite do 4 pružatelja",
   perkBudget: "Izračunajte budžet",
